@@ -79,11 +79,16 @@ def get_files():
     sort_order = request.args.get('sort_order', 'desc')
     is_missing_str = request.args.get('is_missing')
     tag_ids_str = request.args.get('tags')
+    keyword = request.args.get('keyword')
 
     # Basic query
     query = File.query
 
     # Filtering
+    if keyword:
+        # Use ilike for case-insensitive search on the file path
+        query = query.filter(File.file_path.ilike(f'%{keyword}%'))
+
     if tag_ids_str:
         try:
             tag_ids = [int(tid) for tid in tag_ids_str.split(',') if tid]
