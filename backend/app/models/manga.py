@@ -77,4 +77,9 @@ class Task(db.Model):
 class Config(db.Model):
     __tablename__ = 'config'
     key = db.Column(db.Text, primary_key=True)
-    value = db.Column(db.Text) 
+    value = db.Column(db.Text)
+
+class LibraryPath(db.Model):
+    __tablename__ = 'library_paths'
+    id = db.Column(db.Integer, primary_key=True)
+    path = db.Column(db.Text, nullable=False, unique=True) 

@@ -56,10 +56,29 @@ def update_tag(id):
     if not data:
         return jsonify({'error': 'Request body cannot be empty'}), 400
     
+    # Update tag properties
     tag.name = data.get('name', tag.name)
     tag.type_id = data.get('type_id', tag.type_id)
     tag.parent_id = data.get('parent_id', tag.parent_id)
     tag.description = data.get('description', tag.description)
+    
+    # Atomically update aliases
+    if 'aliases' in data and isinstance(data['aliases'], list):
+        # Get new and old alias sets
+        new_aliases = set(data['aliases'])
+        old_aliases = {a.alias_name for a in tag.aliases}
+
+        # Find which to add and which to remove
+        to_add = new_aliases - old_aliases
+        to_remove = old_aliases - new_aliases
+
+        # Remove old ones
+        if to_remove:
+            TagAlias.query.filter(TagAlias.tag_id == id, TagAlias.alias_name.in_(to_remove)).delete(synchronize_session=False)
+
+        # Add new ones
+        for alias_name in to_add:
+            db.session.add(TagAlias(tag_id=id, alias_name=alias_name))
     
     db.session.commit()
     return jsonify(tag_to_dict(tag))

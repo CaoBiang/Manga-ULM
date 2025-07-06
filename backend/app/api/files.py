@@ -1,6 +1,6 @@
 from flask import jsonify, request, send_file
 from . import api
-from ..models import File
+from ..models import File, Tag
 from .. import db
 import os
 import zipfile
@@ -24,7 +24,8 @@ def file_to_dict(file_obj):
         'reading_status': file_obj.reading_status,
         'is_missing': file_obj.is_missing,
         'integrity_status': file_obj.integrity_status,
-        'cover_url': f'/api/v1/covers/{file_obj.file_hash}.webp' # Assumes a new endpoint for covers
+        'cover_url': f'/api/v1/covers/{file_obj.file_hash}.webp',
+        'tags': [{'id': t.id, 'name': t.name} for t in file_obj.tags]
     }
 
 def get_image_from_archive(file_path, page_num):
@@ -77,11 +78,20 @@ def get_files():
     sort_by = request.args.get('sort_by', 'add_date')
     sort_order = request.args.get('sort_order', 'desc')
     is_missing_str = request.args.get('is_missing')
+    tag_ids_str = request.args.get('tags')
 
     # Basic query
     query = File.query
 
     # Filtering
+    if tag_ids_str:
+        try:
+            tag_ids = [int(tid) for tid in tag_ids_str.split(',') if tid]
+            if tag_ids:
+                query = query.join(File.tags).filter(Tag.id.in_(tag_ids)).group_by(File.id).having(db.func.count(Tag.id) == len(tag_ids))
+        except ValueError:
+            return jsonify({'error': 'Invalid tag IDs provided'}), 400
+
     if is_missing_str is not None:
         is_missing = is_missing_str.lower() in ['true', '1', 'yes']
         query = query.filter_by(is_missing=is_missing)

@@ -5,11 +5,12 @@ import zipfile
 import rarfile
 import py7zr
 import multiprocessing
+import re # Import re module
 from PIL import Image
 from flask import current_app
 
 from .. import huey, db, socketio
-from ..models.manga import File
+from ..models.manga import File, Tag # Import Tag model
 from .. import create_app # Import the app factory
 
 SUPPORTED_EXTENSIONS = ['.zip', '.cbz', '.rar', '.cbr', '.7z', '.cb7']
@@ -175,6 +176,10 @@ def process_file_task(args):
     total_pages, spread_pages_json, _ = analysis_result
     file_size = os.path.getsize(file_path)
 
+    # Extract tags from filename
+    filename = os.path.basename(file_path)
+    tag_names = re.findall(r'\[(.*?)\]', filename)
+
     return {
         'status': 'ok',
         'file_path': file_path,
@@ -182,6 +187,7 @@ def process_file_task(args):
         'file_size': file_size,
         'total_pages': total_pages,
         'spread_pages': spread_pages_json,
+        'tag_names': tag_names, # Return extracted tag names
     }
 
 
@@ -219,41 +225,51 @@ def start_scan_task(directory_path, max_workers=12):
             # Create a list of arguments for each task
             tasks = [(file_path, cover_cache_path) for file_path in all_files_to_scan]
 
-            for result in pool.imap_unordered(process_file_task, tasks):
-                processed_files += 1
-                progress = (processed_files / total_files) * 100
-                
-                if result.get('status') == 'error':
-                    socketio.emit('scan_error', {'error': f"Failed to process {result.get('file_path')}: {result.get('reason')}"})
-                    continue
+            for i, result in enumerate(pool.imap_unordered(process_file_task, tasks), 1):
+                if result['status'] == 'ok':
+                    try:
+                        # Check if file with this hash already exists
+                        file_record = File.query.filter_by(file_hash=result['file_hash']).first()
+                        
+                        if file_record:
+                            # File exists, update its path and mark it as not missing
+                            file_record.file_path = result['file_path']
+                            file_record.is_missing = False
+                        else:
+                            # New file, create a new record
+                            file_record = File(
+                                file_path=result['file_path'],
+                                file_hash=result['file_hash'],
+                                file_size=result['file_size'],
+                                total_pages=result['total_pages'],
+                                spread_pages=result['spread_pages']
+                            )
+                            db.session.add(file_record)
+                        
+                        # This needs to be after add/commit so that file_record has an ID
+                        db.session.flush()
 
-                file_path = result['file_path']
-                file_hash = result['file_hash']
-                
-                socketio.emit('scan_progress', {'progress': progress, 'current_file': os.path.basename(file_path)})
+                        # Handle tags
+                        if result.get('tag_names'):
+                            # Clear existing tags before adding new ones from filename
+                            file_record.tags.clear()
+                            for tag_name in result['tag_names']:
+                                tag = Tag.query.filter(Tag.name.ilike(tag_name)).first()
+                                if tag and tag not in file_record.tags:
+                                    file_record.tags.append(tag)
 
-                existing_file = File.query.filter_by(file_hash=file_hash).first()
-
-                if existing_file:
-                    # File exists, update its path and mark it as not missing
-                    existing_file.file_path = file_path
-                    existing_file.is_missing = False
-                    # Re-analyze to get cover if it was missing (the worker already did this)
-                    # We can add a check here if needed, but the worker should have created it.
+                        db.session.commit()
+                        
+                        processed_files += 1
+                        socketio.emit('scan_progress', {
+                            'progress': (i / total_files) * 100,
+                            'current_file': f"Processed: {os.path.basename(result['file_path'])}"
+                        })
+                    except Exception as e:
+                        db.session.rollback()
+                        socketio.emit('scan_error', {'error': f'DB Error for {os.path.basename(result["file_path"])}: {e}'})
                 else:
-                    # New file, add it to the database
-                    new_file = File(
-                        file_path=file_path,
-                        file_hash=file_hash,
-                        file_size=result['file_size'],
-                        total_pages=result['total_pages'],
-                        spread_pages=result['spread_pages'],
-                        is_missing=False
-                    )
-                    db.session.add(new_file)
-                
-                # Commit per file to see progress, can be optimized to commit in batches
-                db.session.commit()
+                    socketio.emit('scan_error', {'error': f'Failed to process {os.path.basename(result.get("file_path", "Unknown"))}: {result.get("reason", "Unknown")}'})
 
         # 3. Handle files that are still marked as missing
         missing_files_count = File.query.filter_by(is_missing=True).count()

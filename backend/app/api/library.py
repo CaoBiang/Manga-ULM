@@ -1,7 +1,7 @@
 from flask import request, jsonify
 from . import api
 from .. import huey, socketio
-from ..models.manga import Config
+from ..models.manga import Config, LibraryPath
 from ..tasks.scanner import start_scan_task
 
 @api.route('/library/scan', methods=['POST'])
@@ -26,6 +26,29 @@ def scan_library():
     task = start_scan_task(path, max_workers=max_workers)
     
     return jsonify({'message': 'Scan started', 'task_id': task.id}), 202
+
+@api.route('/library/scan_all', methods=['POST'])
+def scan_all_libraries():
+    """
+    Starts scan tasks for all registered library paths.
+    """
+    paths = LibraryPath.query.all()
+    if not paths:
+        return jsonify({'error': 'No library paths have been configured.'}), 400
+    
+    # Get max workers from config, with a default value
+    max_workers_setting = Config.query.get('scan.max_workers')
+    if max_workers_setting and max_workers_setting.value.isdigit():
+        max_workers = int(max_workers_setting.value)
+    else:
+        max_workers = 12 # Default value
+
+    tasks = []
+    for p in paths:
+        task = start_scan_task(p.path, max_workers=max_workers)
+        tasks.append({'path': p.path, 'task_id': task.id})
+        
+    return jsonify({'message': 'Scan started for all libraries', 'tasks': tasks}), 202
 
 # Placeholder for other library-related endpoints from the design doc
 @api.route('/library/sync-report', methods=['GET'])
