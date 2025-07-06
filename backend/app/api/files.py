@@ -88,16 +88,17 @@ def get_files():
         try:
             tag_ids = [int(tid) for tid in tag_ids_str.split(',') if tid]
             if tag_ids:
-                query = query.join(File.tags).filter(Tag.id.in_(tag_ids)).group_by(File.id).having(db.func.count(Tag.id) == len(tag_ids))
+                # Use a simple JOIN and IN to filter for files that have ANY of the selected tags (OR condition)
+                query = query.join(File.tags).filter(Tag.id.in_(tag_ids))
         except ValueError:
             return jsonify({'error': 'Invalid tag IDs provided'}), 400
 
     if is_missing_str is not None:
         is_missing = is_missing_str.lower() in ['true', '1', 'yes']
-        query = query.filter_by(is_missing=is_missing)
+        query = query.filter(File.is_missing == is_missing)
     else:
         # Default to not showing missing files unless explicitly requested
-        query = query.filter_by(is_missing=False)
+        query = query.filter(File.is_missing == False)
 
     # Sorting
     if hasattr(File, sort_by):

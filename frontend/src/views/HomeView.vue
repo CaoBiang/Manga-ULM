@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, computed } from 'vue';
 import axios from 'axios';
 import MangaCard from '@/components/MangaCard.vue';
 import VueMultiselect from 'vue-multiselect';
@@ -12,6 +12,8 @@ const goToPageInput = ref(1);
 
 const allTags = ref([]);
 const selectedTags = ref([]);
+const allTagTypes = ref([]);
+const selectedTagTypes = ref([]);
 
 const perPageOptions = ref([20, 50, 100, 200]);
 const currentPageSize = ref(50); // Default value
@@ -36,9 +38,21 @@ const fetchLibrary = async () => {
   }
 };
 
+const fetchAllTagTypes = async () => {
+    try {
+        const response = await axios.get('/api/v1/tag_types');
+        allTagTypes.value = response.data;
+    } catch (error) {
+        console.error('Failed to fetch tag types:', error);
+    }
+};
+
 const fetchAllTags = async () => {
     try {
-        const response = await axios.get('/api/v1/tags');
+        const params = {
+            type_id: selectedTagTypes.value.map(t => t.id).join(','),
+        };
+        const response = await axios.get('/api/v1/tags', { params });
         allTags.value = response.data;
     } catch (error) {
         console.error('Failed to fetch tags:', error);
@@ -64,6 +78,7 @@ const goToPage = () => {
 onMounted(() => {
     fetchLibrary();
     fetchAllTags();
+    fetchAllTagTypes();
 });
 
 watch(currentPage, fetchLibrary);
@@ -77,6 +92,12 @@ watch(selectedTags, () => {
     fetchLibrary();
 }, { deep: true });
 
+watch(selectedTagTypes, () => {
+    // When tag types change, refetch tags and clear selected tags
+    selectedTags.value = [];
+    fetchAllTags();
+}, { deep: true });
+
 </script>
 
 <template>
@@ -84,17 +105,45 @@ watch(selectedTags, () => {
     <h1 class="text-3xl font-bold text-gray-800 mb-6">Library</h1>
 
     <!-- Filters Section -->
-    <div class="mb-6 p-4 bg-gray-50 rounded-lg">
-        <label class="block text-sm font-medium text-gray-700 mb-2">Filter by Tags:</label>
-        <VueMultiselect
-            v-model="selectedTags"
-            :options="allTags"
-            :multiple="true"
-            :close-on-select="false"
-            placeholder="Search or select tags"
-            label="name"
-            track-by="id"
-        />
+    <div class="mb-6 p-4 bg-gray-50 rounded-lg space-y-4">
+        <div v-if="allTags.length > 10" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Filter by Tag Types:</label>
+                <VueMultiselect
+                    v-model="selectedTagTypes"
+                    :options="allTagTypes"
+                    :multiple="true"
+                    :close-on-select="false"
+                    placeholder="Search or select types"
+                    label="name"
+                    track-by="id"
+                />
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Filter by Tags:</label>
+                <VueMultiselect
+                    v-model="selectedTags"
+                    :options="allTags"
+                    :multiple="true"
+                    :close-on-select="false"
+                    placeholder="Search or select tags"
+                    label="name"
+                    track-by="id"
+                />
+            </div>
+        </div>
+        <div v-else>
+             <label class="block text-sm font-medium text-gray-700 mb-2">Filter by Tags:</label>
+            <VueMultiselect
+                v-model="selectedTags"
+                :options="allTags"
+                :multiple="true"
+                :close-on-select="false"
+                placeholder="Search or select tags"
+                label="name"
+                track-by="id"
+            />
+        </div>
     </div>
 
     <div v-if="isLoading" class="text-center py-10">
