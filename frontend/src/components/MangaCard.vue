@@ -59,9 +59,12 @@ const addToWishlist = async (event) => {
         </span>
       </div>
     </div>
-    <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+    <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center gap-x-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
       <RouterLink :to="{ name: 'reader', params: { id: manga.id } }" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700">
         Read
+      </RouterLink>
+      <RouterLink :to="{ name: 'edit', params: { id: manga.id } }" class="px-4 py-2 bg-gray-600 text-white font-semibold rounded-md hover:bg-gray-700">
+        Edit
       </RouterLink>
     </div>
   </div>

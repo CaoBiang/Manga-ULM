@@ -136,13 +136,42 @@ def get_random_file():
     else:
         return jsonify({'error': 'No files in the library.'}), 404
 
-@api.route('/files/<int:id>', methods=['GET'])
-def get_file_details(id):
-    """Gets a single file's details by its ID."""
-    file_record = db.session.get(File, id)
-    if not file_record or file_record.is_missing:
-        return jsonify({'error': 'File not found'}), 404
-    return jsonify(file_to_dict(file_record))
+@api.route('/files/<int:id>', methods=['GET', 'PUT'])
+def handle_file_details(id):
+    """Gets or updates a single file's details."""
+    file_record = File.query.get_or_404(id)
+
+    if request.method == 'GET':
+        return jsonify(file_to_dict(file_record))
+
+    if request.method == 'PUT':
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Invalid JSON'}), 400
+
+        # For now, only allow updating tags.
+        # More fields can be added here later.
+        if 'tags' in data:
+            try:
+                tag_ids = [t['id'] for t in data['tags']]
+                # Fetch actual Tag objects from the database
+                tags = Tag.query.filter(Tag.id.in_(tag_ids)).all()
+                # Validate that all provided tag IDs were found
+                if len(tags) != len(tag_ids):
+                    # Find which tags are invalid to give a better error message.
+                    found_ids = {t.id for t in tags}
+                    invalid_ids = [tid for tid in tag_ids if tid not in found_ids]
+                    return jsonify({'error': f'Invalid tag IDs provided: {invalid_ids}'}), 400
+                
+                file_record.tags = tags
+            except (KeyError, TypeError):
+                 return jsonify({'error': 'Invalid format for tags. Expected a list of objects with an "id" key.'}), 400
+
+
+        db.session.commit()
+        
+        # Return the updated record
+        return jsonify(file_to_dict(file_record))
 
 @api.route('/files/<int:id>/progress', methods=['POST'])
 def update_reading_progress(id):
