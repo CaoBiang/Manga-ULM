@@ -4,6 +4,7 @@ import hashlib
 import zipfile
 import rarfile
 import py7zr
+import multiprocessing
 from PIL import Image
 from flask import current_app
 
@@ -80,7 +81,7 @@ def analyze_archive(file_path, cover_cache_path):
 
     except Exception as e:
         socketio.emit('scan_error', {'error': f'Failed to analyze archive {os.path.basename(file_path)}: {e}'})
-        return 0, '[]', False
+        return None
 
     # Find and save the best cover
     cover_saved = save_cover_from_candidates(file_path, cover_candidates, cover_cache_path)
@@ -131,7 +132,25 @@ def save_cover_from_candidates(file_path, candidates, cover_cache_path):
 
         if image_data:
             img = Image.open(io.BytesIO(image_data))
-            img.save(cover_path, 'webp', quality=85)
+            
+            # Image optimization
+            max_width = 500
+            if img.width > max_width:
+                ratio = max_width / img.width
+                new_height = int(img.height * ratio)
+                img = img.resize((max_width, new_height), Image.Resampling.LANCZOS)
+
+            # Save with optimized settings
+            img.save(cover_path, 'webp', quality=80, optimize=True)
+            
+            # Check file size and adjust quality if necessary
+            file_size_kb = os.path.getsize(cover_path) / 1024
+            quality = 80
+            while file_size_kb > 300 and quality > 10:
+                quality -= 10
+                img.save(cover_path, 'webp', quality=quality, optimize=True)
+                file_size_kb = os.path.getsize(cover_path) / 1024
+
             return True
 
     except Exception as e:
@@ -140,11 +159,37 @@ def save_cover_from_candidates(file_path, candidates, cover_cache_path):
     
     return False
 
+def process_file_task(args):
+    """Worker task to process a single file."""
+    file_path, cover_cache_path = args
+    file_hash = get_sha256_hash(file_path)
+    if not file_hash:
+        return {'status': 'error', 'file_path': file_path, 'reason': 'hash_failed'}
+
+    # This part runs in a separate process, so it can't query the database directly.
+    # We will return the data and process it in the main thread.
+    analysis_result = analyze_archive(file_path, cover_cache_path)
+    if analysis_result is None:
+        return {'status': 'error', 'file_path': file_path, 'reason': 'analysis_failed'}
+        
+    total_pages, spread_pages_json, _ = analysis_result
+    file_size = os.path.getsize(file_path)
+
+    return {
+        'status': 'ok',
+        'file_path': file_path,
+        'file_hash': file_hash,
+        'file_size': file_size,
+        'total_pages': total_pages,
+        'spread_pages': spread_pages_json,
+    }
+
 
 @huey.task()
-def start_scan_task(directory_path):
+def start_scan_task(directory_path, max_workers=12):
     """
     Scans a directory for manga files, computes hashes, and adds them to the database.
+    Uses multiprocessing for parallel processing.
     """
     app = create_app(os.getenv('FLASK_CONFIG') or 'default') # Create an app instance for the task
     with app.app_context():
@@ -169,45 +214,49 @@ def start_scan_task(directory_path):
             return "Scan finished. No files found."
             
         processed_files = 0
+        
+        with multiprocessing.Pool(processes=max_workers) as pool:
+            # Create a list of arguments for each task
+            tasks = [(file_path, cover_cache_path) for file_path in all_files_to_scan]
 
-        for file_path in all_files_to_scan:
-            processed_files += 1
-            progress = (processed_files / total_files) * 100
-            socketio.emit('scan_progress', {'progress': progress, 'current_file': os.path.basename(file_path)})
-
-            file_hash = get_sha256_hash(file_path)
-            if not file_hash:
-                continue # Error already emitted
-
-            existing_file = File.query.filter_by(file_hash=file_hash).first()
-
-            if existing_file:
-                # File exists, update its path and mark it as not missing
-                existing_file.file_path = file_path
-                existing_file.is_missing = False
-                # Re-analyze to get cover if it was missing
-                if not os.path.exists(os.path.join(cover_cache_path, f"{file_hash}.webp")):
-                    analyze_archive(file_path, cover_cache_path)
-            else:
-                # New file, add it to the database
-                file_size = os.path.getsize(file_path)
-                total_pages, spread_pages_json, _ = analyze_archive(file_path, cover_cache_path)
+            for result in pool.imap_unordered(process_file_task, tasks):
+                processed_files += 1
+                progress = (processed_files / total_files) * 100
                 
-                new_file = File(
-                    file_path=file_path,
-                    file_hash=file_hash,
-                    file_size=file_size,
-                    total_pages=total_pages,
-                    spread_pages=spread_pages_json,
-                    is_missing=False
-                )
-                db.session.add(new_file)
-            
-            db.session.commit()
+                if result.get('status') == 'error':
+                    socketio.emit('scan_error', {'error': f"Failed to process {result.get('file_path')}: {result.get('reason')}"})
+                    continue
+
+                file_path = result['file_path']
+                file_hash = result['file_hash']
+                
+                socketio.emit('scan_progress', {'progress': progress, 'current_file': os.path.basename(file_path)})
+
+                existing_file = File.query.filter_by(file_hash=file_hash).first()
+
+                if existing_file:
+                    # File exists, update its path and mark it as not missing
+                    existing_file.file_path = file_path
+                    existing_file.is_missing = False
+                    # Re-analyze to get cover if it was missing (the worker already did this)
+                    # We can add a check here if needed, but the worker should have created it.
+                else:
+                    # New file, add it to the database
+                    new_file = File(
+                        file_path=file_path,
+                        file_hash=file_hash,
+                        file_size=result['file_size'],
+                        total_pages=result['total_pages'],
+                        spread_pages=result['spread_pages'],
+                        is_missing=False
+                    )
+                    db.session.add(new_file)
+                
+                # Commit per file to see progress, can be optimized to commit in batches
+                db.session.commit()
 
         # 3. Handle files that are still marked as missing
         missing_files_count = File.query.filter_by(is_missing=True).count()
-        # You could emit another event here for the sync report
         print(f"Found {missing_files_count} missing files.")
 
         socketio.emit('scan_complete', {'message': f'Scan complete. Processed {total_files} files.'})
