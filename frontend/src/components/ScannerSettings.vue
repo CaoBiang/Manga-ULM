@@ -1,25 +1,127 @@
 <template>
   <div class="space-y-6">
+    <!-- 扫描状态显示 -->
+    <div v-if="libraryStore.scanStatus !== 'idle'" class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <h3 class="text-lg font-semibold text-blue-800 mb-3">扫描状态</h3>
+      
+      <!-- 进度条 -->
+      <div class="mb-4">
+        <div class="flex justify-between items-center mb-2">
+          <span class="text-sm font-medium text-blue-700">
+            {{ getStatusText() }}
+          </span>
+          <span class="text-sm text-blue-600">{{ Math.round(libraryStore.scanProgress) }}%</span>
+        </div>
+        <div class="w-full bg-blue-200 rounded-full h-2">
+          <div 
+            class="bg-blue-600 h-2 rounded-full transition-all duration-300"
+            :style="{ width: libraryStore.scanProgress + '%' }"
+          ></div>
+        </div>
+      </div>
+
+      <!-- 当前处理的文件 -->
+      <div v-if="libraryStore.currentScanFile" class="mb-3">
+        <p class="text-sm text-gray-600 mb-1">当前处理文件：</p>
+        <p class="text-sm text-gray-800 bg-white p-2 rounded border font-mono break-all">
+          {{ libraryStore.currentScanFile }}
+        </p>
+      </div>
+
+      <!-- 活跃任务列表 -->
+      <div v-if="libraryStore.activeTasks.length > 0" class="mb-3">
+        <p class="text-sm text-gray-600 mb-2">活跃任务：</p>
+        <div class="space-y-2">
+          <div 
+            v-for="task in libraryStore.activeTasks.filter(t => t.task_type === 'scan')" 
+            :key="task.id"
+            class="bg-white p-3 rounded border text-sm"
+          >
+            <div class="flex justify-between items-start">
+              <div class="flex-1">
+                <p class="font-medium text-gray-800">{{ task.name }}</p>
+                <p class="text-gray-600 text-xs mt-1">
+                  状态: {{ getTaskStatusText(task.status) }}
+                  <span v-if="task.total_files > 0" class="ml-2">
+                    ({{ task.processed_files || 0 }}/{{ task.total_files }})
+                  </span>
+                </p>
+                <p v-if="task.current_file" class="text-gray-500 text-xs mt-1 font-mono">
+                  {{ task.current_file }}
+                </p>
+              </div>
+              <button 
+                v-if="task.is_active"
+                @click="cancelTask(task.id)"
+                class="ml-2 px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600"
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 操作按钮 -->
+      <div class="flex space-x-2">
+        <button 
+          @click="libraryStore.clearErrors()"
+          class="px-3 py-1 text-sm bg-gray-500 text-white rounded hover:bg-gray-600"
+        >
+          清除错误
+        </button>
+        <button 
+          @click="libraryStore.checkActiveTasks()"
+          class="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
+        >
+          刷新状态
+        </button>
+      </div>
+    </div>
+
+    <!-- 错误消息显示 -->
+    <div v-if="libraryStore.scanErrors.length > 0" class="bg-red-50 border border-red-200 rounded-lg p-4">
+      <h3 class="text-lg font-semibold text-red-800 mb-3">扫描错误</h3>
+      <div class="space-y-2 max-h-40 overflow-y-auto">
+        <div 
+          v-for="(error, index) in libraryStore.scanErrors" 
+          :key="index"
+          class="bg-white p-2 rounded border text-sm"
+        >
+          <p class="text-red-800">{{ error.message }}</p>
+          <p class="text-red-600 text-xs mt-1">{{ formatTime(error.timestamp) }}</p>
+        </div>
+      </div>
+    </div>
+
     <!-- Path Management -->
     <div>
-      <h3 class="text-lg font-semibold text-gray-700 mb-2">Library Folders</h3>
+      <h3 class="text-lg font-semibold text-gray-700 mb-2">漫画库文件夹</h3>
       <div class="space-y-2">
         <div v-for="p in libraryPaths" :key="p.id" class="flex items-center space-x-2 p-2 bg-gray-50 rounded-md">
           <span class="flex-grow truncate" :title="p.path">{{ p.path }}</span>
-          <button @click="startScan(p.path)" :disabled="scanningPaths.includes(p.path)" class="px-3 py-1 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-blue-300">
-            {{ scanningPaths.includes(p.path) ? 'Scanning...' : 'Scan' }}
+          <button 
+            @click="startScan(p.path)" 
+            :disabled="libraryStore.hasActiveScanTasks"
+            class="px-3 py-1 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-blue-300 disabled:cursor-not-allowed"
+          >
+            {{ libraryStore.hasActiveScanTasks ? '扫描中...' : '扫描' }}
           </button>
-          <button @click="deletePath(p.id)" class="px-3 py-1 text-sm bg-red-500 text-white rounded-md hover:bg-red-600">
-            Delete
+          <button 
+            @click="deletePath(p.id)" 
+            class="px-3 py-1 text-sm bg-red-500 text-white rounded-md hover:bg-red-600"
+          >
+            删除
           </button>
         </div>
         <div v-if="libraryPaths.length === 0" class="text-sm text-gray-500 text-center py-2">
-          No library folders added yet.
+          还没有添加任何库文件夹。
         </div>
       </div>
+      
       <!-- Add New Path -->
       <div class="mt-4">
-        <label for="new-path" class="block text-sm font-medium text-gray-600 mb-1">Add New Folder</label>
+        <label for="new-path" class="block text-sm font-medium text-gray-600 mb-1">添加新文件夹</label>
         <div class="flex space-x-2">
           <input
             id="new-path"
@@ -28,27 +130,33 @@
             placeholder="/path/to/your/manga"
             class="flex-grow p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500"
           />
-          <button @click="addPath" class="px-4 py-2 bg-green-600 text-white font-semibold rounded-md hover:bg-green-700">Add</button>
+          <button 
+            @click="addPath" 
+            class="px-4 py-2 bg-green-600 text-white font-semibold rounded-md hover:bg-green-700"
+          >
+            添加
+          </button>
         </div>
       </div>
-       <!-- Scan All -->
+      
+      <!-- Scan All -->
       <div class="mt-4 border-t pt-4">
-         <button
+        <button
           @click="scanAll"
-          :disabled="isScanning"
+          :disabled="libraryStore.hasActiveScanTasks"
           class="w-full px-4 py-2 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700 disabled:bg-indigo-300 disabled:cursor-not-allowed"
         >
-          {{ isScanning ? 'Scanning All...' : 'Scan All Library Folders' }}
+          {{ libraryStore.hasActiveScanTasks ? '扫描中...' : '扫描所有库文件夹' }}
         </button>
       </div>
     </div>
 
     <!-- Worker Settings -->
     <div class="border-t pt-6">
-       <h3 class="text-lg font-semibold text-gray-700 mb-2">Advanced Settings</h3>
+      <h3 class="text-lg font-semibold text-gray-700 mb-2">高级设置</h3>
       <div>
         <label for="max-workers" class="block text-sm font-medium text-gray-600 mb-1">
-          Max Parallel Scanning Processes
+          最大并行扫描进程数
         </label>
         <input 
           id="max-workers"
@@ -59,11 +167,12 @@
           class="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500"
         />
         <p class="text-xs text-gray-500 mt-1">
-          The number of files to scan in parallel. Recommended value is the number of your CPU cores. Requires restart of the huey worker to take effect. Default is 12.
+          并行扫描的文件数量。推荐值是你的CPU核心数。需要重启huey worker才能生效。默认值是12。
         </p>
       </div>
     </div>
 
+    <!-- 状态消息 -->
     <div v-if="statusMessage" :class="statusClass" class="p-2 rounded-md text-sm mt-4">
       {{ statusMessage }}
     </div>
@@ -71,126 +180,192 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
-import axios from 'axios';
+import { ref, onMounted, computed } from 'vue'
+import axios from 'axios'
+import { useLibraryStore } from '@/store/library'
 
-const libraryPaths = ref([]);
-const newPath = ref('');
-const maxWorkers = ref(12);
-const statusMessage = ref('');
-const isError = ref(false);
-const isScanning = ref(false); // For "Scan All"
-const scanningPaths = ref([]); // For individual scans
+const libraryStore = useLibraryStore()
+
+const libraryPaths = ref([])
+const newPath = ref('')
+const maxWorkers = ref(12)
+const statusMessage = ref('')
+const isError = ref(false)
 
 const statusClass = computed(() => {
   return isError.value 
     ? 'bg-red-100 text-red-700' 
-    : 'bg-green-100 text-green-700';
-});
+    : 'bg-green-100 text-green-700'
+})
+
+// 格式化时间
+function formatTime(timestamp) {
+  return new Date(timestamp).toLocaleString()
+}
+
+// 获取状态文本
+function getStatusText() {
+  switch (libraryStore.scanStatus) {
+    case 'scanning':
+      return '正在扫描...'
+    case 'finished':
+      return '扫描完成'
+    case 'error':
+      return '扫描出错'
+    case 'pending':
+      return '等待扫描...'
+    default:
+      return '空闲'
+  }
+}
+
+// 获取任务状态文本
+function getTaskStatusText(status) {
+  switch (status) {
+    case 'pending':
+      return '等待中'
+    case 'running':
+      return '运行中'
+    case 'completed':
+      return '已完成'
+    case 'failed':
+      return '失败'
+    case 'cancelled':
+      return '已取消'
+    default:
+      return status
+  }
+}
+
+// 取消任务
+async function cancelTask(taskId) {
+  if (!confirm('确定要取消此扫描任务吗？')) {
+    return
+  }
+
+  try {
+    await libraryStore.cancelTask(taskId)
+    statusMessage.value = '任务已取消'
+    isError.value = false
+  } catch (error) {
+    console.error('Failed to cancel task:', error)
+    statusMessage.value = '取消任务失败'
+    isError.value = true
+  }
+  
+  setTimeout(() => statusMessage.value = '', 3000)
+}
 
 async function fetchLibraryPaths() {
-    try {
-        const response = await axios.get('/api/v1/library_paths');
-        libraryPaths.value = response.data;
-    } catch (error) {
-        console.error('Failed to fetch library paths:', error);
-        statusMessage.value = 'Failed to load library paths.';
-        isError.value = true;
-    }
+  try {
+    const response = await axios.get('/api/v1/library_paths')
+    libraryPaths.value = response.data
+  } catch (error) {
+    console.error('Failed to fetch library paths:', error)
+    statusMessage.value = '获取库路径失败'
+    isError.value = true
+  }
 }
 
 async function addPath() {
-    if (!newPath.value) {
-        alert('Please enter a path.');
-        return;
-    }
-    try {
-        await axios.post('/api/v1/library_paths', { path: newPath.value });
-        newPath.value = '';
-        await fetchLibraryPaths();
-    } catch (error) {
-        console.error('Failed to add path:', error);
-        statusMessage.value = error.response?.data?.error || 'Failed to add path.';
-        isError.value = true;
-    }
+  if (!newPath.value) {
+    alert('请输入路径')
+    return
+  }
+  
+  try {
+    await axios.post('/api/v1/library_paths', { path: newPath.value })
+    newPath.value = ''
+    await fetchLibraryPaths()
+    statusMessage.value = '路径添加成功'
+    isError.value = false
+  } catch (error) {
+    console.error('Failed to add path:', error)
+    statusMessage.value = error.response?.data?.error || '添加路径失败'
+    isError.value = true
+  }
+  
+  setTimeout(() => statusMessage.value = '', 3000)
 }
 
 async function deletePath(id) {
-    if (!confirm('Are you sure you want to remove this folder from the library? (This will not delete the files on disk)')) {
-        return;
-    }
-    try {
-        await axios.delete(`/api/v1/library_paths/${id}`);
-        await fetchLibraryPaths();
-    } catch (error) {
-        console.error('Failed to delete path:', error);
-        statusMessage.value = error.response?.data?.error || 'Failed to delete path.';
-        isError.value = true;
-    }
+  if (!confirm('确定要从库中移除此文件夹吗？（不会删除磁盘上的文件）')) {
+    return
+  }
+  
+  try {
+    await axios.delete(`/api/v1/library_paths/${id}`)
+    await fetchLibraryPaths()
+    statusMessage.value = '路径删除成功'
+    isError.value = false
+  } catch (error) {
+    console.error('Failed to delete path:', error)
+    statusMessage.value = error.response?.data?.error || '删除路径失败'
+    isError.value = true
+  }
+  
+  setTimeout(() => statusMessage.value = '', 3000)
 }
 
 async function fetchSettings() {
   try {
-    const workersRes = await axios.get('/api/v1/settings/scan.max_workers').catch(e => e.response);
+    const workersRes = await axios.get('/api/v1/settings/scan.max_workers').catch(e => e.response)
     if (workersRes && workersRes.status === 200 && workersRes.data['scan.max_workers'] !== null) {
-      maxWorkers.value = parseInt(workersRes.data['scan.max_workers'], 10);
+      maxWorkers.value = parseInt(workersRes.data['scan.max_workers'], 10)
     }
   } catch (error) {
-    console.error('Failed to fetch settings:', error);
-    statusMessage.value = 'Failed to load advanced settings.';
-    isError.value = true;
+    console.error('Failed to fetch settings:', error)
+    statusMessage.value = '获取高级设置失败'
+    isError.value = true
   }
 }
 
 async function saveSetting(key, value) {
   try {
-    await axios.post(`/api/v1/settings/${key}`, { value });
-    statusMessage.value = 'Settings saved successfully!';
-    isError.value = false;
+    await axios.post(`/api/v1/settings/${key}`, { value })
+    statusMessage.value = '设置保存成功！'
+    isError.value = false
   } catch (error) {
-    console.error(`Failed to save setting ${key}:`, error);
-    statusMessage.value = 'Failed to save settings.';
-    isError.value = true;
+    console.error(`Failed to save setting ${key}:`, error)
+    statusMessage.value = '保存设置失败'
+    isError.value = true
   }
-  setTimeout(() => statusMessage.value = '', 3000);
+  
+  setTimeout(() => statusMessage.value = '', 3000)
 }
 
 async function startScan(path) {
-  scanningPaths.value.push(path);
-  statusMessage.value = `Scan started for ${path}...`;
-  isError.value = false;
   try {
-    await axios.post('/api/v1/library/scan', { path: path });
+    await libraryStore.startScan(path)
+    statusMessage.value = `开始扫描 ${path}...`
+    isError.value = false
   } catch (error) {
-    console.error(`Failed to start scan for ${path}:`, error);
-    statusMessage.value = error.response?.data?.error || 'Failed to start scan.';
-    isError.value = true;
-  } finally {
-    // Remove path from scanning list after a delay to allow user to see status
-    setTimeout(() => {
-        scanningPaths.value = scanningPaths.value.filter(p => p !== path);
-    }, 5000);
+    console.error(`Failed to start scan for ${path}:`, error)
+    statusMessage.value = error.response?.data?.error || '启动扫描失败'
+    isError.value = true
   }
+  
+  setTimeout(() => statusMessage.value = '', 3000)
 }
 
 async function scanAll() {
-  isScanning.value = true;
-  statusMessage.value = 'Starting scan for all library folders...';
-  isError.value = false;
   try {
-    await axios.post('/api/v1/library/scan_all');
+    await libraryStore.startScanAll()
+    statusMessage.value = '开始扫描所有库文件夹...'
+    isError.value = false
   } catch (error) {
-    console.error('Failed to start scan all:', error);
-    statusMessage.value = error.response?.data?.error || 'Failed to start scan for all folders.';
-    isError.value = true;
-  } finally {
-     setTimeout(() => { isScanning.value = false; }, 5000);
+    console.error('Failed to start scan all:', error)
+    statusMessage.value = error.response?.data?.error || '启动全部扫描失败'
+    isError.value = true
   }
+  
+  setTimeout(() => statusMessage.value = '', 3000)
 }
 
 onMounted(() => {
-  fetchLibraryPaths();
-  fetchSettings();
-  // TODO: Add websocket listeners to update scanning status in real-time
-});
+  fetchLibraryPaths()
+  fetchSettings()
+  // 检查是否有活跃任务
+  libraryStore.checkActiveTasks()
+})
 </script> 
