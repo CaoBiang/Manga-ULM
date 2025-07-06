@@ -1,3 +1,4 @@
+import re
 from flask import request, jsonify
 from . import api
 from .. import db
@@ -92,6 +93,32 @@ def delete_tag(id):
     db.session.delete(tag)
     db.session.commit()
     return '', 204
+
+@api.route('/tags/scan-undefined-tags', methods=['GET'])
+def scan_undefined_tags():
+    try:
+        # Get all file paths
+        all_files = File.query.with_entities(File.file_path).all()
+        all_paths = [item[0] for item in all_files]
+
+        # Get all existing tag names and aliases
+        all_tags = Tag.query.with_entities(Tag.name).all()
+        all_aliases = TagAlias.query.with_entities(TagAlias.alias_name).all()
+        existing_tags = set([item[0] for item in all_tags]) | set([item[0] for item in all_aliases])
+
+        # Extract potential tags from brackets in file paths
+        potential_tags = set()
+        for path in all_paths:
+            found = re.findall(r'\[([^\]]+)\]', path)
+            for tag_name in found:
+                potential_tags.add(tag_name.strip())
+
+        # Find tags that are not yet defined
+        undefined_tags = sorted(list(potential_tags - existing_tags))
+
+        return jsonify(undefined_tags)
+    except Exception as e:
+        return jsonify(error=str(e)), 500
 
 # Manage tag aliases
 @api.route('/tags/<int:id>/aliases', methods=['POST'])
