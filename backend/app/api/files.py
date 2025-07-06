@@ -68,6 +68,52 @@ def get_image_from_archive(file_path, page_num):
         return None, None
     return None, None
 
+def get_page_details_from_archive(file_path, page_num):
+    """
+    Extracts metadata for a single image from a compressed archive.
+    Returns the image's filename and size.
+    """
+    IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp']
+    ext = os.path.splitext(file_path)[1].lower()
+    
+    try:
+        if ext in ['.zip', '.cbz']:
+            with zipfile.ZipFile(file_path, 'r') as archive:
+                image_infos = sorted(
+                    [info for info in archive.infolist() if any(info.filename.lower().endswith(img_ext) for img_ext in IMAGE_EXTENSIONS) and not info.filename.startswith('__MACOSX')],
+                    key=lambda info: info.filename
+                )
+                if 0 <= page_num < len(image_infos):
+                    info = image_infos[page_num]
+                    return info.filename, info.file_size
+        
+        elif ext in ['.rar', '.cbr']:
+            with rarfile.RarFile(file_path, 'r') as archive:
+                image_infos = sorted(
+                    [info for info in archive.infolist() if any(info.filename.lower().endswith(img_ext) for img_ext in IMAGE_EXTENSIONS) and not info.isdir()],
+                    key=lambda info: info.filename
+                )
+                if 0 <= page_num < len(image_infos):
+                    info = image_infos[page_num]
+                    return info.filename, info.file_size
+
+        elif ext in ['.7z', '.cb7']:
+             with py7zr.SevenZipFile(file_path, 'r') as archive:
+                # py7zr doesn't have a simple infolist like zipfile/rarfile that includes file size without extraction.
+                # This part might be slow as it reads the file entry. A better way would be needed for large 7z files if performance is critical.
+                all_files = archive.readall()
+                image_list = sorted([name for name, bio in all_files.items() if any(name.lower().endswith(img_ext) for img_ext in IMAGE_EXTENSIONS) and not bio.get('is_directory')])
+                if 0 <= page_num < len(image_list):
+                    image_name = image_list[page_num]
+                    # The content is a BytesIO-like object, so we can get its size.
+                    content = all_files[image_name]
+                    return image_name, content.getbuffer().nbytes
+
+    except Exception as e:
+        print(f"Error getting page details: {e}") # Basic logging
+        return None, None
+    return None, None
+
 @api.route('/files', methods=['GET'])
 def get_files():
     """
@@ -224,4 +270,30 @@ def get_file_page(id, page_num):
     if image_stream and mimetype:
         return send_file(image_stream, mimetype=mimetype)
     else:
-        return jsonify({'error': 'Failed to extract page from archive'}), 500 
+        return jsonify({'error': 'Failed to extract page from archive'}), 500
+
+@api.route('/files/<int:id>/page/<int:page_num>/details', methods=['GET'])
+def get_file_page_details(id, page_num):
+    """
+    Gets metadata for a specific page of a file, including manga and page details.
+    """
+    file_record = db.session.get(File, id)
+    if not file_record or file_record.is_missing:
+        return jsonify({'error': 'File not found'}), 404
+    
+    if page_num < 0 or page_num >= file_record.total_pages:
+        return jsonify({'error': 'Page number out of range'}), 400
+
+    page_filename, page_filesize = get_page_details_from_archive(file_record.file_path, page_num)
+    
+    if page_filename is not None:
+        manga_filename = os.path.basename(file_record.file_path)
+        
+        return jsonify({
+            'manga_filename': manga_filename,
+            'manga_filesize': file_record.file_size,
+            'page_filename': page_filename,
+            'page_filesize': page_filesize,
+        })
+    else:
+        return jsonify({'error': 'Failed to extract page details from archive'}), 500 

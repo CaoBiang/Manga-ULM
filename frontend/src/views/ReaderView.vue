@@ -8,14 +8,20 @@
         SPREAD
       </span>
       <!-- Bookmark Button -->
-      <button @click="handleBookmarkButtonClick" :class="['p-2 rounded-full hover:bg-gray-700', { 'text-yellow-400': isCurrentPageBookmarked }]">
+      <button @click="handleBookmarkButtonClick" :class="['p-2 rounded-full bg-gray-800 bg-opacity-75 hover:bg-gray-700', { 'text-yellow-400': isCurrentPageBookmarked }]">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" :fill="isCurrentPageBookmarked ? 'currentColor' : 'none'" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
         </svg>
       </button>
       <!-- Bookmarks List Toggle -->
-      <button @click="showBookmarksPanel = !showBookmarksPanel" class="p-2 rounded-full hover:bg-gray-700">
+      <button @click="showBookmarksPanel = !showBookmarksPanel" class="p-2 rounded-full bg-gray-800 bg-opacity-75 hover:bg-gray-700">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" /></svg>
+      </button>
+      <!-- File Info Button -->
+      <button @click="toggleFileInfoPanel" class="p-2 rounded-full bg-gray-800 bg-opacity-75 hover:bg-gray-700">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
       </button>
     </div>
     
@@ -42,6 +48,26 @@
         </li>
       </ul>
       <p v-else class="text-gray-400">No bookmarks yet.</p>
+    </div>
+
+    <!-- File Info Panel -->
+    <div v-if="showFileInfoPanel" class="absolute top-20 right-4 bg-gray-800 bg-opacity-90 p-4 rounded-lg z-20 w-auto max-w-sm">
+      <h3 class="text-lg font-bold mb-4">File Information</h3>
+      <div v-if="fileInfo.loading" class="text-gray-400">Loading...</div>
+      <div v-else-if="fileInfo.error" class="text-red-400">{{ fileInfo.error }}</div>
+      <div v-else class="space-y-2 text-sm">
+        <div>
+          <p class="font-semibold text-gray-300">Manga File:</p>
+          <p class="text-gray-100 break-all">{{ fileInfo.data.manga_filename }}</p>
+          <p class="text-gray-400">{{ formatBytes(fileInfo.data.manga_filesize) }}</p>
+        </div>
+        <div class="border-t border-gray-700 my-2"></div>
+        <div>
+          <p class="font-semibold text-gray-300">Current Page:</p>
+          <p class="text-gray-100 break-all">{{ fileInfo.data.page_filename }}</p>
+          <p class="text-gray-400">{{ formatBytes(fileInfo.data.page_filesize) }}</p>
+        </div>
+      </div>
     </div>
 
     <!-- Add Bookmark Modal -->
@@ -120,6 +146,12 @@ const showBookmarksPanel = ref(false);
 const showAddBookmarkModal = ref(false);
 const newBookmarkName = ref('');
 const bookmarkNameInputRef = ref(null);
+const showFileInfoPanel = ref(false);
+const fileInfo = ref({
+  loading: false,
+  error: null,
+  data: null,
+});
 
 const imageUrl = computed(() => {
   if (totalPages.value === 0) return '';
@@ -262,28 +294,36 @@ const deleteBookmark = async (bookmarkId) => {
 };
 
 const jumpToBookmark = (pageNumber) => {
-    currentPage.value = pageNumber;
-    showBookmarksPanel.value = false; // Hide panel after jumping
+    jumpToPage(pageNumber);
+    showBookmarksPanel.value = false; // Close panel after jumping
 };
 
 const nextPage = () => {
   if (currentPage.value < totalPages.value - 1) {
     currentPage.value++;
+    if (showFileInfoPanel.value) toggleFileInfoPanel().then(toggleFileInfoPanel); // Re-fetch data for new page
   }
 };
 
 const prevPage = () => {
   if (currentPage.value > 0) {
     currentPage.value--;
+    if (showFileInfoPanel.value) toggleFileInfoPanel().then(toggleFileInfoPanel); // Re-fetch data for new page
   }
 };
 
-const goToPage = () => {
-  let page = parseInt(jumpToPageInput.value, 10);
-  if (!isNaN(page) && page >= 1 && page <= totalPages.value) {
-    currentPage.value = page - 1;
+const jumpToPage = (pageNumber) => {
+  const newPage = typeof pageNumber === 'number' ? pageNumber : jumpToPageInput.value - 1;
+  if (newPage >= 0 && newPage < totalPages.value) {
+    currentPage.value = newPage;
+    if (showFileInfoPanel.value) toggleFileInfoPanel().then(toggleFileInfoPanel); // Re-fetch data for new page
   }
+  jumpToPageInput.value = null; // Reset input
   showPageInput.value = false;
+};
+
+const goToPage = () => {
+  jumpToPage();
 };
 
 const togglePageInput = async () => {
@@ -300,6 +340,33 @@ const handleKeydown = (e) => {
     nextPage();
   } else if (e.key === 'ArrowLeft') {
     prevPage();
+  }
+};
+
+const formatBytes = (bytes, decimals = 2) => {
+    if (!+bytes) return '0 Bytes';
+
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+}
+
+const toggleFileInfoPanel = async () => {
+  showFileInfoPanel.value = !showFileInfoPanel.value;
+  // If the panel is now visible and we don't have the data yet (or it's for a different page)
+  if (showFileInfoPanel.value) {
+    fileInfo.value = { loading: true, error: null, data: null };
+    try {
+      const response = await axios.get(`/api/v1/files/${fileId}/page/${currentPage.value}/details`);
+      fileInfo.value = { loading: false, error: null, data: response.data };
+    } catch (err) {
+      console.error('Failed to fetch file info:', err);
+      fileInfo.value = { loading: false, error: 'Could not load file details.', data: null };
+    }
   }
 };
 
