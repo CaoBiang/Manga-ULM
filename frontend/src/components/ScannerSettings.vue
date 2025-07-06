@@ -2,7 +2,7 @@
   <div class="space-y-6">
     <!-- 扫描状态显示 -->
     <div v-if="libraryStore.scanStatus !== 'idle'" class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-      <h3 class="text-lg font-semibold text-blue-800 mb-3">扫描状态</h3>
+      <h3 class="text-lg font-semibold text-blue-800 mb-3">{{ $t('scanStatus') }}</h3>
       
       <!-- 进度条 -->
       <div class="mb-4">
@@ -41,13 +41,13 @@
               <div class="flex-1">
                 <p class="font-medium text-gray-800">{{ task.name }}</p>
                 <p class="text-gray-600 text-xs mt-1">
-                  状态: {{ getTaskStatusText(task.status) }}
+                  {{ $t('status') }}: {{ getTaskStatusText(task.status) }}
                   <span v-if="task.total_files > 0" class="ml-2">
                     ({{ task.processed_files || 0 }}/{{ task.total_files }})
                   </span>
                 </p>
                 <p v-if="task.current_file" class="text-gray-500 text-xs mt-1 font-mono">
-                  {{ task.current_file }}
+                  {{ libraryStore.currentScanFile }}
                 </p>
               </div>
               <button 
@@ -55,7 +55,7 @@
                 @click="cancelTask(task.id)"
                 class="ml-2 px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600"
               >
-                取消
+                {{ $t('cancel') }}
               </button>
             </div>
           </div>
@@ -68,20 +68,20 @@
           @click="libraryStore.clearErrors()"
           class="px-3 py-1 text-sm bg-gray-500 text-white rounded hover:bg-gray-600"
         >
-          清除错误
+          {{ $t('clearErrors') }}
         </button>
         <button 
           @click="libraryStore.checkActiveTasks()"
           class="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
         >
-          刷新状态
+          {{ $t('refreshStatus') }}
         </button>
       </div>
     </div>
 
     <!-- 错误消息显示 -->
     <div v-if="libraryStore.scanErrors.length > 0" class="bg-red-50 border border-red-200 rounded-lg p-4">
-      <h3 class="text-lg font-semibold text-red-800 mb-3">扫描错误</h3>
+      <h3 class="text-lg font-semibold text-red-800 mb-3">{{ $t('scanErrors') }}</h3>
       <div class="space-y-2 max-h-40 overflow-y-auto">
         <div 
           v-for="(error, index) in libraryStore.scanErrors" 
@@ -96,7 +96,7 @@
 
     <!-- Path Management -->
     <div>
-      <h3 class="text-lg font-semibold text-gray-700 mb-2">漫画库文件夹</h3>
+      <h3 class="text-lg font-semibold text-gray-700 mb-2">{{ $t('mangaLibraryFolders') }}</h3>
       <div class="space-y-2">
         <div v-for="p in libraryPaths" :key="p.id" class="flex items-center space-x-2 p-2 bg-gray-50 rounded-md">
           <span class="flex-grow truncate" :title="p.path">{{ p.path }}</span>
@@ -105,36 +105,36 @@
             :disabled="libraryStore.hasActiveScanTasks"
             class="px-3 py-1 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-blue-300 disabled:cursor-not-allowed"
           >
-            {{ libraryStore.hasActiveScanTasks ? '扫描中...' : '扫描' }}
+            {{ libraryStore.hasActiveScanTasks ? $t('scanning') : $t('scan') }}
           </button>
           <button 
             @click="deletePath(p.id)" 
             class="px-3 py-1 text-sm bg-red-500 text-white rounded-md hover:bg-red-600"
           >
-            删除
+            {{ $t('delete') }}
           </button>
         </div>
         <div v-if="libraryPaths.length === 0" class="text-sm text-gray-500 text-center py-2">
-          还没有添加任何库文件夹。
+          {{ $t('noLibraryPath') }}
         </div>
       </div>
       
       <!-- Add New Path -->
       <div class="mt-4">
-        <label for="new-path" class="block text-sm font-medium text-gray-600 mb-1">添加新文件夹</label>
+        <label for="new-path" class="block text-sm font-medium text-gray-600 mb-1">{{ $t('addNewFolder') }}</label>
         <div class="flex space-x-2">
           <input
             id="new-path"
             type="text"
             v-model.trim="newPath"
-            placeholder="/path/to/your/manga"
+            :placeholder="$t('pathPlaceholder')"
             class="flex-grow p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500"
           />
           <button 
             @click="addPath" 
             class="px-4 py-2 bg-green-600 text-white font-semibold rounded-md hover:bg-green-700"
           >
-            添加
+            {{ $t('add') }}
           </button>
         </div>
       </div>
@@ -146,17 +146,17 @@
           :disabled="libraryStore.hasActiveScanTasks"
           class="w-full px-4 py-2 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700 disabled:bg-indigo-300 disabled:cursor-not-allowed"
         >
-          {{ libraryStore.hasActiveScanTasks ? '扫描中...' : '扫描所有库文件夹' }}
+          {{ libraryStore.hasActiveScanTasks ? $t('scanning') : $t('scanAll') }}
         </button>
       </div>
     </div>
 
     <!-- Worker Settings -->
     <div class="border-t pt-6">
-      <h3 class="text-lg font-semibold text-gray-700 mb-2">高级设置</h3>
+      <h3 class="text-lg font-semibold text-gray-700 mb-2">{{ $t('advancedSettings') }}</h3>
       <div>
         <label for="max-workers" class="block text-sm font-medium text-gray-600 mb-1">
-          最大并行扫描进程数
+          {{ $t('maxParallelScanProcesses') }}
         </label>
         <input 
           id="max-workers"
@@ -167,7 +167,7 @@
           class="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500"
         />
         <p class="text-xs text-gray-500 mt-1">
-          并行扫描的文件数量。推荐值是你的CPU核心数。需要重启huey worker才能生效。默认值是12。
+          {{ $t('maxParallelScanProcessesHelp') }}
         </p>
       </div>
     </div>

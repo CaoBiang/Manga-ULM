@@ -36,7 +36,7 @@ const createType = async () => {
     emit('dataChanged');
   } catch (error) {
     console.error('Failed to create tag type:', error);
-    alert('Error: ' + (error.response?.data?.error || 'Could not create tag type.'));
+    alert('错误：' + (error.response?.data?.error || '无法创建标签类型。'));
   }
 };
 
@@ -52,7 +52,7 @@ const startScan = async () => {
     scannedTags.value = response.data;
   } catch (error) {
     console.error('Failed to scan for undefined tags:', error);
-    alert('Error: ' + (error.response?.data?.error || 'Could not scan for tags.'));
+    alert('错误：' + (error.response?.data?.error || '无法扫描标签。'));
   } finally {
     isLoadingScannedTags.value = false;
   }
@@ -60,7 +60,7 @@ const startScan = async () => {
 
 const addSelectedTags = async () => {
   if (selectedScannedTags.value.length === 0 || !selectedTagType.value) {
-    alert('Please select tags and a tag type.');
+    alert('请选择标签和标签类型。');
     return;
   }
 
@@ -71,24 +71,24 @@ const addSelectedTags = async () => {
         type_id: selectedTagType.value,
       });
     }
-    alert('Selected tags added successfully!');
+    alert('所选标签添加成功！');
     showScanner.value = false;
     scannedTags.value = [];
     emit('dataChanged');
   } catch (error) {
     console.error('Failed to add tags:', error);
-    alert('Error: ' + (error.response?.data?.error || 'Could not add tags.'));
+    alert('错误：' + (error.response?.data?.error || '无法添加标签。'));
   }
 };
 
 const deleteType = async (id) => {
-  if (!confirm('Are you sure you want to delete this tag type?')) return;
+  if (!confirm('确定要删除此标签类型吗？')) return;
   try {
     await axios.delete(`/api/v1/tag_types/${id}`);
     emit('dataChanged');
   } catch (error) {
     console.error('Failed to delete tag type:', error);
-    alert('Error: ' + (error.response?.data?.error || 'Could not delete tag type.'));
+    alert('错误：' + (error.response?.data?.error || '无法删除标签类型。'));
   }
 };
 
@@ -113,7 +113,7 @@ const saveEdit = async () => {
     emit('dataChanged');
   } catch (error) {
     console.error('Failed to update tag type:', error);
-    alert('Error: ' + (error.response?.data?.error || 'Could not update tag type.'));
+    alert('错误：' + (error.response?.data?.error || '无法更新标签类型。'));
   }
 };
 
@@ -130,25 +130,25 @@ const saveEdit = async () => {
       </div>
       <div v-else class="flex-grow">
         <span class="font-medium">{{ type.name }}</span>
-        <span class="text-xs text-gray-500 ml-2">(Order: {{ type.sort_order }})</span>
+        <span class="text-xs text-gray-500 ml-2">（{{ $t('sortOrder') }}：{{ type.sort_order }}）</span>
       </div>
       <div v-if="editingTypeId !== type.id" class="flex space-x-2">
-        <button @click="startEditing(type)" class="text-blue-600 hover:text-blue-800">Edit</button>
-        <button @click="deleteType(type.id)" class="text-red-600 hover:text-red-800">Del</button>
+        <button @click="startEditing(type)" class="text-blue-600 hover:text-blue-800">{{ $t('edit') }}</button>
+        <button @click="deleteType(type.id)" class="text-red-600 hover:text-red-800">{{ $t('delete') }}</button>
       </div>
     </div>
 
     <!-- Create Form -->
     <div class="mt-4">
       <div v-if="!isCreating" @click="isCreating = true" class="cursor-pointer text-blue-600 hover:underline">
-        + Add New Type
+        + {{ $t('newType') }}
       </div>
       <div v-else class="p-3 bg-blue-50 rounded-md">
-        <input v-model="newTypeName" type="text" placeholder="Type name" class="p-1 border rounded-md w-full mb-2" />
-        <input v-model="newTypeSortOrder" type="number" placeholder="Sort order" class="p-1 border rounded-md w-full mb-2" />
+        <input v-model="newTypeName" type="text" :placeholder="$t('typeName')" class="p-1 border rounded-md w-full mb-2" />
+        <input v-model="newTypeSortOrder" type="number" :placeholder="$t('sortValue')" class="p-1 border rounded-md w-full mb-2" />
         <div class="flex space-x-2">
-          <button @click="createType" class="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700">Save</button>
-          <button @click="isCreating = false" class="px-3 py-1 bg-gray-200 rounded-md hover:bg-gray-300">Cancel</button>
+          <button @click="createType" class="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700">{{ $t('save') }}</button>
+          <button @click="isCreating = false" class="px-3 py-1 bg-gray-200 rounded-md hover:bg-gray-300">{{ $t('cancel') }}</button>
         </div>
       </div>
     </div>
@@ -156,13 +156,13 @@ const saveEdit = async () => {
     <!-- Undefined Tag Scanner -->
     <div class="mt-4">
         <button @click="startScan" class="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700">
-            Scan for new tags from filenames
+            {{ $t('scanNewTags') }}
         </button>
     </div>
     <div v-if="showScanner" class="mt-4 p-4 border rounded-md bg-gray-50">
-      <h4 class="font-semibold text-lg mb-2">Found Undefined Tags</h4>
-      <div v-if="isLoadingScannedTags">Loading...</div>
-      <div v-else-if="scannedTags.length === 0">No new undefined tags found in filenames.</div>
+      <h4 class="font-semibold text-lg mb-2">{{ $t('foundUndefinedTags') }}</h4>
+      <div v-if="isLoadingScannedTags">{{ $t('loading') }}...</div>
+      <div v-else-if="scannedTags.length === 0">{{ $t('noNewTagsFound') }}</div>
       <div v-else>
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-60 overflow-y-auto p-2 bg-white border rounded">
             <label v-for="tag in scannedTags" :key="tag" class="flex items-center space-x-2">
@@ -174,10 +174,10 @@ const saveEdit = async () => {
             <select v-model="selectedTagType" class="p-1 border rounded-md">
                 <option v-for="type in types" :key="type.id" :value="type.id">{{ type.name }}</option>
             </select>
-            <button @click="addSelectedTags" class="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700" :disabled="selectedScannedTags.length === 0">Add Selected Tags</button>
-            <button @click="showScanner = false" class="px-3 py-1 bg-gray-200 rounded-md hover:bg-gray-300">Close</button>
+            <button @click="addSelectedTags" class="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700" :disabled="selectedScannedTags.length === 0">{{ $t('addSelectedTags') }}</button>
+            <button @click="showScanner = false" class="px-3 py-1 bg-gray-200 rounded-md hover:bg-gray-300">{{ $t('close') }}</button>
         </div>
-        <p class="text-sm text-gray-600 mt-2">{{ selectedScannedTags.length }} tag(s) selected.</p>
+        <p class="text-sm text-gray-600 mt-2">{{ $t('tagsSelected', { count: selectedScannedTags.length }) }}</p>
       </div>
     </div>
   </div>

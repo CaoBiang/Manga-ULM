@@ -38,7 +38,7 @@ const fetchTags = async () => {
     filterTags();
   } catch (error) {
     console.error('Failed to fetch tags:', error);
-    alert('Error: Could not fetch tags.');
+    alert('错误：无法获取标签。');
   } finally {
     isLoading.value = false;
   }
@@ -58,13 +58,13 @@ onMounted(fetchTags);
 
 const getTypeName = (typeId) => {
   const type = props.types.find(t => t.id === typeId);
-  return type ? type.name : 'N/A';
+  return type ? type.name : '无';
 };
 
 const getParentName = (parentId) => {
-    if (!parentId) return 'None';
+    if (!parentId) return '无';
     const parent = tags.value.find(t => t.id === parentId);
-    return parent ? parent.name : 'N/A';
+    return parent ? parent.name : '无';
 }
 
 const openCreateModal = () => {
@@ -113,7 +113,7 @@ const removeAlias = (aliasToRemove) => {
 
 const saveTag = async () => {
   if (!tagForm.value.name || !tagForm.value.type_id) {
-    alert('Tag Name and Type are required.');
+    alert('标签名和类型为必填项。');
     return;
   }
 
@@ -137,18 +137,18 @@ const saveTag = async () => {
     fetchTags(); // Refresh tag list
   } catch (error) {
     console.error('Failed to save tag:', error);
-    alert('Error: ' + (error.response?.data?.error || 'Could not save tag.'));
+    alert('错误：' + (error.response?.data?.error || '无法保存标签。'));
   }
 };
 
 const deleteTag = async (id) => {
-    if (!confirm('Are you sure you want to delete this tag? This cannot be undone.')) return;
+    if (!confirm('确定要删除此标签吗？此操作不可撤销。')) return;
     try {
         await axios.delete(`/api/v1/tags/${id}`);
         fetchTags(); // Refresh tag list
     } catch (error) {
         console.error('Failed to delete tag:', error);
-        alert('Error: ' + (error.response?.data?.error || 'Could not delete tag.'));
+        alert('错误：' + (error.response?.data?.error || '无法删除标签。'));
     }
 }
 
@@ -160,19 +160,19 @@ const availableParents = computed(() => {
 
 <template>
   <div class="p-4 bg-white rounded-lg shadow-md">
-    <h3 class="text-xl font-semibold mb-4">Tag Management</h3>
+    <h3 class="text-xl font-semibold mb-4">{{ $t('tagManagement') }}</h3>
 
     <!-- Filter and Actions -->
     <div class="flex justify-between items-center mb-4">
   <div>
-        <label for="type-filter" class="mr-2 font-medium">Filter by Type:</label>
+        <label for="type-filter" class="mr-2 font-medium">{{ $t('filterByType') }}</label>
         <select id="type-filter" v-model="selectedTypeId" class="p-2 border rounded-md">
-          <option value="all">All Types</option>
+          <option value="all">{{ $t('allTypes') }}</option>
           <option v-for="type in types" :key="type.id" :value="type.id">{{ type.name }}</option>
         </select>
       </div>
       <button @click="openCreateModal" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
-        + Create New Tag
+        + {{ $t('newTag') }}
       </button>
     </div>
 
@@ -181,17 +181,17 @@ const availableParents = computed(() => {
       <table class="min-w-full bg-white">
         <thead class="bg-gray-100">
           <tr>
-            <th class="text-left py-2 px-4">Name</th>
-            <th class="text-left py-2 px-4">Description</th>
-            <th class="text-left py-2 px-4">Type</th>
-            <th class="text-left py-2 px-4">Parent</th>
-            <th class="text-left py-2 px-4">Aliases</th>
-            <th class="text-left py-2 px-4">Actions</th>
+            <th class="text-left py-2 px-4">{{ $t('name') }}</th>
+            <th class="text-left py-2 px-4">{{ $t('description') }}</th>
+            <th class="text-left py-2 px-4">{{ $t('type') }}</th>
+            <th class="text-left py-2 px-4">{{ $t('parentTag') }}</th>
+            <th class="text-left py-2 px-4">{{ $t('aliases') }}</th>
+            <th class="text-left py-2 px-4">{{ $t('actions') }}</th>
           </tr>
         </thead>
         <tbody>
           <tr v-if="isLoading">
-            <td colspan="6" class="text-center py-4">Loading...</td>
+            <td colspan="6" class="text-center py-4">{{ $t('loading') }}...</td>
           </tr>
           <tr v-for="tag in filteredTags" :key="tag.id" class="border-b hover:bg-gray-50">
             <td class="py-2 px-4 font-medium">{{ tag.name }}</td>
@@ -204,8 +204,8 @@ const availableParents = computed(() => {
             </td>
             <td class="py-2 px-4">
               <div class="flex space-x-2">
-                <button @click="openEditModal(tag)" class="text-blue-600 hover:text-blue-800">Edit</button>
-                <button @click="deleteTag(tag.id)" class="text-red-600 hover:text-red-800">Delete</button>
+                <button @click="openEditModal(tag)" class="text-blue-600 hover:text-blue-800 mr-2">{{ $t('edit') }}</button>
+                <button @click="deleteTag(tag.id)" class="text-red-600 hover:text-red-800">{{ $t('delete') }}</button>
               </div>
             </td>
           </tr>
@@ -217,56 +217,53 @@ const availableParents = computed(() => {
     </div>
 
     <!-- Create/Edit Modal -->
-    <div v-if="showModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <h4 class="text-lg font-bold mb-4">{{ editingTag ? 'Edit Tag' : 'Create New Tag' }}</h4>
+    <div v-if="showModal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+      <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg max-h-full overflow-y-auto">
+        <h4 class="text-xl font-semibold mb-4">{{ editingTag ? $t('edit') + ' ' + $t('tag') : $t('newTag') }}</h4>
         
         <!-- Form -->
         <div class="space-y-4">
           <div>
-            <label class="block font-medium">Name <span class="text-red-500">*</span></label>
-            <input v-model="tagForm.name" type="text" class="p-2 border rounded-md w-full">
+            <label class="block text-sm font-medium">{{ $t('name') }}*</label>
+            <input v-model="tagForm.name" type="text" class="w-full p-2 border rounded-md" />
           </div>
           <div>
-            <label class="block font-medium">Description</label>
-            <textarea v-model="tagForm.description" rows="2" class="p-2 border rounded-md w-full"></textarea>
+            <label class="block text-sm font-medium">{{ $t('description') }}</label>
+            <textarea v-model="tagForm.description" class="w-full p-2 border rounded-md"></textarea>
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label class="block font-medium">Type <span class="text-red-500">*</span></label>
-              <select v-model="tagForm.type_id" class="p-2 border rounded-md w-full">
-                <option v-for="type in types" :key="type.id" :value="type.id">{{ type.name }}</option>
-              </select>
-            </div>
-            <div>
-              <label class="block font-medium">Parent Tag</label>
-              <select v-model="tagForm.parent_id" class="p-2 border rounded-md w-full">
-                <option :value="null">-- No Parent --</option>
-                <option v-for="parent in availableParents" :key="parent.id" :value="parent.id">{{ parent.name }}</option>
-              </select>
-            </div>
-      </div>
-
-          <!-- Aliases -->
           <div>
-            <label class="block font-medium">Aliases</label>
-            <div class="flex items-center space-x-2 mb-2">
-                <input v-model="tagForm.newAlias" @keyup.enter="addAlias" type="text" placeholder="Add an alias and press Enter" class="p-2 border rounded-md flex-grow">
-                <button @click="addAlias" class="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Add</button>
+            <label class="block text-sm font-medium">{{ $t('type') }}*</label>
+            <select v-model="tagForm.type_id" class="w-full p-2 border rounded-md">
+              <option v-for="type in types" :key="type.id" :value="type.id">{{ type.name }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium">{{ $t('parentTag') }}</label>
+            <select v-model="tagForm.parent_id" class="w-full p-2 border rounded-md">
+              <option :value="null">无</option>
+              <option v-for="parent in availableParents" :key="parent.id" :value="parent.id">
+                {{ parent.name }} ({{ getTypeName(parent.type_id) }})
+              </option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium">{{ $t('aliases') }}</label>
+            <div class="flex space-x-2">
+              <input v-model="tagForm.newAlias" @keyup.enter="addAlias" type="text" placeholder="添加别名后回车" class="w-full p-2 border rounded-md" />
             </div>
-            <div class="flex flex-wrap gap-2">
-                <span v-for="alias in tagForm.aliases" :key="alias" class="flex items-center bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-sm">
-                    {{ alias }}
-                    <button @click="removeAlias(alias)" class="ml-2 text-red-500 hover:text-red-700">&times;</button>
-                </span>
+            <div class="mt-2 flex flex-wrap gap-2">
+              <span v-for="alias in tagForm.aliases" :key="alias" class="bg-gray-200 text-sm rounded-full px-3 py-1 flex items-center">
+                {{ alias }}
+                <button @click="removeAlias(alias)" class="ml-2 text-red-500">&times;</button>
+              </span>
             </div>
           </div>
         </div>
 
         <!-- Actions -->
-        <div class="mt-6 flex justify-end space-x-3">
-          <button @click="closeModal" class="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Cancel</button>
-          <button @click="saveTag" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Save Tag</button>
+        <div class="mt-6 flex justify-end space-x-2">
+          <button @click="closeModal" class="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">{{ $t('cancel') }}</button>
+          <button @click="saveTag" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">{{ $t('save') }}</button>
         </div>
       </div>
     </div>

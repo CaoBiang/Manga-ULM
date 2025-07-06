@@ -1,13 +1,22 @@
 <template>
   <div class="space-y-8 p-4 md:p-8">
-    <h1 class="text-3xl font-bold text-gray-800">Settings</h1>
+    <h1 class="text-3xl font-bold text-gray-800">{{ $t('settings') }}</h1>
     
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
       
       <div class="lg:col-span-1 space-y-8">
+        <!-- Section: Language -->
+        <div class="p-6 bg-white rounded-lg shadow-md">
+          <h2 class="text-xl font-semibold mb-4 border-b pb-2">{{ $t('language') }}</h2>
+          <select v-model="selectedLanguage" @change="changeLanguage" class="p-2 border rounded">
+            <option value="en">{{ $t('english') }}</option>
+            <option value="zh">{{ $t('chinese') }}</option>
+          </select>
+        </div>
+
         <!-- Section: Library -->
         <div class="p-6 bg-white rounded-lg shadow-md">
-          <h2 class="text-xl font-semibold mb-4 border-b pb-2">Library</h2>
+          <h2 class="text-xl font-semibold mb-4 border-b pb-2">{{ $t('library') }}</h2>
           <ScannerSettings />
         </div>
 
@@ -21,11 +30,11 @@
       <div class="lg:col-span-2 space-y-8">
         <!-- Section: Tag Management -->
         <div class="p-6 bg-white rounded-lg shadow-md">
-          <h2 class="text-xl font-semibold mb-4 border-b pb-2">Tag & Type Management</h2>
-          <div v-if="isLoading" class="text-center">Loading tag data...</div>
+          <h2 class="text-xl font-semibold mb-4 border-b pb-2">{{ $t('tagTypeManagement') }}</h2>
+          <div v-if="isLoading" class="text-center">{{ $t('loadingTagData') }}</div>
           <div v-else class="space-y-6">
             <div>
-              <h3 class="text-lg font-semibold mb-3">Tag Types</h3>
+              <h3 class="text-lg font-semibold mb-3">{{ $t('tagTypes') }}</h3>
               <TagTypeManager :types="tagTypes" @dataChanged="fetchTagData" />
             </div>
             <hr/>
@@ -43,6 +52,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
+import { useI18n } from 'vue-i18n';
 
 import ScannerSettings from '@/components/ScannerSettings.vue';
 // import FilenameTemplateManager from '@/components/FilenameTemplateManager.vue';
@@ -51,6 +61,13 @@ import TagManager from '@/components/TagManager.vue';
 
 const tagTypes = ref([]);
 const isLoading = ref(true);
+const { locale } = useI18n();
+const selectedLanguage = ref(locale.value);
+
+const changeLanguage = () => {
+  locale.value = selectedLanguage.value;
+  localStorage.setItem('lang', selectedLanguage.value);
+};
 
 const fetchTagData = async () => {
   isLoading.value = true;

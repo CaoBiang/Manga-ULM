@@ -25,7 +25,7 @@ const handleScan = () => {
   if (libraryPath.value) {
     libraryStore.startScan(libraryPath.value)
   } else {
-    alert('Please provide a library path.')
+    alert('请填写库路径。')
   }
 }
 
@@ -35,11 +35,11 @@ const pickRandomManga = async () => {
     if (response.data) {
       router.push({ name: 'reader', params: { id: response.data.id } });
     } else {
-      alert('No manga available to pick from.');
+      alert('没有可供抽取的漫画。')
     }
   } catch (error) {
     console.error('Failed to pick random manga:', error);
-    alert('Could not pick a random manga.');
+    alert('无法抽取随机漫画。')
   }
 }
 
@@ -59,16 +59,16 @@ const handleFileSelection = (fileId, isSelected) => {
 const startBatchRename = async () => {
   const template = localStorage.getItem('mangaFilenameTemplate');
   if (!template) {
-    alert('Please save a filename template in Settings first.');
+    alert('请先在设置中保存文件名模板。');
     return;
   }
   if (selectedFilesForRename.value.size === 0) {
-    alert('Please select at least one file to rename.');
+    alert('请至少选择一个要重命名的文件。');
     return;
   }
   if (!libraryPath.value) {
     // A root path is needed to construct the new paths.
-    alert('Please specify the library root path to ensure correct renaming.');
+    alert('请指定库根路径以确保正确重命名。');
     return;
   }
 
@@ -79,12 +79,12 @@ const startBatchRename = async () => {
       template,
       root_path: libraryPath.value
     });
-    alert('Batch rename task started! You can monitor progress via WebSocket messages (developer console for now).');
+    alert('批量重命名任务已启动！你可以通过WebSocket消息（目前请查看开发者控制台）监控进度。');
     toggleRenameMode();
     libraryStore.fetchFiles(); // Refresh library
   } catch (error) {
     console.error('Failed to start batch rename:', error);
-    alert('Error starting batch rename task.');
+    alert('启动批量重命名任务出错。');
   }
 }
 
@@ -105,15 +105,15 @@ onMounted(() => {
   <div>
     <!-- Scanner Section -->
     <div class="p-6 bg-white rounded-lg shadow mb-6">
-      <h2 class="text-xl font-semibold text-gray-700 mb-4">Library Management</h2>
+      <h2 class="text-xl font-semibold text-gray-700 mb-4">库管理</h2>
       <div class="mb-4">
-        <label for="library-path" class="block text-sm font-medium text-gray-600 mb-1">Library Path:</label>
+        <label for="library-path" class="block text-sm font-medium text-gray-600 mb-1">库路径：</label>
         <div class="flex">
           <input 
             id="library-path"
             type="text" 
             v-model="libraryPath" 
-            placeholder="e.g., C:\Users\YourUser\Documents\Manga"
+            placeholder="例如：C:\\Users\\YourUser\\Documents\\Manga"
             class="flex-grow p-2 border rounded-l-md focus:ring-indigo-500 focus:border-indigo-500"
           />
           <button 
@@ -121,7 +121,7 @@ onMounted(() => {
             :disabled="scanStatus === 'scanning'"
             class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-r-md hover:bg-indigo-700 disabled:bg-indigo-300 transition-colors"
           >
-            {{ scanStatus === 'scanning' ? 'Scanning...' : 'Start Scan' }}
+            {{ scanStatus === 'scanning' ? '正在扫描...' : '开始扫描' }}
           </button>
         </div>
       </div>
@@ -146,30 +146,30 @@ onMounted(() => {
 
     <!-- Quick Actions -->
     <div class="p-6 bg-white rounded-lg shadow mb-6">
-      <h2 class="text-xl font-semibold text-gray-700 mb-4">Quick Actions</h2>
+      <h2 class="text-xl font-semibold text-gray-700 mb-4">快捷操作</h2>
       <div class="flex space-x-2">
         <button @click="pickRandomManga" class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700">
-          Pick a Random Manga
+          随机抽取一本漫画
         </button>
         <button @click="toggleRenameMode" class="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600">
-          {{ isRenameMode ? 'Cancel Rename' : 'Batch Rename' }}
+          {{ isRenameMode ? '取消重命名' : '批量重命名' }}
         </button>
         <button v-if="isRenameMode" @click="startBatchRename" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
-          Apply Template to {{ selectedFilesForRename.size }} files
+          应用模板到 {{ selectedFilesForRename.size }} 个文件
         </button>
       </div>
     </div>
 
     <!-- Gallery Section -->
     <div class="p-6 bg-white rounded-lg shadow">
-      <h2 class="text-xl font-semibold text-gray-700 mb-4">My Library</h2>
+      <h2 class="text-xl font-semibold text-gray-700 mb-4">我的漫画库</h2>
       
       <div v-if="libraryStatus === 'loading'" class="text-center">
-        <p>Loading library...</p>
+        <p>正在加载漫画库...</p>
       </div>
 
       <div v-else-if="libraryStatus === 'error'" class="text-center text-red-500">
-        <p>Failed to load library. Please try again later.</p>
+        <p>加载漫画库失败，请稍后重试。</p>
       </div>
       
       <div v-else-if="files.length > 0">
@@ -188,13 +188,13 @@ onMounted(() => {
         <!-- Pagination Controls -->
         <div class="mt-6 flex justify-center items-center space-x-2">
           <button @click="changePage(pagination.page - 1)" :disabled="pagination.page === 1" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50">
-            &laquo; Prev
+            &laquo; 上一页
           </button>
           <span class="text-sm text-gray-700">
-            Page {{ pagination.page }} of {{ pagination.total_pages }}
+            第 {{ pagination.page }} 页 / 共 {{ pagination.total_pages }} 页
           </span>
           <button @click="changePage(pagination.page + 1)" :disabled="pagination.page === pagination.total_pages" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50">
-            Next &raquo;
+            下一页 &raquo;
           </button>
         </div>
       </div>
