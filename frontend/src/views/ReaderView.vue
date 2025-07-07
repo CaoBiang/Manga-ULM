@@ -90,7 +90,7 @@
         </div>
     </div>
 
-    <div v-else class="relative w-full h-full flex items-center justify-center">
+    <div v-else class="relative w-full h-full flex items-center justify-center" @click="isSliderExpanded = false">
       <!-- Main Image Display -->
       <div class="relative max-w-full max-h-full">
         <img :src="imageUrl" :alt="`Page ${currentPage + 1}`" class="h-auto max-h-screen w-auto object-contain" />
@@ -101,24 +101,24 @@
       <div class="absolute right-0 top-0 h-full w-1/3 cursor-pointer" @click="nextPage"></div>
     </div>
 
-    <!-- Page Counter & Jumper -->
-    <div class="absolute bottom-0 p-4 text-lg font-semibold bg-black bg-opacity-50 rounded-t-lg flex items-center space-x-2">
-       <div v-if="!showPageInput" @click="togglePageInput" class="cursor-pointer">
+    <!-- Page Counter & Slider -->
+    <div
+      class="absolute bottom-0 p-4 text-lg font-semibold bg-black bg-opacity-50 rounded-t-lg flex items-center justify-center transition-all duration-300 ease-in-out"
+      :class="{ 'w-auto px-4 py-2': !isSliderExpanded, 'w-1/2 px-6 py-4': isSliderExpanded }"
+      @click.stop="isSliderExpanded = true"
+    >
+      <div v-if="!isSliderExpanded" class="cursor-pointer">
         <span>{{ currentPage + 1 }} / {{ totalPages }}</span>
       </div>
-       <div v-else class="flex items-center">
+      <div v-else class="flex items-center w-full">
         <input
-          ref="pageInputRef"
-          type="number"
-          v-model.number="jumpToPageInput"
-          @keyup.enter="goToPage"
-          @blur="showPageInput = false"
-          class="w-20 bg-gray-700 text-white text-center rounded outline-none"
-          :min="1"
-          :max="totalPages"
+          type="range"
+          v-model="currentPage"
+          :min="0"
+          :max="totalPages - 1"
+          class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider-thumb-white"
         />
-        <span class="mx-2">/ {{ totalPages }}</span>
-        <button @click="goToPage" class="px-2 py-0.5 bg-blue-600 rounded text-sm hover:bg-blue-500">Go</button>
+        <span class="ml-4 w-20 text-right">{{ currentPage + 1 }} / {{ totalPages }}</span>
       </div>
     </div>
   </div>
@@ -138,9 +138,7 @@ const totalPages = ref(0);
 const spreadPages = ref([]); // To store the pages that are spreads
 const isLoading = ref(true);
 const error = ref(null);
-const showPageInput = ref(false);
-const jumpToPageInput = ref(null);
-const pageInputRef = ref(null);
+const isSliderExpanded = ref(false);
 const bookmarks = ref([]);
 const showBookmarksPanel = ref(false);
 const showAddBookmarkModal = ref(false);
@@ -313,26 +311,14 @@ const prevPage = () => {
 };
 
 const jumpToPage = (pageNumber) => {
-  const newPage = typeof pageNumber === 'number' ? pageNumber : jumpToPageInput.value - 1;
+  const newPage = typeof pageNumber === 'number' ? pageNumber : currentPage.value;
   if (newPage >= 0 && newPage < totalPages.value) {
     currentPage.value = newPage;
     if (showFileInfoPanel.value) toggleFileInfoPanel().then(toggleFileInfoPanel); // Re-fetch data for new page
   }
-  jumpToPageInput.value = null; // Reset input
-  showPageInput.value = false;
 };
 
-const goToPage = () => {
-  jumpToPage();
-};
 
-const togglePageInput = async () => {
-  showPageInput.value = true;
-  jumpToPageInput.value = currentPage.value + 1;
-  await nextTick(); // Wait for the DOM to update
-  pageInputRef.value?.focus();
-  pageInputRef.value?.select();
-};
 
 const handleKeydown = (e) => {
   if (e.target.tagName === 'INPUT') return;

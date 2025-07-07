@@ -22,4 +22,34 @@ body {
   .btn-danger {
     @apply bg-red-500 hover:bg-red-600;
   }
-} 
+}
+
+/* Custom slider thumb style */
+.slider-thumb-white::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: white;
+  cursor: grab;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+}
+
+.slider-thumb-white::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: white;
+  cursor: grab;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+}
+
+.slider-thumb-white::-ms-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: white;
+  cursor: grab;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+}
