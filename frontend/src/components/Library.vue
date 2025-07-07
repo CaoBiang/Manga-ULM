@@ -113,13 +113,13 @@ onMounted(() => {
             id="library-path"
             type="text" 
             v-model="libraryPath" 
-            placeholder="例如：C:\\Users\\YourUser\\Documents\\Manga"
-            class="flex-grow p-2 border rounded-l-md focus:ring-indigo-500 focus:border-indigo-500"
+            placeholder="例如：C:\Users\YourUser\Documents\Manga"
+            class="flex-grow p-2 border rounded-l-md focus:ring-monet-blue focus:border-monet-blue"
           />
           <button 
             @click="handleScan" 
             :disabled="scanStatus === 'scanning'"
-            class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-r-md hover:bg-indigo-700 disabled:bg-indigo-300 transition-colors"
+            class="btn btn-primary rounded-l-none"
           >
             {{ scanStatus === 'scanning' ? '正在扫描...' : '开始扫描' }}
           </button>
@@ -128,9 +128,9 @@ onMounted(() => {
       <div v-if="scanStatus !== 'idle'" class="mt-4">
         <h3 class="font-semibold text-gray-700">Scan Progress</h3>
         <div class="mt-2">
-          <div class="bg-gray-200 rounded-full h-4">
+          <div class="bg-monet-grey rounded-full h-4">
             <div 
-              class="bg-green-500 h-4 rounded-full transition-all duration-300 ease-in-out" 
+              class="bg-monet-blue h-4 rounded-full transition-all duration-300 ease-in-out" 
               :style="{ width: scanProgress + '%' }"
             ></div>
           </div>
@@ -148,13 +148,13 @@ onMounted(() => {
     <div class="p-6 bg-white rounded-lg shadow mb-6">
       <h2 class="text-xl font-semibold text-gray-700 mb-4">快捷操作</h2>
       <div class="flex space-x-2">
-        <button @click="pickRandomManga" class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700">
+        <button @click="pickRandomManga" class="btn btn-primary">
           随机抽取一本漫画
         </button>
-        <button @click="toggleRenameMode" class="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600">
+        <button @click="toggleRenameMode" class="btn btn-secondary">
           {{ isRenameMode ? '取消重命名' : '批量重命名' }}
         </button>
-        <button v-if="isRenameMode" @click="startBatchRename" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
+        <button v-if="isRenameMode" @click="startBatchRename" class="btn btn-secondary">
           应用模板到 {{ selectedFilesForRename.size }} 个文件
         </button>
       </div>
@@ -187,13 +187,13 @@ onMounted(() => {
 
         <!-- Pagination Controls -->
         <div class="mt-6 flex justify-center items-center space-x-2">
-          <button @click="changePage(pagination.page - 1)" :disabled="pagination.page === 1" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50">
+          <button @click="changePage(pagination.page - 1)" :disabled="pagination.page === 1" class="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-monet-blue hover:text-white disabled:opacity-50">
             &laquo; 上一页
           </button>
           <span class="text-sm text-gray-700">
             第 {{ pagination.page }} 页 / 共 {{ pagination.total_pages }} 页
           </span>
-          <button @click="changePage(pagination.page + 1)" :disabled="pagination.page === pagination.total_pages" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50">
+          <button @click="changePage(pagination.page + 1)" :disabled="pagination.page === pagination.total_pages" class="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-monet-blue hover:text-white disabled:opacity-50">
             下一页 &raquo;
           </button>
         </div>

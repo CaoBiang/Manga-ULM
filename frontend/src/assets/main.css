@@ -1,3 +1,25 @@
 @tailwind base;
 @tailwind components;
-@tailwind utilities; 
+@tailwind utilities;
+
+body {
+  @apply bg-monet-cream text-gray-800;
+}
+
+@layer components {
+  .btn {
+    @apply px-4 py-2 rounded-md font-semibold text-white transition-colors duration-300;
+  }
+  .btn-sm {
+    @apply px-3 py-1 text-sm;
+  }
+  .btn-primary {
+    @apply bg-monet-blue hover:bg-opacity-80;
+  }
+  .btn-secondary {
+    @apply bg-monet-green text-gray-800 hover:bg-opacity-80;
+  }
+  .btn-danger {
+    @apply bg-red-500 hover:bg-red-600;
+  }
+} 

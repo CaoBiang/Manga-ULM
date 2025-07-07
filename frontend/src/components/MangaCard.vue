@@ -34,12 +34,12 @@ const addToWishlist = async (event) => {
 
 <template>
   <div class="group relative bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300">
-    <button v-if="!hideWishlistButton" @click="addToWishlist" class="absolute top-2 right-2 z-10 p-1.5 bg-black bg-opacity-40 rounded-full text-white hover:bg-opacity-60 hover:text-yellow-300 transition-colors" title="Add to Wishlist">
+    <button v-if="!hideWishlistButton" @click="addToWishlist" class="absolute top-2 right-2 z-10 p-1.5 bg-white bg-opacity-40 rounded-full text-gray-700 hover:bg-monet-blue hover:text-white transition-colors" title="Add to Wishlist">
       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
         <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
       </svg>
     </button>
-    <div class="w-full h-64 bg-gray-200">
+    <div class="w-full h-64 bg-monet-grey">
       <img :src="manga.cover_url" :alt="fileName" class="w-full h-full object-cover" @error.once="e => e.target.src = 'https://via.placeholder.com/300x400.png?text=No+Cover'"/>
     </div>
     <div class="p-3">
@@ -53,17 +53,17 @@ const addToWishlist = async (event) => {
         <span
           v-for="tag in manga.tags"
           :key="tag.id"
-          class="px-2 py-0.5 text-xs bg-gray-200 text-gray-700 rounded-full"
+          class="px-2 py-0.5 text-xs bg-monet-grey text-gray-700 rounded-full"
         >
           {{ tag.name }}
         </span>
       </div>
     </div>
     <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center gap-x-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-      <RouterLink :to="{ name: 'reader', params: { id: manga.id } }" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700">
+      <RouterLink :to="{ name: 'reader', params: { id: manga.id } }" class="btn btn-primary">
         Read
       </RouterLink>
-      <RouterLink :to="{ name: 'edit', params: { id: manga.id } }" class="px-4 py-2 bg-gray-600 text-white font-semibold rounded-md hover:bg-gray-700">
+      <RouterLink :to="{ name: 'edit', params: { id: manga.id } }" class="btn btn-secondary">
         Edit
       </RouterLink>
     </div>

@@ -171,7 +171,7 @@ const availableParents = computed(() => {
           <option v-for="type in types" :key="type.id" :value="type.id">{{ type.name }}</option>
         </select>
       </div>
-      <button @click="openCreateModal" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+      <button @click="openCreateModal" class="btn btn-primary">
         + {{ $t('newTag') }}
       </button>
     </div>
@@ -204,8 +204,8 @@ const availableParents = computed(() => {
             </td>
             <td class="py-2 px-4">
               <div class="flex space-x-2">
-                <button @click="openEditModal(tag)" class="text-blue-600 hover:text-blue-800 mr-2">{{ $t('edit') }}</button>
-                <button @click="deleteTag(tag.id)" class="text-red-600 hover:text-red-800">{{ $t('delete') }}</button>
+                <button @click="openEditModal(tag)" class="btn btn-secondary btn-sm">{{ $t('edit') }}</button>
+                <button @click="deleteTag(tag.id)" class="btn btn-danger btn-sm">{{ $t('delete') }}</button>
               </div>
             </td>
           </tr>
@@ -262,8 +262,8 @@ const availableParents = computed(() => {
 
         <!-- Actions -->
         <div class="mt-6 flex justify-end space-x-2">
-          <button @click="closeModal" class="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">{{ $t('cancel') }}</button>
-          <button @click="saveTag" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">{{ $t('save') }}</button>
+          <button @click="closeModal" class="btn btn-secondary">{{ $t('cancel') }}</button>
+          <button @click="saveTag" class="btn btn-primary">{{ $t('save') }}</button>
         </div>
       </div>
     </div>

@@ -53,7 +53,7 @@
               <button 
                 v-if="task.is_active"
                 @click="cancelTask(task.id)"
-                class="ml-2 px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600"
+                class="btn btn-danger btn-sm"
               >
                 {{ $t('cancel') }}
               </button>
@@ -66,13 +66,13 @@
       <div class="flex space-x-2">
         <button 
           @click="libraryStore.clearErrors()"
-          class="px-3 py-1 text-sm bg-gray-500 text-white rounded hover:bg-gray-600"
+          class="btn btn-secondary btn-sm"
         >
           {{ $t('clearErrors') }}
         </button>
         <button 
           @click="libraryStore.checkActiveTasks()"
-          class="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
+          class="btn btn-primary btn-sm"
         >
           {{ $t('refreshStatus') }}
         </button>
@@ -103,13 +103,13 @@
           <button 
             @click="startScan(p.path)" 
             :disabled="libraryStore.hasActiveScanTasks"
-            class="px-3 py-1 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-blue-300 disabled:cursor-not-allowed"
+            class="btn btn-primary btn-sm"
           >
             {{ libraryStore.hasActiveScanTasks ? $t('scanning') : $t('scan') }}
           </button>
           <button 
             @click="deletePath(p.id)" 
-            class="px-3 py-1 text-sm bg-red-500 text-white rounded-md hover:bg-red-600"
+            class="btn btn-danger btn-sm"
           >
             {{ $t('delete') }}
           </button>
@@ -132,7 +132,7 @@
           />
           <button 
             @click="addPath" 
-            class="px-4 py-2 bg-green-600 text-white font-semibold rounded-md hover:bg-green-700"
+            class="btn btn-primary"
           >
             {{ $t('add') }}
           </button>
@@ -144,7 +144,7 @@
         <button
           @click="scanAll"
           :disabled="libraryStore.hasActiveScanTasks"
-          class="w-full px-4 py-2 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700 disabled:bg-indigo-300 disabled:cursor-not-allowed"
+          class="w-full btn btn-primary"
         >
           {{ libraryStore.hasActiveScanTasks ? $t('scanning') : $t('scanAll') }}
         </button>

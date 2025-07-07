@@ -125,16 +125,16 @@ const saveEdit = async () => {
       <div v-if="editingTypeId === type.id" class="flex-grow flex items-center space-x-2">
         <input v-model="editingTypeName" type="text" class="p-1 border rounded-md w-full" />
         <input v-model="editingTypeSortOrder" type="number" class="p-1 border rounded-md w-20" />
-        <button @click="saveEdit" class="text-green-600 hover:text-green-800">&#10003;</button>
-        <button @click="cancelEditing" class="text-red-600 hover:text-red-800">&#10005;</button>
+        <button @click="saveEdit" class="btn btn-primary btn-sm">&#10003;</button>
+        <button @click="cancelEditing" class="btn btn-danger btn-sm">&#10005;</button>
       </div>
       <div v-else class="flex-grow">
         <span class="font-medium">{{ type.name }}</span>
         <span class="text-xs text-gray-500 ml-2">（{{ $t('sortOrder') }}：{{ type.sort_order }}）</span>
       </div>
       <div v-if="editingTypeId !== type.id" class="flex space-x-2">
-        <button @click="startEditing(type)" class="text-blue-600 hover:text-blue-800">{{ $t('edit') }}</button>
-        <button @click="deleteType(type.id)" class="text-red-600 hover:text-red-800">{{ $t('delete') }}</button>
+        <button @click="startEditing(type)" class="btn btn-secondary btn-sm">{{ $t('edit') }}</button>
+        <button @click="deleteType(type.id)" class="btn btn-danger btn-sm">{{ $t('delete') }}</button>
       </div>
     </div>
 
@@ -147,15 +147,15 @@ const saveEdit = async () => {
         <input v-model="newTypeName" type="text" :placeholder="$t('typeName')" class="p-1 border rounded-md w-full mb-2" />
         <input v-model="newTypeSortOrder" type="number" :placeholder="$t('sortValue')" class="p-1 border rounded-md w-full mb-2" />
         <div class="flex space-x-2">
-          <button @click="createType" class="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700">{{ $t('save') }}</button>
-          <button @click="isCreating = false" class="px-3 py-1 bg-gray-200 rounded-md hover:bg-gray-300">{{ $t('cancel') }}</button>
+          <button @click="createType" class="btn btn-primary">{{ $t('save') }}</button>
+          <button @click="isCreating = false" class="btn btn-secondary">{{ $t('cancel') }}</button>
         </div>
       </div>
     </div>
     <hr />
     <!-- Undefined Tag Scanner -->
     <div class="mt-4">
-        <button @click="startScan" class="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700">
+        <button @click="startScan" class="btn btn-primary">
             {{ $t('scanNewTags') }}
         </button>
     </div>
@@ -174,8 +174,8 @@ const saveEdit = async () => {
             <select v-model="selectedTagType" class="p-1 border rounded-md">
                 <option v-for="type in types" :key="type.id" :value="type.id">{{ type.name }}</option>
             </select>
-            <button @click="addSelectedTags" class="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700" :disabled="selectedScannedTags.length === 0">{{ $t('addSelectedTags') }}</button>
-            <button @click="showScanner = false" class="px-3 py-1 bg-gray-200 rounded-md hover:bg-gray-300">{{ $t('close') }}</button>
+            <button @click="addSelectedTags" class="btn btn-primary" :disabled="selectedScannedTags.length === 0">{{ $t('addSelectedTags') }}</button>
+            <button @click="showScanner = false" class="btn btn-secondary">{{ $t('close') }}</button>
         </div>
         <p class="text-sm text-gray-600 mt-2">{{ $t('tagsSelected', { count: selectedScannedTags.length }) }}</p>
       </div>

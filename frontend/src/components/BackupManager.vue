@@ -52,7 +52,7 @@ onMounted(fetchBackups);
   <div class="p-6 bg-white rounded-lg shadow">
     <h2 class="text-xl font-semibold text-gray-700 mb-4">{{ $t('backupRestore') }}</h2>
     <div class="mb-4">
-        <button @click="createBackup" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+        <button @click="createBackup" class="btn btn-primary">
             {{ $t('createNewBackup') }}
         </button>
     </div>
@@ -63,7 +63,7 @@ onMounted(fetchBackups);
         <ul v-else-if="backups.length > 0" class="divide-y border rounded-md">
             <li v-for="backup in backups" :key="backup" class="p-3 flex justify-between items-center">
                 <span class="font-mono text-sm">{{ backup }}</span>
-                <button @click="restoreBackup(backup)" class="px-3 py-1 bg-red-600 text-white text-sm rounded-md hover:bg-red-700">
+                <button @click="restoreBackup(backup)" class="btn btn-danger btn-sm">
                     {{ $t('restore') }}
                 </button>
             </li>
