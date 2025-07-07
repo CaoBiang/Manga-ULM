@@ -1,5 +1,5 @@
 <template>
-  <div class="fixed inset-0 bg-gray-900 text-white flex flex-col items-center justify-center">
+  <div class="fixed inset-0 bg-gray-900 text-white flex flex-col items-center justify-center" @click="collapseToolbar">
     <div class="absolute top-0 left-0 p-4 z-10 flex space-x-4 items-center">
       <button @click="router.back()" class="px-3 py-1 bg-gray-700 rounded hover:bg-gray-600">
         &larr; {{ $t('backToLibrary') }}
@@ -31,7 +31,7 @@
     <!-- Toolbar -->
     <div
       @click.stop
-      class="absolute bottom-0 left-1/2 -translate-x-1/2 bg-black bg-opacity-70 rounded-t-lg transition-all duration-300 ease-in-out flex flex-col p-2"
+      class="absolute bottom-0 left-1/2 -translate-x-1/2 bg-black bg-opacity-70 rounded-t-lg transition-[width] duration-300 ease-in-out flex flex-col p-2"
       :class="{
         'w-40': !isToolbarExpanded,
         'w-3/4 max-w-4xl': isToolbarExpanded,
@@ -41,13 +41,13 @@
       <div 
         class="flex items-center justify-center w-full h-10"
         :class="{'cursor-pointer': !isToolbarExpanded}"
-        @click="!isToolbarExpanded ? (isToolbarExpanded = true) : null"
+        @click="expandToolbar"
       >
         <div class="relative w-full h-full flex items-center justify-center">
           <!-- Collapsed View: Page Number -->
           <div 
             class="absolute inset-0 flex items-center justify-center transition-opacity duration-200"
-            :class="showExpandedControls ? 'opacity-0' : 'opacity-100'"
+            :class="showExpandedControls ? 'opacity-0 pointer-events-none' : 'opacity-100'"
           >
             <span class="text-lg font-semibold px-2">{{ currentPage + 1 }} / {{ totalPages }}</span>
           </div>
@@ -55,38 +55,36 @@
           <!-- Expanded View: Full Controls -->
           <div 
             class="absolute inset-0 flex items-center justify-between w-full h-full space-x-4 transition-opacity duration-200"
-            :class="showExpandedControls ? 'opacity-100' : 'opacity-0'"
+            :class="showExpandedControls ? 'opacity-100' : 'opacity-0 pointer-events-none'"
           >
-            <template v-if="showExpandedControls">
-              <input
-                type="range"
-                v-model="currentPage"
-                :min="0"
-                :max="totalPages - 1"
-                class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider-thumb-white"
-                @input="jumpToPage($event.target.value)"
-              />
-              <span class="w-24 text-right text-lg font-semibold">{{ currentPage + 1 }} / {{ totalPages }}</span>
-              
-              <div class="flex items-center space-x-2">
-                <!-- Bookmark Button -->
-                <button @click.stop="handleBookmarkButtonClick" :class="['p-2 rounded-full transition-colors', isCurrentPageBookmarked ? 'text-yellow-400 bg-gray-700' : 'bg-gray-800 bg-opacity-75 hover:bg-gray-700', {'!bg-blue-600 text-white': activePanel === 'addBookmark'}]">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" :fill="isCurrentPageBookmarked ? 'currentColor' : 'none'" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                  </svg>
-                </button>
-                <!-- Bookmarks List Toggle -->
-                <button @click.stop="togglePanel('bookmarks')" :class="['p-2 rounded-full transition-colors bg-gray-800 bg-opacity-75 hover:bg-gray-700', {'!bg-blue-600 text-white': activePanel === 'bookmarks'}]">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" /></svg>
-                </button>
-                <!-- File Info Button -->
-                <button @click.stop="togglePanel('fileInfo')" :class="['p-2 rounded-full transition-colors bg-gray-800 bg-opacity-75 hover:bg-gray-700', {'!bg-blue-600 text-white': activePanel === 'fileInfo'}]">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </button>
-              </div>
-            </template>
+            <input
+              type="range"
+              v-model="currentPage"
+              :min="0"
+              :max="totalPages - 1"
+              class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider-thumb-white"
+              @input="jumpToPage($event.target.value)"
+            />
+            <span class="w-24 text-right text-lg font-semibold">{{ currentPage + 1 }} / {{ totalPages }}</span>
+            
+            <div class="flex items-center space-x-2">
+              <!-- Bookmark Button -->
+              <button @click.stop="handleBookmarkButtonClick" :class="['p-2 rounded-full transition-colors', isCurrentPageBookmarked ? 'text-yellow-400 bg-gray-700' : 'bg-gray-800 bg-opacity-75 hover:bg-gray-700', {'!bg-blue-600 text-white': activePanel === 'addBookmark'}]">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" :fill="isCurrentPageBookmarked ? 'currentColor' : 'none'" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                </svg>
+              </button>
+              <!-- Bookmarks List Toggle -->
+              <button @click.stop="togglePanel('bookmarks')" :class="['p-2 rounded-full transition-colors bg-gray-800 bg-opacity-75 hover:bg-gray-700', {'!bg-blue-600 text-white': activePanel === 'bookmarks'}]">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" /></svg>
+              </button>
+              <!-- File Info Button -->
+              <button @click.stop="togglePanel('fileInfo')" :class="['p-2 rounded-full transition-colors bg-gray-800 bg-opacity-75 hover:bg-gray-700', {'!bg-blue-600 text-white': activePanel === 'fileInfo'}]">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -353,14 +351,14 @@ const jumpToBookmark = (page) => {
 const nextPage = () => {
   if (currentPage.value < totalPages.value - 1) {
     currentPage.value++;
-    isToolbarExpanded.value = false;
+    collapseToolbar();
   }
 };
 
 const prevPage = () => {
   if (currentPage.value > 0) {
     currentPage.value--;
-    isToolbarExpanded.value = false;
+    collapseToolbar();
   }
 };
 
@@ -385,7 +383,7 @@ const handleKeydown = (e) => {
     if (activePanel.value) {
       activePanel.value = '';
     } else if (isToolbarExpanded.value) {
-      isToolbarExpanded.value = false;
+      collapseToolbar();
     } else {
       router.back();
     }
@@ -448,6 +446,31 @@ const formatBytes = (bytes, decimals = 2) => {
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+};
+
+const expandToolbar = () => {
+  if (isToolbarExpanded.value) return;
+
+  isToolbarExpanded.value = true;
+  // If expanding, wait for the animation to get part-way through before showing the full controls.
+  // This avoids the visual "squishing" of controls as the container expands.
+  setTimeout(() => {
+    // A quick collapse might have happened between the timeout being set and it firing.
+    if (isToolbarExpanded.value) {
+      showExpandedControls.value = true;
+    }
+  }, 150); // This delay should be less than the transition duration (300ms).
+};
+
+const collapseToolbar = () => {
+  if (!isToolbarExpanded.value) return;
+
+  // Close any active sub-panel
+  activePanel.value = '';
+
+  // Set both states simultaneously to avoid any intermediate state
+  showExpandedControls.value = false;
+  isToolbarExpanded.value = false;
 };
 
 onMounted(() => {
