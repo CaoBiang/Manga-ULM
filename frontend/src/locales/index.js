@@ -84,7 +84,15 @@ export const messages = {
     type: 'Type',
     parentTag: 'Parent Tag',
     aliases: 'Aliases',
-    actions: 'Actions'
+    actions: 'Actions',
+    backToLibrary: 'Back to Library',
+    bookmarks: 'Bookmarks',
+    fileInfo: 'File Information',
+    addBookmark: 'Add Bookmark',
+    addBookmarkPrompt: 'Add a name for your bookmark on page {page}.',
+    bookmarkNamePlaceholder: 'Enter bookmark name (optional)',
+    noBookmarks: 'No bookmarks yet.',
+    remove: 'Remove'
   },
   zh: {
     settings: '设置',
@@ -171,6 +179,14 @@ export const messages = {
     type: '类型',
     parentTag: '父标签',
     aliases: '别名',
-    actions: '操作'
+    actions: '操作',
+    backToLibrary: '返回书库',
+    bookmarks: '书签',
+    fileInfo: '文件信息',
+    addBookmark: '添加书签',
+    addBookmarkPrompt: '为第 {page} 页的书签添加名称。',
+    bookmarkNamePlaceholder: '输入书签名称（可选）',
+    noBookmarks: '暂无书签。',
+    remove: '移除'
   }
 }; 

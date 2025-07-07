@@ -2,27 +2,11 @@
   <div class="fixed inset-0 bg-gray-900 text-white flex flex-col items-center justify-center">
     <div class="absolute top-0 left-0 p-4 z-10 flex space-x-4 items-center">
       <button @click="router.back()" class="px-3 py-1 bg-gray-700 rounded hover:bg-gray-600">
-        &larr; Back to Library
+        &larr; {{ $t('backToLibrary') }}
       </button>
       <span v-if="isCurrentPageSpread" class="px-2 py-1 text-xs font-bold bg-purple-600 rounded">
         SPREAD
       </span>
-      <!-- Bookmark Button -->
-      <button @click="handleBookmarkButtonClick" :class="['p-2 rounded-full bg-gray-800 bg-opacity-75 hover:bg-gray-700', { 'text-yellow-400': isCurrentPageBookmarked }]">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" :fill="isCurrentPageBookmarked ? 'currentColor' : 'none'" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-        </svg>
-      </button>
-      <!-- Bookmarks List Toggle -->
-      <button @click="showBookmarksPanel = !showBookmarksPanel" class="p-2 rounded-full bg-gray-800 bg-opacity-75 hover:bg-gray-700">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" /></svg>
-      </button>
-      <!-- File Info Button -->
-      <button @click="toggleFileInfoPanel" class="p-2 rounded-full bg-gray-800 bg-opacity-75 hover:bg-gray-700">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-      </button>
     </div>
     
     <div v-if="isLoading" class="text-center">
@@ -35,25 +19,25 @@
 
     <!-- Bookmarks Panel -->
     <div v-if="showBookmarksPanel" class="absolute top-20 right-4 bg-gray-800 bg-opacity-90 p-4 rounded-lg z-20 max-h-[80vh] overflow-y-auto w-64">
-      <h3 class="text-lg font-bold mb-4">Bookmarks</h3>
+      <h3 class="text-lg font-bold mb-4">{{ $t('bookmarks') }}</h3>
       <ul v-if="bookmarks.length > 0" class="space-y-2">
         <li v-for="bookmark in bookmarks" :key="bookmark.id" 
             @click="jumpToBookmark(bookmark.page_number)"
             class="cursor-pointer hover:bg-gray-700 p-2 rounded flex justify-between items-center">
             <div>
-              <span class="font-semibold">Page {{ bookmark.page_number + 1 }}</span>
+              <span class="font-semibold">{{ $t('page') }} {{ bookmark.page_number + 1 }}</span>
               <span v-if="bookmark.note" class="block text-sm text-gray-300">{{ bookmark.note }}</span>
             </div>
-          <button @click.stop="deleteBookmark(bookmark.id)" class="text-red-500 hover:text-red-400 text-xs px-2 py-1 rounded hover:bg-gray-600 shrink-0">Remove</button>
+          <button @click.stop="deleteBookmark(bookmark.id)" class="text-red-500 hover:text-red-400 text-xs px-2 py-1 rounded hover:bg-gray-600 shrink-0">{{ $t('remove') }}</button>
         </li>
       </ul>
-      <p v-else class="text-gray-400">No bookmarks yet.</p>
+      <p v-else class="text-gray-400">{{ $t('noBookmarks') }}</p>
     </div>
 
     <!-- File Info Panel -->
     <div v-if="showFileInfoPanel" class="absolute top-20 right-4 bg-gray-800 bg-opacity-90 p-4 rounded-lg z-20 w-auto max-w-sm">
-      <h3 class="text-lg font-bold mb-4">File Information</h3>
-      <div v-if="fileInfo.loading" class="text-gray-400">Loading...</div>
+      <h3 class="text-lg font-bold mb-4">{{ $t('fileInfo') }}</h3>
+      <div v-if="fileInfo.loading" class="text-gray-400">{{ $t('loading') }}...</div>
       <div v-else-if="fileInfo.error" class="text-red-400">{{ fileInfo.error }}</div>
       <div v-else class="space-y-2 text-sm">
         <div>
@@ -73,19 +57,19 @@
     <!-- Add Bookmark Modal -->
     <div v-if="showAddBookmarkModal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-30">
         <div class="bg-gray-800 p-6 rounded-lg shadow-xl w-96">
-            <h3 class="text-xl font-bold mb-4">Add Bookmark</h3>
-            <p class="mb-4 text-gray-300">Add a name for your bookmark on page {{ currentPage + 1 }}.</p>
+            <h3 class="text-xl font-bold mb-4">{{ $t('addBookmark') }}</h3>
+            <p class="mb-4 text-gray-300">{{ $t('addBookmarkPrompt', { page: currentPage + 1 }) }}</p>
             <input 
                 ref="bookmarkNameInputRef"
                 type="text" 
                 v-model="newBookmarkName"
-                placeholder="Enter bookmark name (optional)"
+                :placeholder="$t('bookmarkNamePlaceholder')"
                 @keyup.enter="saveNewBookmark"
                 class="w-full bg-gray-700 text-white rounded p-2 mb-4 outline-none focus:ring-2 focus:ring-blue-500"
             />
             <div class="flex justify-end space-x-4">
-                <button @click="showAddBookmarkModal = false" class="px-4 py-2 bg-gray-600 rounded hover:bg-gray-500">Cancel</button>
-                <button @click="saveNewBookmark" class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-500">Save</button>
+                <button @click="showAddBookmarkModal = false" class="px-4 py-2 bg-gray-600 rounded hover:bg-gray-500">{{ $t('cancel') }}</button>
+                <button @click="saveNewBookmark" class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-500">{{ $t('save') }}</button>
             </div>
         </div>
     </div>
@@ -104,13 +88,13 @@
     <!-- Page Counter & Slider -->
     <div
       class="absolute bottom-0 p-4 text-lg font-semibold bg-black bg-opacity-50 rounded-t-lg flex items-center justify-center transition-all duration-300 ease-in-out"
-      :class="{ 'w-auto px-4 py-2': !isSliderExpanded, 'w-1/2 px-6 py-2': isSliderExpanded }"
+      :class="{ 'w-auto px-4 py-2': !isSliderExpanded, 'w-3/4 px-6 py-2': isSliderExpanded }"
       @click.stop="isSliderExpanded = true"
     >
       <div v-if="!isSliderExpanded" class="cursor-pointer">
         <span>{{ currentPage + 1 }} / {{ totalPages }}</span>
       </div>
-      <div v-else class="flex items-center w-full">
+      <div v-else class="flex items-center justify-between w-full">
         <input
           type="range"
           v-model.number="currentPage"
@@ -118,7 +102,26 @@
           :max="totalPages - 1"
           class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider-thumb-white"
         />
-        <span class="ml-4 w-20 text-right">{{ currentPage + 1 }} / {{ totalPages }}</span>
+        <span class="ml-4 w-24 text-right">{{ currentPage + 1 }} / {{ totalPages }}</span>
+        
+        <div class="flex items-center space-x-2 ml-6">
+          <!-- Bookmark Button -->
+          <button @click.stop="handleBookmarkButtonClick" :class="['p-2 rounded-full bg-gray-800 bg-opacity-75 hover:bg-gray-700', { 'text-yellow-400': isCurrentPageBookmarked }]">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" :fill="isCurrentPageBookmarked ? 'currentColor' : 'none'" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+            </svg>
+          </button>
+          <!-- Bookmarks List Toggle -->
+          <button @click.stop="showBookmarksPanel = !showBookmarksPanel" class="p-2 rounded-full bg-gray-800 bg-opacity-75 hover:bg-gray-700">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" /></svg>
+          </button>
+          <!-- File Info Button -->
+          <button @click.stop="toggleFileInfoPanel" class="p-2 rounded-full bg-gray-800 bg-opacity-75 hover:bg-gray-700">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   </div>
