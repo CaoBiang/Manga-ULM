@@ -113,7 +113,7 @@
       <div v-else class="flex items-center w-full">
         <input
           type="range"
-          v-model="currentPage"
+          v-model.number="currentPage"
           :min="0"
           :max="totalPages - 1"
           class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider-thumb-white"
