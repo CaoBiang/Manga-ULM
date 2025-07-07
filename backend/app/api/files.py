@@ -17,9 +17,9 @@ def natural_sort_key(s):
     """
     return [int(text) if text.isdigit() else text.lower() for text in re.split('([0-9]+)', s)]
 
-def file_to_dict(file_obj):
+def file_to_dict(file_obj, is_liked=False):
     """Converts a File object to a dictionary."""
-    return {
+    data = {
         'id': file_obj.id,
         'file_path': file_obj.file_path,
         'file_hash': file_obj.file_hash,
@@ -35,6 +35,14 @@ def file_to_dict(file_obj):
         'cover_url': f'/api/v1/covers/{file_obj.file_hash}.webp',
         'tags': [{'id': t.id, 'name': t.name} for t in file_obj.tags]
     }
+    # If is_liked is passed as True, we trust it.
+    # Otherwise, we check the relationship. This is useful for lists of likes.
+    if is_liked:
+        data['is_liked'] = True
+    else:
+        # The relationship will be named 'like_item' after the model change
+        data['is_liked'] = file_obj.like_item is not None
+    return data
 
 def get_image_from_archive(file_path, page_num):
     """

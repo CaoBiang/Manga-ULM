@@ -1,6 +1,3 @@
----
-alwaysApply: false
----
 在对话开始时阅读本需求规格说明书，在阅读完成后告诉用户“我已阅读需求规格说明书，并严格按照需求执行任务。”
 
 ### **Manga-ULM (Ultimate Local Manager) - V1.0 需求规格说明书**
@@ -108,7 +105,7 @@ alwaysApply: false
 
 **3.5 智能发现与推荐系统**
 
-*   **3.5.1 待读清单 (Wishlist)**: 用户可以在漫画列表或详情页将任何一本漫画加入“待读清单”。主页有专门的区域展示此列表。
+*   **3.5.1 喜欢列表 (Likes)**: 用户可以在漫画列表或详情页将任何一本漫画加入“喜欢列表”。主页有专门的区域展示此列表。
 *   **3.5.2 随机一本 (Random Pick)**: 在主界面提供一个“手气不错”按钮。用户可以打开高级筛选器（如：TAG必须包含“科幻”，状态必须是“未读”），然后点击此按钮，系统将根据筛选条件随机推荐一本漫画。
 *   **3.5.3 相关推荐 (Related Content)**: 在漫画详情页，根据该漫画的“作者”、“系列”、“主要题材”等核心TAG，在下方展示库中其他拥有相同TAG的漫画，促进内容的交叉发现。
 
@@ -125,7 +122,7 @@ alwaysApply: false
 
 #### **4.0 数据库详细设计 (Schema V2.1)**
 
-*   **架构说明**: 此数据库模式为单用户场景高度优化。在未来的版本迭代中，如果需要支持多用户或云同步功能，应考虑将用户相关的状态（如 `reading_status`, `last_read_page`, `last_read_date` 以及 `bookmarks` 表和 `wishlist` 表）重构至与用户ID关联的独立表中，以实现数据隔离。
+*   **架构说明**: 此数据库模式为单用户场景高度优化。在未来的版本迭代中，如果需要支持多用户或云同步功能，应考虑将用户相关的状态（如 `reading_status`, `last_read_page`, `last_read_date` 以及 `bookmarks` 表和 `likes` 表）重构至与用户ID关联的独立表中，以实现数据隔离。
 
 *   **Table: `config`** (键值存储系统配置)
     *   `key` (TEXT, PRIMARY KEY), `value` (TEXT)
@@ -158,7 +155,7 @@ alwaysApply: false
     *   `file_id` (INTEGER, FOREIGN KEY to `files.id`), `tag_id` (INTEGER, FOREIGN KEY to `tags.id`), PRIMARY KEY (`file_id`, `tag_id`)
 *   **Table: `bookmarks`**
     *   `id` (INTEGER, PRIMARY KEY AUTOINCREMENT), `file_id` (INTEGER, NOT NULL, FOREIGN KEY to `files.id`), `page_number` (INTEGER, NOT NULL), `note` (TEXT), `created_at` (DATETIME)
-*   **Table: `wishlist`**
+*   **Table: `likes`**
     *   `id` (INTEGER, PRIMARY KEY AUTOINCREMENT)
     *   `file_id` (INTEGER, NOT NULL, FOREIGN KEY to `files.id`, UNIQUE)
     *   `added_at` (DATETIME)
@@ -174,9 +171,9 @@ alwaysApply: false
 | `GET`    | `/api/v1/files`                                     | 获取文件列表（支持复杂的筛选、排序、分页）                 |
 | `GET`    | `/api/v1/files/random`                              | 根据筛选条件随机获取一个文件                               |
 | `GET`    | `/api/v1/files/{id}/page/{page_num}`                | 获取漫画单页图片流                                         |
-| `GET`    | `/api/v1/wishlist`                                  | 获取待读清单                                               |
-| `POST`   | `/api/v1/wishlist/{file_id}`                        | 添加到待读清单                                             |
-| `DELETE` | `/api/v1/wishlist/{file_id}`                        | 从待读清单移除                                             |
+| `GET`    | `/api/v1/likes`                                     | 获取喜欢列表                                               |
+| `POST`   | `/api/v1/likes/{file_id}`                           | 添加到喜欢列表                                             |
+| `DELETE` | `/api/v1/likes/{file_id}`                           | 从喜欢列表移除                                             |
 | `POST`   | `/api/v1/maintenance/check-integrity`               | 启动文件完整性检查任务                                     |
 | `GET`    | `/api/v1/maintenance/duplicates`                    | 获取重复文件报告                                           |
 | `POST`   | `/api/v1/maintenance/cleanup-missing`               | 批量清理已丢失的文件记录                                   |
@@ -197,198 +194,7 @@ alwaysApply: false
     *   **开发侧**: 后端使用标准 `logging` 模块，分级（DEBUG, INFO, WARNING, ERROR）记录详细日志到本地文件，便于排错。
 *   **6.5 资源占用**:
     *   **6.5.1 空闲状态 (Idle State)**: 当没有活动任务（如扫描、API请求）时，后端服务进程的CPU占用率应接近0%，内存占用应稳定在一个较低的水平（目标为 < 100MB）。
-    *   **6.5.2 活动状态 (Active State)**: 在执行CPU密集型任务（如全库扫描）时，应用应合理利用多核处理器，但不应导致系统完全无响应。内存使用应在可控范围内，避免因处理超大文件或海量数据而发生内存泄漏或无限制增长。### **Manga-ULM (Ultimate Local Manager) - V1.0 需求规格说明书**
-
-#### **1.0 项目愿景与范围**
-
-*   **1.1 项目宗旨**: 打造一款终极的、智能化的个人本地漫画收藏管理与阅读解决方案。本系统旨在通过提供强大的元数据管理、沉浸式阅读体验、健壮的数据安全与校验机制、以及高度自动化的文件维护功能，彻底解决数字漫画收藏家在整理、发现、阅读和维护其收藏品时遇到的所有核心痛点。
-*   **1.2 系统描述**: 本项目是一个部署在用户本地的客户端-服务器架构应用程序。后端作为一个独立的本地Web服务 (`http://127.0.0.1:PORT`) 运行，前端是一个现代化的单页应用(SPA)，用户可以通过浏览器访问或通过Electron/Tauri打包的桌面客户端使用。系统完全在本地运行，确保用户数据的绝对隐私和安全。
-*   **1.3 核心设计原则**:
-    *   **数据库是“唯一事实来源 (Single Source of Truth)”**: 所有应用内的操作都以数据库记录为准。文件系统的状态（如文件名、路径）是数据库中元数据状态的可变反映，而非权威来源。
-    *   **文件内容哈希是“唯一身份标识 (Unique Identifier)”**: 文件的SHA-256哈希值是其跨越时间与空间的唯一ID。这意味着无论文件如何被重命名或移动，其所有关联的元数据（TAG、阅读进度、书签、评分等）都将保持不变。
-*   **1.4 目标用户**: 拥有大量本地数字漫画收藏（格式包括但不限于.zip, .cbz, .rar, .7z）并追求极致整理效率、沉浸式阅读体验和数据长期安全性的漫画爱好者、数据整理控及数字档案管理员。
-
-#### **2.0 系统架构与技术选型**
-
-*   **2.1 整体架构**: 采用经典的**本地客户端-服务器（Local Client-Server）**架构。
-    *   **服务器 (Backend)**: Python 3.x + Flask。轻量、高效，生态系统成熟，非常适合快速构建RESTful API和处理复杂的后台逻辑。
-    *   **客户端 (Frontend)**: Vue.js (推荐) 或 React。利用其强大的组件化和状态管理能力，构建响应迅速、可维护性高的用户界面。
-    *   **通信协议**: 主要通过HTTP RESTful API进行数据交换。通过WebSocket (`Flask-SocketIO`)实现后端向前端的实时任务状态、进度和日志推送。
-
-*   **2.2 后端技术栈**:
-    *   **Web框架**: Flask。
-    *   **异步任务处理**:
-        *   **方案与职责划分**: 系统使用 **Dramatiq** 或 **Huey** 作为轻量级任务队列，负责管理所有长时间运行的后台任务（如扫描、重命名、完整性检查）的调度、持久化和重试逻辑。在执行扫描这类可并行的任务时，任务队列的工作进程 (Worker) 内部可以利用Python内置的 `concurrent.futures.ProcessPoolExecutor` 将大量文件的哈希计算、封面提取等操作分发到多个CPU核心上，以最大化利用硬件性能。
-        *   **设计决策**: 摒弃重量级的Celery + Redis/RabbitMQ方案，以显著降低应用的安装复杂性、资源占用和配置门槛，使其更适合作为一款易于分发的桌面级应用程序。
-    *   **WebSocket**: Flask-SocketIO，用于实现**异步任务中心**的实时反馈。
-    *   **外部依赖与部署策略**:
-        *   **依赖声明**: 为了支持 `.rar` 和 `.7z` 压缩包格式，后端将依赖 `unrar` 和 `7z` (p7zip) 命令行工具。
-        *   **部署策略**: 应用程序必须内置一个机制来管理这些外部依赖。推荐的策略是：
-            1.  在打包桌面应用（Electron/Tauri）时，将适用于Windows, macOS, Linux的相应工具二进制文件捆绑进安装包内。
-            2.  在应用首次启动或扫描包含特殊格式文件时，自动检查所需工具是否存在。如缺失，应能引导用户一键下载安装或在后台静默安装（需用户授权）。
-        *   **库选型要求**: 选用的Python封装库（如`rarfile`, `py7zr`）必须支持在不完全解压文件的前提下，读取文件列表和提取单个图片文件的流式操作，以保证阅读器性能。
-
-*   **2.3 数据库**:
-    *   **类型**: SQLite。零配置、数据库存储为单一文件 (`manga_manager.db`)，便于用户进行备份、迁移和管理。性能对于单用户桌面应用绰绰有余。
-
-#### **3.0 核心功能详细设计**
-
-**3.1 图书馆管理 (Library Management)**
-
-*   **3.1.1 索引与扫描**:
-    *   **触发**: 用户通过UI手动触发全库或指定文件夹的扫描。
-    *   **执行流程 (异步任务)**:
-        1.  后端接收指令，将“扫描任务”提交至任务队列。
-        2.  工作进程遍历指定目录，对每个支持的压缩文件：
-            a. 计算其 **SHA-256 哈希值**。
-            b. **智能封面提取与缓存**:
-                i. 按照文件名（`cover.*`, `000.*`, `封面.*` 等）和图片尺寸（宽高比）进行启发式排序，找到最可能是封面的图片。
-                ii. 将提取出的封面图进行压缩处理，并以 `{file_hash}.webp` 的格式持久化存储于应用配置目录下的 `covers` 缓存文件夹中。
-                iii. 后续请求封面图时，直接返回此缓存文件。提供“强制刷新封面”功能。
-            c.  打开压缩包（不完全解压），统计内部图片文件数量作为 `total_pages`。
-            d.  将文件元数据写入数据库 `files` 表。
-    *   **进度反馈**: 通过WebSocket向前端实时推送扫描进度 (`{ task: 'scan', progress: 45.8, current_file: '...' }`)。
-
-*   **3.1.2 健壮的文件系统同步机制**:
-    *   **引入“离线/丢失”状态**: `files` 表中增加 `is_missing` (BOOLEAN) 字段。
-    *   **扫描逻辑**:
-        1.  **Phase 1 - 标记**: 开始扫描前，将数据库中所有待扫描路径下的文件记录标记为 `is_missing = true`。
-        2.  **Phase 2 - 发现与更新**: 遍历文件系统。
-            *   对于发现的每个文件，计算哈希。若哈希已存在于数据库，则更新其路径并设置 `is_missing = false`。
-            *   对于哈希不存在的新文件，执行完整的索引流程并入库。
-    *   **变更协调界面**: 扫描结束后，查询数据库：
-        *   路径更新但哈希匹配的记录，视为“文件已移动/重命名”。
-        *   初始标记为 `is_missing = true` 但扫描结束后此标记未被移除的记录，视为“文件已丢失”。
-        *   新加入的记录，视为“新文件”。
-        *   系统在UI上生成一份清晰的报告，由用户确认如何处理“已丢失”的文件（从数据库移除记录 vs 保留记录并标记为丢失），确保用户对数据有完全的控制权。此机制能优雅处理移动硬盘未挂载等情况。
-
-*   **3.1.3 事务性文件操作**:
-    *   **原则**: 所有涉及“文件系统I/O + 数据库写”的操作（如批量重命名、删除）必须具备事务性，防止意外中断导致状态不一致。
-    *   **实现**:
-        1.  **计划阶段**: 后端生成所有待执行的文件操作列表（如`{old_path, new_path}`）。
-        2.  **执行阶段**: 逐一执行文件系统操作。**每成功一步，立刻更新对应的数据库记录**。
-    *   **恢复机制与用户预期**: 此模型为一种“前滚恢复”策略，不提供自动原子回滚（Rollback）能力。如果任务中途因断电、磁盘满等意外失败，任务日志将精确记录失败点（例如：`文件 'A' 重命名至 'B' 成功，数据库更新成功。文件 'C' 重命名至 'D' 失败：权限不足`）。用户可以从异步任务中心查看此日志，并选择“从失败处继续”或“忽略所有失败项继续执行剩余任务”。这为用户提供了清晰的恢复路径，同时简化了系统设计。
-
-**3.2 高级TAG系统 (Advanced Tagging System)**
-
-*   **3.2.1 基础管理**: 提供TAG类别的创建（如作者、系列、主题、角色），以及在类别下对TAG进行增、删、改、查。
-*   **3.2.2 层级与别名系统 (数据库优化版)**:
-    *   **层级 (Hierarchy)**: `tags` 表通过 `parent_id` 字段实现无限层级的父子关系。搜索父TAG时，前端提供选项“包含所有子TAG”，后端将递归查询所有子TAG的ID并应用到文件搜索中。
-    *   **别名 (Aliases)**: 通过独立的 **`tag_aliases`** 表实现。搜索时，系统会将用户输入的关键词与`tags.name`和`tag_aliases.alias_name`同时进行匹配，从而将不同名称的TAG统一归集。此设计保证了查询的高效性。
-
-**3.3 模板化文件名管理**
-
-*   **3.3.1 可视化模板编辑器**: 在设置中提供拖拽式或标签输入式的编辑器，用户可以使用 `{series}`, `{author}`, `{volume_number}`, `{custom_tag:角色}` 等占位符构建文件名模板。
-*   **3.3.2 批量重命名 (作为事务性异步任务)**: 用户应用模板后，后端启动一个批量重命名任务。该任务遵循 **3.1.3** 中描述的事务性原则。
-    *   **文件名生成规则**:
-        1.  **文件名净化 (Sanitization)**: 所有通过模板占位符获取的内容（如TAG名），在拼接成最终文件名之前，必须经过一个净化函数处理，将所有操作系统不允许的非法字符（如 `/ \ : * ? " < > |`）替换为用户可配置的合法字符（例如，替换为 `-` 或空格）。
-        2.  **空值回退 (Null Fallback)**: 模板系统必须定义空值的回退行为。当一个占位符（如 `{series}`）在某本漫画的元数据中找不到对应值时，该占位符应被替换为一个空字符串，以避免在文件名中出现 "None" 或 "null" 等无效字样。
-
-**3.4 沉浸式漫画阅读器**
-
-*   **3.4.1 高性能图片流与预读**:
-    *   **后端API**: `GET /api/v1/files/{file_id}/page/{page_num}` 直接从压缩包中读取指定页码的图片二进制流并返回，**严禁完整解压**。
-    *   **前端预读 (Pre-fetching)**: 当用户阅读到第N页时，前端自动在后台静默请求第N+1, N+2, N+3页的图片并存入浏览器缓存。用户翻页时，图片从缓存中瞬时加载，实现零延迟的翻页体验。
-*   **3.4.2 智能跨页处理**:
-    *   在首次索引时，分析图片宽高比，将宽度远大于高度的图片（如 `width > height * 1.5`）的页码记录在 `files.spread_pages` (JSON数组) 中。
-    *   在阅读器的“双页模式”下，当遇到被标记为跨页的页面时，自动以单页形式居中展示，以保证画面完整性。
-*   **3.4.3 阅读进度与书签**:
-    *   **进度自动保存**: 翻页后，通过防抖函数（debounce）延迟调用API更新 `last_read_page`。监听浏览器关闭事件，在退出前强制同步一次。
-    *   **书签**: 用户可为任意页面添加带备注的书签，所有书签与漫画文件关联。
-*   **3.4.4 阅读体验增强**:
-    *   **颜色模式**: 提供“日间模式”（白底）、“夜间模式”（黑底）、“护眼模式”（淡黄/牛皮纸色背景）一键切换。
-    *   **阅读方向**: 支持“从左到右”和“从右到左”两种翻页模式，以适应不同地区漫画习惯。
-    *   **滚动阅读模式**: 提供一个垂直长条滚动模式，将所有图片无缝拼接，类似Webtoon的阅读体验。
-
-**3.5 智能发现与推荐系统**
-
-*   **3.5.1 待读清单 (Wishlist)**: 用户可以在漫画列表或详情页将任何一本漫画加入“待读清单”。主页有专门的区域展示此列表。
-*   **3.5.2 随机一本 (Random Pick)**: 在主界面提供一个“手气不错”按钮。用户可以打开高级筛选器（如：TAG必须包含“科幻”，状态必须是“未读”），然后点击此按钮，系统将根据筛选条件随机推荐一本漫画。
-*   **3.5.3 相关推荐 (Related Content)**: 在漫画详情页，根据该漫画的“作者”、“系列”、“主要题材”等核心TAG，在下方展示库中其他拥有相同TAG的漫画，促进内容的交叉发现。
-
-**3.6 数据健康与维护中心**
-
-*   **3.6.1 文件完整性检查**: 提供一个工具，允许用户对选定或全部文件发起CRC校验（如 `zip -T`）。后端将此作为异步任务执行，并在UI上报告所有损坏的压缩文件。
-*   **3.6.2 元数据孤岛清理**: 提供一个工具，扫描数据库中 `is_missing = true` 且长时间（如超过30天）未被重新发现的记录，由用户批量确认是否从数据库中彻底清除这些“幽灵数据”。
-*   **3.6.3 重复文件查找器**: 通过查询 `file_hash` 字段，快速找出内容完全相同但路径不同的文件。以分组形式列出这些重复项，并清晰展示各自的元数据，方便用户决策保留哪个副本并删除其他。
-
-**3.7 数据安全：备份与恢复**
-
-*   **自动备份**: 默认启用，每日在闲时（如凌晨3点）自动将 `manga_manager.db` 文件压缩并备份到指定目录。备份策略可配置（如保留最近7份）。
-*   **手动操作**: 在设置中提供“立即备份”和“从备份恢复”功能，恢复操作前有醒目的二次确认警告。
-
-#### **4.0 数据库详细设计 (Schema V2.1)**
-
-*   **架构说明**: 此数据库模式为单用户场景高度优化。在未来的版本迭代中，如果需要支持多用户或云同步功能，应考虑将用户相关的状态（如 `reading_status`, `last_read_page`, `last_read_date` 以及 `bookmarks` 表和 `wishlist` 表）重构至与用户ID关联的独立表中，以实现数据隔离。
-
-*   **Table: `config`** (键值存储系统配置)
-    *   `key` (TEXT, PRIMARY KEY), `value` (TEXT)
-*   **Table: `files`**
-    *   `id` (INTEGER, PRIMARY KEY AUTOINCREMENT)
-    *   `file_path` (TEXT, NOT NULL, UNIQUE, INDEXED)
-    *   `file_hash` (TEXT, NOT NULL, UNIQUE, INDEXED) - **核心ID**
-    *   `file_size` (INTEGER), `add_date` (DATETIME)
-    *   `total_pages` (INTEGER)
-    *   `spread_pages` (TEXT) - 跨页图页码的JSON数组, e.g., `'[5, 28]'`
-    *   `last_read_page` (INTEGER, DEFAULT 0)
-    *   `last_read_date` (DATETIME)
-    *   `reading_status` (TEXT, INDEXED, DEFAULT 'unread') - 'unread', 'in_progress', 'finished'
-    *   `is_missing` (BOOLEAN, NOT NULL, DEFAULT 0, INDEXED) - 用于文件系统同步
-    *   `integrity_status` (TEXT, DEFAULT 'unknown') - 'unknown', 'ok', 'corrupted'
-*   **Table: `tags`**
-    *   `id` (INTEGER, PRIMARY KEY AUTOINCREMENT)
-    *   `name` (TEXT, NOT NULL, UNIQUE)
-    *   `type_id` (INTEGER, FOREIGN KEY to `tag_types.id`)
-    *   `parent_id` (INTEGER, FOREIGN KEY to `tags.id`, nullable)
-    *   `description` (TEXT)
-*   **Table: `tag_aliases`**
-    *   `id` (INTEGER, PRIMARY KEY AUTOINCREMENT)
-    *   `tag_id` (INTEGER, NOT NULL, FOREIGN KEY to `tags.id`, INDEXED)
-    *   `alias_name` (TEXT, NOT NULL, UNIQUE, INDEXED)
-*   **Table: `tag_types`**
-    *   `id` (INTEGER, PRIMARY KEY AUTOINCREMENT)
-    *   `name` (TEXT, NOT NULL, UNIQUE), `sort_order` (INTEGER)
-*   **Table: `file_tag_map`** (多对多关系)
-    *   `file_id` (INTEGER, FOREIGN KEY to `files.id`), `tag_id` (INTEGER, FOREIGN KEY to `tags.id`), PRIMARY KEY (`file_id`, `tag_id`)
-*   **Table: `bookmarks`**
-    *   `id` (INTEGER, PRIMARY KEY AUTOINCREMENT), `file_id` (INTEGER, NOT NULL, FOREIGN KEY to `files.id`), `page_number` (INTEGER, NOT NULL), `note` (TEXT), `created_at` (DATETIME)
-*   **Table: `wishlist`**
-    *   `id` (INTEGER, PRIMARY KEY AUTOINCREMENT)
-    *   `file_id` (INTEGER, NOT NULL, FOREIGN KEY to `files.id`, UNIQUE)
-    *   `added_at` (DATETIME)
-*   **Table: `tasks`**
-    *   `id` (INTEGER, PRIMARY KEY), `name` (TEXT), `status` (TEXT), `progress` (FLOAT), `log` (TEXT), `created_at` (DATETIME), `finished_at` (DATETIME)
-
-#### **5.0 API端点规格摘要 (扩展)**
-
-| Method   | Path                                                | 描述                                                       |
-| :------- | :-------------------------------------------------- | :--------------------------------------------------------- |
-| `POST`   | `/api/v1/library/scan`                              | 启动扫描任务                                               |
-| `GET`    | `/api/v1/library/sync-report`                       | 获取上次扫描后的变更协调报告                               |
-| `GET`    | `/api/v1/files`                                     | 获取文件列表（支持复杂的筛选、排序、分页）                 |
-| `GET`    | `/api/v1/files/random`                              | 根据筛选条件随机获取一个文件                               |
-| `GET`    | `/api/v1/files/{id}/page/{page_num}`                | 获取漫画单页图片流                                         |
-| `GET`    | `/api/v1/wishlist`                                  | 获取待读清单                                               |
-| `POST`   | `/api/v1/wishlist/{file_id}`                        | 添加到待读清单                                             |
-| `DELETE` | `/api/v1/wishlist/{file_id}`                        | 从待读清单移除                                             |
-| `POST`   | `/api/v1/maintenance/check-integrity`               | 启动文件完整性检查任务                                     |
-| `GET`    | `/api/v1/maintenance/duplicates`                    | 获取重复文件报告                                           |
-| `POST`   | `/api/v1/maintenance/cleanup-missing`               | 批量清理已丢失的文件记录                                   |
-| *... (其他基础CRUD API保持不变)*                                |
-
-#### **6.0 非功能性需求**
-
-*   **6.1 性能**:
-    *   **UI响应**: 万级文件量的画廊视图，元数据加载（不含封面）应在1秒内完成。封面图必须懒加载，滚动时无卡顿。
-    *   **API响应**: 99%的元数据查询API在万级数据量下，响应时间应低于100ms。
-    *   **阅读器**: 翻页操作（从用户输入到下一页图片完全渲染）在预读命中情况下，应感觉“瞬时”（低于50ms）。
-*   **6.2 安全性**:
-    *   **路径安全**: 所有来自前端的路径输入必须在后端经过严格的规范化和校验，杜绝任何路径遍历攻击的可能。
-    *   **SQL注入**: 必须使用ORM（如SQLAlchemy）或参数化查询，严禁手动拼接SQL字符串。
-*   **6.3 国际化 (I18n)**: UI所有可见文本、提示信息、错误消息均从语言文件（如JSON）加载，为未来支持多语言（中/英/日等）做好准备。
-*   **6.4 错误处理与日志**:
-    *   **用户侧**: 向用户展示清晰、友好、可操作的错误提示（例如：“文件重命名失败，因为它正被其他程序占用”）。
-    *   **开发侧**: 后端使用标准 `logging` 模块，分级（DEBUG, INFO, WARNING, ERROR）记录详细日志到本地文件，便于排错。
+    *   **6.5.2 活动状态 (Active State)**: 在执行CPU密集型任务（如全库扫描）时，应用应合理利用多核处理器，但不应导致系统完全无响应。内存使用应在可控范围内，避免因处理超大文件或海量数据而发生内存泄漏或无限制增长。
 *   **6.5 资源占用**:
     *   **6.5.1 空闲状态 (Idle State)**: 当没有活动任务（如扫描、API请求）时，后端服务进程的CPU占用率应接近0%，内存占用应稳定在一个较低的水平（目标为 < 100MB）。
     *   **6.5.2 活动状态 (Active State)**: 在执行CPU密集型任务（如全库扫描）时，应用应合理利用多核处理器，但不应导致系统完全无响应。内存使用应在可控范围内，避免因处理超大文件或海量数据而发生内存泄漏或无限制增长。

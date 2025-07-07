@@ -2,7 +2,7 @@ import os
 import click
 from flask_migrate import Migrate
 from app import create_app, db, huey
-from app.models.manga import File, Tag, TagType, TagAlias, FileTagMap, Bookmark, Wishlist, Task
+from app.models.manga import File, Tag, TagType, TagAlias, FileTagMap, Bookmark, Like, Task
 
 # Ensure the instance folder exists
 instance_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'instance')
@@ -19,7 +19,7 @@ with app.app_context():
 @app.shell_context_processor
 def make_shell_context():
     return dict(db=db, File=File, Tag=Tag, TagType=TagType, TagAlias=TagAlias, 
-                FileTagMap=FileTagMap, Bookmark=Bookmark, Wishlist=Wishlist, Task=Task)
+                FileTagMap=FileTagMap, Bookmark=Bookmark, Like=Like, Task=Task)
 
 @app.cli.command()
 @click.argument('test_names', nargs=-1)

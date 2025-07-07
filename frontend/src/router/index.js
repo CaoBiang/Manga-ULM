@@ -10,9 +10,9 @@ const router = createRouter({
       component: HomeView
     },
     {
-      path: '/wishlist',
-      name: 'wishlist',
-      component: () => import('../views/WishlistView.vue')
+      path: '/likes',
+      name: 'likes',
+      component: () => import('../views/LikeView.vue')
     },
     {
       path: '/reader/:id',

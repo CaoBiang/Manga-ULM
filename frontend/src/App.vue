@@ -9,7 +9,7 @@ import { RouterLink, RouterView } from 'vue-router'
         <RouterLink to="/" class="text-2xl font-bold text-gray-800">Manga ULM</RouterLink>
         <div class="flex space-x-4">
           <RouterLink to="/" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-monet-blue hover:text-white">{{ $t('home') }}</RouterLink>
-          <RouterLink to="/wishlist" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-monet-blue hover:text-white">{{ $t('wishlist') }}</RouterLink>
+          <RouterLink to="/likes" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-monet-blue hover:text-white">{{ $t('wishlist') }}</RouterLink>
           <RouterLink to="/settings" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-monet-blue hover:text-white">{{ $t('settings') }}</RouterLink>
           <RouterLink to="/maintenance" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-monet-blue hover:text-white">{{ $t('maintenance') }}</RouterLink>
         </div>

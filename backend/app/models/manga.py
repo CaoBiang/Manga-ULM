@@ -23,7 +23,7 @@ class File(db.Model):
     
     tags = db.relationship('Tag', secondary='file_tag_map', back_populates='files')
     bookmarks = db.relationship('Bookmark', backref='file', lazy='dynamic')
-    wishlist_item = db.relationship('Wishlist', backref='file', uselist=False)
+    like_item = db.relationship('Like', backref='file', uselist=False)
 
 class Tag(db.Model):
     __tablename__ = 'tags'
@@ -58,8 +58,8 @@ class Bookmark(db.Model):
     note = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
 
-class Wishlist(db.Model):
-    __tablename__ = 'wishlist'
+class Like(db.Model):
+    __tablename__ = 'likes'
     id = db.Column(db.Integer, primary_key=True)
     file_id = db.Column(db.Integer, db.ForeignKey('files.id'), nullable=False, unique=True)
     added_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
