@@ -104,7 +104,7 @@
     <!-- Page Counter & Slider -->
     <div
       class="absolute bottom-0 p-4 text-lg font-semibold bg-black bg-opacity-50 rounded-t-lg flex items-center justify-center transition-all duration-300 ease-in-out"
-      :class="{ 'w-auto px-4 py-2': !isSliderExpanded, 'w-1/2 px-6 py-4': isSliderExpanded }"
+      :class="{ 'w-auto px-4 py-2': !isSliderExpanded, 'w-1/2 px-6 py-2': isSliderExpanded }"
       @click.stop="isSliderExpanded = true"
     >
       <div v-if="!isSliderExpanded" class="cursor-pointer">
