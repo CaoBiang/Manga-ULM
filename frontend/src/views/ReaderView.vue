@@ -31,9 +31,9 @@
     <!-- Toolbar -->
     <div
       @click.stop
-      class="absolute bottom-0 left-1/2 -translate-x-1/2 bg-black bg-opacity-70 rounded-t-lg transition-[width] duration-300 ease-in-out flex flex-col p-2"
+      class="absolute bottom-0 left-1/2 -translate-x-1/2 bg-black bg-opacity-70 rounded-t-lg transition-all duration-300 ease-in-out flex flex-col p-2"
       :class="{
-        'w-auto': !isToolbarExpanded,
+        'w-40': !isToolbarExpanded,
         'w-3/4 max-w-4xl': isToolbarExpanded,
       }"
     >
@@ -43,107 +43,117 @@
         :class="{'cursor-pointer': !isToolbarExpanded}"
         @click="!isToolbarExpanded ? (isToolbarExpanded = true) : null"
       >
-        <div v-if="!isToolbarExpanded" class="text-lg font-semibold px-2 w-full text-center">
-          <span>{{ currentPage + 1 }} / {{ totalPages }}</span>
-        </div>
-        
-        <div v-else class="flex items-center justify-between w-full h-full space-x-4">
-          <input
-            type="range"
-            v-model="currentPage"
-            :min="0"
-            :max="totalPages - 1"
-            class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider-thumb-white"
-            @input="jumpToPage($event.target.value)"
-          />
-          <span class="w-24 text-right text-lg font-semibold">{{ currentPage + 1 }} / {{ totalPages }}</span>
-          
-          <div class="flex items-center space-x-2">
-            <!-- Bookmark Button -->
-            <button @click.stop="handleBookmarkButtonClick" :class="['p-2 rounded-full transition-colors', isCurrentPageBookmarked ? 'text-yellow-400 bg-gray-700' : 'bg-gray-800 bg-opacity-75 hover:bg-gray-700', {'!bg-blue-600 text-white': activePanel === 'addBookmark'}]">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" :fill="isCurrentPageBookmarked ? 'currentColor' : 'none'" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-              </svg>
-            </button>
-            <!-- Bookmarks List Toggle -->
-            <button @click.stop="togglePanel('bookmarks')" :class="['p-2 rounded-full transition-colors bg-gray-800 bg-opacity-75 hover:bg-gray-700', {'!bg-blue-600 text-white': activePanel === 'bookmarks'}]">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" /></svg>
-            </button>
-            <!-- File Info Button -->
-            <button @click.stop="togglePanel('fileInfo')" :class="['p-2 rounded-full transition-colors bg-gray-800 bg-opacity-75 hover:bg-gray-700', {'!bg-blue-600 text-white': activePanel === 'fileInfo'}]">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </button>
+        <div class="relative w-full h-full flex items-center justify-center">
+          <!-- Collapsed View: Page Number -->
+          <div 
+            class="absolute inset-0 flex items-center justify-center transition-opacity duration-200"
+            :class="showExpandedControls ? 'opacity-0' : 'opacity-100'"
+          >
+            <span class="text-lg font-semibold px-2">{{ currentPage + 1 }} / {{ totalPages }}</span>
+          </div>
+
+          <!-- Expanded View: Full Controls -->
+          <div 
+            class="absolute inset-0 flex items-center justify-between w-full h-full space-x-4 transition-opacity duration-200"
+            :class="showExpandedControls ? 'opacity-100' : 'opacity-0'"
+          >
+            <template v-if="showExpandedControls">
+              <input
+                type="range"
+                v-model="currentPage"
+                :min="0"
+                :max="totalPages - 1"
+                class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider-thumb-white"
+                @input="jumpToPage($event.target.value)"
+              />
+              <span class="w-24 text-right text-lg font-semibold">{{ currentPage + 1 }} / {{ totalPages }}</span>
+              
+              <div class="flex items-center space-x-2">
+                <!-- Bookmark Button -->
+                <button @click.stop="handleBookmarkButtonClick" :class="['p-2 rounded-full transition-colors', isCurrentPageBookmarked ? 'text-yellow-400 bg-gray-700' : 'bg-gray-800 bg-opacity-75 hover:bg-gray-700', {'!bg-blue-600 text-white': activePanel === 'addBookmark'}]">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" :fill="isCurrentPageBookmarked ? 'currentColor' : 'none'" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                  </svg>
+                </button>
+                <!-- Bookmarks List Toggle -->
+                <button @click.stop="togglePanel('bookmarks')" :class="['p-2 rounded-full transition-colors bg-gray-800 bg-opacity-75 hover:bg-gray-700', {'!bg-blue-600 text-white': activePanel === 'bookmarks'}]">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" /></svg>
+                </button>
+                <!-- File Info Button -->
+                <button @click.stop="togglePanel('fileInfo')" :class="['p-2 rounded-full transition-colors bg-gray-800 bg-opacity-75 hover:bg-gray-700', {'!bg-blue-600 text-white': activePanel === 'fileInfo'}]">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </button>
+              </div>
+            </template>
           </div>
         </div>
       </div>
 
       <!-- Wrapper for animated expansion -->
-      <div 
-        class="transition-[grid-template-rows] duration-300 ease-in-out grid"
-        :style="{ 'grid-template-rows': (isToolbarExpanded && activePanel) ? '1fr' : '0fr' }"
+      <div
+        class="transition-[max-height] duration-300 ease-in-out overflow-hidden"
+        :style="{ 'max-height': isToolbarExpanded && activePanel ? '40vh' : '0px' }"
       >
-        <div class="overflow-hidden">
-          <transition name="fade" mode="out-in">
-            <!-- Expanded Content Area -->
-            <div v-if="activePanel" class="mt-2 pt-3 px-1 border-t border-gray-600 overflow-y-auto max-h-[40vh]">
-              <!-- Add Bookmark Content -->
-              <div v-if="activePanel === 'addBookmark'">
-                  <p class="mb-2 text-gray-300 text-center text-sm">{{ $t('addBookmarkPrompt', { page: currentPage + 1 }) }}</p>
-                  <input 
-                      ref="bookmarkNameInputRef"
-                      type="text" 
-                      v-model="newBookmarkName"
-                      :placeholder="$t('bookmarkNamePlaceholder')"
-                      @keyup.enter="saveNewBookmark"
-                      class="w-full bg-gray-700 text-white rounded p-2 mb-2 outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <div class="flex justify-end space-x-2">
-                      <button @click="activePanel = ''" class="px-3 py-1 bg-gray-600 rounded hover:bg-gray-500 text-sm">{{ $t('cancel') }}</button>
-                      <button @click="saveNewBookmark" class="px-3 py-1 bg-blue-600 rounded hover:bg-blue-500 text-sm">{{ $t('save') }}</button>
-                  </div>
-              </div>
-
-              <!-- Bookmarks List Content -->
-              <div v-if="activePanel === 'bookmarks'">
-                <h3 class="text-base font-bold mb-2 text-center">{{ $t('bookmarks') }}</h3>
-                <ul v-if="bookmarks.length > 0" class="space-y-1">
-                  <li v-for="bookmark in bookmarks" :key="bookmark.id" 
-                      @click="jumpToBookmark(bookmark.page_number)"
-                      class="cursor-pointer hover:bg-gray-700 p-1.5 rounded flex justify-between items-center text-sm">
-                      <div>
-                        <span class="font-semibold">{{ $t('page') }} {{ bookmark.page_number + 1 }}</span>
-                        <span v-if="bookmark.note" class="block text-xs text-gray-300">{{ bookmark.note }}</span>
-                      </div>
-                    <button @click.stop="deleteBookmark(bookmark.id)" class="text-red-500 hover:text-red-400 text-xs px-2 py-1 rounded hover:bg-gray-600 shrink-0">{{ $t('remove') }}</button>
-                  </li>
-                </ul>
-                <p v-else class="text-gray-400 text-center text-sm">{{ $t('noBookmarks') }}</p>
-              </div>
-
-              <!-- File Info Content -->
-              <div v-if="activePanel === 'fileInfo'">
-                  <h3 class="text-base font-bold mb-2 text-center">{{ $t('fileInfo') }}</h3>
-                  <div v-if="fileInfo.loading" class="text-gray-400 text-center">{{ $t('loading') }}...</div>
-                  <div v-else-if="fileInfo.error" class="text-red-400 text-center">{{ fileInfo.error }}</div>
-                  <div v-else class="space-y-1 text-xs">
-                    <div>
-                      <p class="font-semibold text-gray-300">Manga File:</p>
-                      <p class="text-gray-100 break-all">{{ fileInfo.data.manga_filename }}</p>
-                      <p class="text-gray-400">{{ formatBytes(fileInfo.data.manga_filesize) }}</p>
-                    </div>
-                    <div class="border-t border-gray-700 my-1"></div>
-                    <div>
-                      <p class="font-semibold text-gray-300">Current Page:</p>
-                      <p class="text-gray-100 break-all">{{ fileInfo.data.page_filename }}</p>
-                      <p class="text-gray-400">{{ formatBytes(fileInfo.data.page_filesize) }}</p>
-                    </div>
-                  </div>
-              </div>
+        <transition name="fade" mode="out-in">
+          <!-- Expanded Content Area -->
+          <div v-if="activePanel" class="mt-2 pt-3 px-1 border-t border-gray-600 overflow-y-auto max-h-[40vh]">
+            <!-- Add Bookmark Content -->
+            <div v-if="activePanel === 'addBookmark'">
+                <p class="mb-2 text-gray-300 text-center text-sm">{{ $t('addBookmarkPrompt', { page: currentPage + 1 }) }}</p>
+                <input 
+                    ref="bookmarkNameInputRef"
+                    type="text" 
+                    v-model="newBookmarkName"
+                    :placeholder="$t('bookmarkNamePlaceholder')"
+                    @keyup.enter="saveNewBookmark"
+                    class="w-full bg-gray-700 text-white rounded p-2 mb-2 outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <div class="flex justify-end space-x-2">
+                    <button @click="activePanel = ''" class="px-3 py-1 bg-gray-600 rounded hover:bg-gray-500 text-sm">{{ $t('cancel') }}</button>
+                    <button @click="saveNewBookmark" class="px-3 py-1 bg-blue-600 rounded hover:bg-blue-500 text-sm">{{ $t('save') }}</button>
+                </div>
             </div>
-          </transition>
-        </div>
+
+            <!-- Bookmarks List Content -->
+            <div v-if="activePanel === 'bookmarks'">
+              <h3 class="text-base font-bold mb-2 text-center">{{ $t('bookmarks') }}</h3>
+              <ul v-if="bookmarks.length > 0" class="space-y-1">
+                <li v-for="bookmark in bookmarks" :key="bookmark.id" 
+                    @click="jumpToBookmark(bookmark.page_number)"
+                    class="cursor-pointer hover:bg-gray-700 p-1.5 rounded flex justify-between items-center text-sm">
+                    <div>
+                      <span class="font-semibold">{{ $t('page') }} {{ bookmark.page_number + 1 }}</span>
+                      <span v-if="bookmark.note" class="block text-xs text-gray-300">{{ bookmark.note }}</span>
+                    </div>
+                  <button @click.stop="deleteBookmark(bookmark.id)" class="text-red-500 hover:text-red-400 text-xs px-2 py-1 rounded hover:bg-gray-600 shrink-0">{{ $t('remove') }}</button>
+                </li>
+              </ul>
+              <p v-else class="text-gray-400 text-center text-sm">{{ $t('noBookmarks') }}</p>
+            </div>
+
+            <!-- File Info Content -->
+            <div v-if="activePanel === 'fileInfo'">
+                <h3 class="text-base font-bold mb-2 text-center">{{ $t('fileInfo') }}</h3>
+                <div v-if="fileInfo.loading" class="text-gray-400 text-center">{{ $t('loading') }}...</div>
+                <div v-else-if="fileInfo.error" class="text-red-400 text-center">{{ fileInfo.error }}</div>
+                <div v-else class="space-y-1 text-xs">
+                  <div>
+                    <p class="font-semibold text-gray-300">Manga File:</p>
+                    <p class="text-gray-100 break-all">{{ fileInfo.data.manga_filename }}</p>
+                    <p class="text-gray-400">{{ formatBytes(fileInfo.data.manga_filesize) }}</p>
+                  </div>
+                  <div class="border-t border-gray-700 my-1"></div>
+                  <div>
+                    <p class="font-semibold text-gray-300">Current Page:</p>
+                    <p class="text-gray-100 break-all">{{ fileInfo.data.page_filename }}</p>
+                    <p class="text-gray-400">{{ formatBytes(fileInfo.data.page_filesize) }}</p>
+                  </div>
+                </div>
+            </div>
+          </div>
+        </transition>
       </div>
     </div>
   </div>
@@ -164,6 +174,7 @@ const spreadPages = ref([]); // To store the pages that are spreads
 const isLoading = ref(true);
 const error = ref(null);
 const isToolbarExpanded = ref(false);
+const showExpandedControls = ref(false);
 const bookmarks = ref([]);
 const newBookmarkName = ref('');
 const bookmarkNameInputRef = ref(null);
@@ -216,7 +227,22 @@ watch(currentPage, (newPage, oldPage) => {
     fileInfo.value.data = null; // Invalidate old data
   }
 });
-// --- End Pre-fetching Logic ---
+
+watch(isToolbarExpanded, (isExpanded) => {
+  if (isExpanded) {
+    // If expanding, wait for the animation to get part-way through before showing the full controls.
+    // This avoids the visual "squishing" of controls as the container expands.
+    setTimeout(() => {
+      // A quick collapse might have happened between the timeout being set and it firing.
+      if (isToolbarExpanded.value) {
+        showExpandedControls.value = true;
+      }
+    }, 150); // This delay should be less than the transition duration (300ms).
+  } else {
+    // If collapsing, hide the controls immediately.
+    showExpandedControls.value = false;
+  }
+});
 
 // --- Progress Saving Logic ---
 const debounce = (func, delay) => {
@@ -367,15 +393,36 @@ const handleKeydown = (e) => {
 };
 
 const togglePanel = (panel) => {
-  if (activePanel.value === panel) {
+  const currentPanel = activePanel.value;
+
+  // If the clicked panel is already open, close it.
+  if (currentPanel === panel) {
     activePanel.value = '';
-  } else {
-    activePanel.value = panel;
+    return;
+  }
+
+  const fetchData = () => {
     if (panel === 'bookmarks') {
       fetchBookmarks();
     } else if (panel === 'fileInfo') {
       fetchFileInfo();
     }
+  };
+
+  // If another panel is open, do a close-then-open animation.
+  if (currentPanel) {
+    activePanel.value = ''; // Start closing the current panel.
+    
+    // Use a small timeout to ensure the browser has time to start the closing animation
+    // before the command to open the new panel is processed.
+    setTimeout(() => {
+      activePanel.value = panel; // Open the new panel.
+      fetchData();
+    }, 50);
+  } else {
+    // If no panel is open, just open the new one.
+    activePanel.value = panel;
+    fetchData();
   }
 };
 
