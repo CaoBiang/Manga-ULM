@@ -7,7 +7,15 @@ import zipfile
 import rarfile
 import py7zr
 import io
+import re
 from sqlalchemy.sql.expression import func
+
+def natural_sort_key(s):
+    """
+    A key for natural sorting.
+    Splits the string into numbers and text, and converts numbers to integers.
+    """
+    return [int(text) if text.isdigit() else text.lower() for text in re.split('([0-9]+)', s)]
 
 def file_to_dict(file_obj):
     """Converts a File object to a dictionary."""
@@ -39,7 +47,10 @@ def get_image_from_archive(file_path, page_num):
     try:
         if ext in ['.zip', '.cbz']:
             with zipfile.ZipFile(file_path, 'r') as archive:
-                image_list = sorted([name for name in archive.namelist() if any(name.lower().endswith(img_ext) for img_ext in IMAGE_EXTENSIONS) and not name.startswith('__MACOSX')])
+                image_list = sorted(
+                    [name for name in archive.namelist() if any(name.lower().endswith(img_ext) for img_ext in IMAGE_EXTENSIONS) and not name.startswith('__MACOSX')],
+                    key=natural_sort_key
+                )
                 if 0 <= page_num < len(image_list):
                     image_name = image_list[page_num]
                     mimetype = f'image/{os.path.splitext(image_name)[1].lower().replace(".", "")}'
@@ -47,7 +58,10 @@ def get_image_from_archive(file_path, page_num):
         
         elif ext in ['.rar', '.cbr']:
             with rarfile.RarFile(file_path, 'r') as archive:
-                image_list = sorted([info.filename for info in archive.infolist() if any(info.filename.lower().endswith(img_ext) for img_ext in IMAGE_EXTENSIONS) and not info.isdir()])
+                image_list = sorted(
+                    [info.filename for info in archive.infolist() if any(info.filename.lower().endswith(img_ext) for img_ext in IMAGE_EXTENSIONS) and not info.isdir()],
+                    key=natural_sort_key
+                )
                 if 0 <= page_num < len(image_list):
                     image_name = image_list[page_num]
                     mimetype = f'image/{os.path.splitext(image_name)[1].lower().replace(".", "")}'
@@ -56,7 +70,10 @@ def get_image_from_archive(file_path, page_num):
         elif ext in ['.7z', '.cb7']:
             with py7zr.SevenZipFile(file_path, 'r') as archive:
                 all_files = archive.readall()
-                image_list = sorted([name for name, bio in all_files.items() if any(name.lower().endswith(img_ext) for img_ext in IMAGE_EXTENSIONS) and not bio.get('is_directory')])
+                image_list = sorted(
+                    [name for name, bio in all_files.items() if any(name.lower().endswith(img_ext) for img_ext in IMAGE_EXTENSIONS) and not bio.get('is_directory')],
+                    key=natural_sort_key
+                )
                 if 0 <= page_num < len(image_list):
                     image_name = image_list[page_num]
                     mimetype = f'image/{os.path.splitext(image_name)[1].lower().replace(".", "")}'
@@ -81,7 +98,7 @@ def get_page_details_from_archive(file_path, page_num):
             with zipfile.ZipFile(file_path, 'r') as archive:
                 image_infos = sorted(
                     [info for info in archive.infolist() if any(info.filename.lower().endswith(img_ext) for img_ext in IMAGE_EXTENSIONS) and not info.filename.startswith('__MACOSX')],
-                    key=lambda info: info.filename
+                    key=lambda info: natural_sort_key(info.filename)
                 )
                 if 0 <= page_num < len(image_infos):
                     info = image_infos[page_num]
@@ -91,7 +108,7 @@ def get_page_details_from_archive(file_path, page_num):
             with rarfile.RarFile(file_path, 'r') as archive:
                 image_infos = sorted(
                     [info for info in archive.infolist() if any(info.filename.lower().endswith(img_ext) for img_ext in IMAGE_EXTENSIONS) and not info.isdir()],
-                    key=lambda info: info.filename
+                    key=lambda info: natural_sort_key(info.filename)
                 )
                 if 0 <= page_num < len(image_infos):
                     info = image_infos[page_num]
@@ -102,7 +119,10 @@ def get_page_details_from_archive(file_path, page_num):
                 # py7zr doesn't have a simple infolist like zipfile/rarfile that includes file size without extraction.
                 # This part might be slow as it reads the file entry. A better way would be needed for large 7z files if performance is critical.
                 all_files = archive.readall()
-                image_list = sorted([name for name, bio in all_files.items() if any(name.lower().endswith(img_ext) for img_ext in IMAGE_EXTENSIONS) and not bio.get('is_directory')])
+                image_list = sorted(
+                    [name for name, bio in all_files.items() if any(name.lower().endswith(img_ext) for img_ext in IMAGE_EXTENSIONS) and not bio.get('is_directory')],
+                    key=natural_sort_key
+                )
                 if 0 <= page_num < len(image_list):
                     image_name = image_list[page_num]
                     # The content is a BytesIO-like object, so we can get its size.
