@@ -56,7 +56,8 @@
                 :max="totalPages > 0 ? totalPages - 1 : 0"
                 class="w-full slider-custom"
                 @change="jumpToPage"
-                :showTooltip="'never'"
+                :showTooltip="'drag'"
+                :format="value => Math.round(value) + 1"
               />
             </div>
             <span class="w-24 text-right text-lg font-semibold">{{ currentPage + 1 }} / {{ totalPages }}</span>
