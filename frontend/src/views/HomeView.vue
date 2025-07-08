@@ -19,7 +19,7 @@ const hoveredType = ref(null);
 const filterContainer = ref(null);
 
 const perPageOptions = ref([20, 50, 100, 200]);
-const currentPageSize = ref(50); // Default value
+const currentPageSize = ref(200); // Default value
 
 const fetchLibrary = async () => {
   isLoading.value = true;
