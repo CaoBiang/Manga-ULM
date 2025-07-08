@@ -1,7 +1,7 @@
 <template>
   <div class="fixed inset-0 bg-gray-900 text-white flex flex-col items-center justify-center" @click="collapseToolbar">
     <div class="absolute top-0 left-0 p-4 z-10 flex space-x-4 items-center">
-      <button @click="router.back()" class="px-3 py-1 bg-gray-700 rounded hover:bg-gray-600">
+      <button @click.stop="router.back()" class="px-3 py-1 bg-gray-700 rounded hover:bg-gray-600">
         &larr; {{ $t('backToLibrary') }}
       </button>
       <span v-if="isCurrentPageSpread" class="px-2 py-1 text-xs font-bold bg-purple-600 rounded">
@@ -17,54 +17,48 @@
       <p>{{ error }}</p>
     </div>
 
-    <div v-else class="relative w-full h-full flex items-center justify-center" @click="isToolbarExpanded = false; activePanel = ''">
+    <div v-else class="relative w-full h-full flex items-center justify-center" @click="collapseToolbar">
       <!-- Main Image Display -->
       <div class="relative max-w-full max-h-full">
         <img :src="imageUrl" :alt="`Page ${currentPage + 1}`" class="h-auto max-h-screen w-auto object-contain" />
       </div>
 
       <!-- Navigation Arrows -->
-      <div class="absolute left-0 top-0 h-full w-1/3 cursor-pointer" @click="prevPage"></div>
-      <div class="absolute right-0 top-0 h-full w-1/3 cursor-pointer" @click="nextPage"></div>
+      <div class="absolute left-0 top-0 h-full w-1/3 cursor-pointer" @click.stop="prevPage"></div>
+      <div class="absolute right-0 top-0 h-full w-1/3 cursor-pointer" @click.stop="nextPage"></div>
     </div>
 
-    <!-- Toolbar -->
-    <div
-      @click.stop
-      class="absolute bottom-0 left-1/2 -translate-x-1/2 bg-black bg-opacity-70 rounded-t-lg transition-[width] duration-300 ease-in-out flex flex-col p-2"
-      :class="{
-        'w-40': !isToolbarExpanded,
-        'w-3/4 max-w-4xl': isToolbarExpanded,
-      }"
-    >
-      <!-- Top part of the toolbar (always visible when expanded) -->
-      <div 
-        class="flex items-center justify-center w-full h-10"
-        :class="{'cursor-pointer': !isToolbarExpanded}"
-        @click="expandToolbar"
-      >
-        <div class="relative w-full h-full flex items-center justify-center">
-          <!-- Collapsed View: Page Number -->
-          <div 
-            class="absolute inset-0 flex items-center justify-center transition-opacity duration-200"
-            :class="showExpandedControls ? 'opacity-0 pointer-events-none' : 'opacity-100'"
-          >
-            <span class="text-lg font-semibold px-2">{{ currentPage + 1 }} / {{ totalPages }}</span>
-          </div>
+    <!-- Toolbar Area -->
+    <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-3/4 max-w-4xl p-2 flex justify-center items-end" @click.stop>
+      <transition name="toolbar" mode="out-in">
+        <!-- Collapsed Toolbar -->
+        <div 
+          v-if="!isToolbarExpanded" 
+          key="collapsed"
+          @click="expandToolbar"
+          class="bg-black bg-opacity-70 rounded-lg w-40 h-10 flex items-center justify-center cursor-pointer"
+        >
+          <span class="text-lg font-semibold px-2">{{ currentPage + 1 }} / {{ totalPages }}</span>
+        </div>
 
-          <!-- Expanded View: Full Controls -->
-          <div 
-            class="absolute inset-0 flex items-center justify-between w-full h-full space-x-4 transition-opacity duration-200"
-            :class="showExpandedControls ? 'opacity-100' : 'opacity-0 pointer-events-none'"
-          >
-            <input
-              type="range"
-              v-model="currentPage"
-              :min="0"
-              :max="totalPages - 1"
-              class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider-thumb-white"
-              @input="jumpToPage($event.target.value)"
-            />
+        <!-- Expanded Toolbar -->
+        <div
+          v-else
+          key="expanded"
+          class="bg-black bg-opacity-70 rounded-lg flex flex-col p-2 w-full"
+        >
+          <!-- Top part of the toolbar -->
+          <div class="flex items-center justify-between w-full h-10 space-x-4">
+            <div class="flex-grow flex items-center px-2">
+              <Slider
+                v-model="currentPage"
+                :min="0"
+                :max="totalPages > 0 ? totalPages - 1 : 0"
+                class="w-full slider-custom"
+                @change="jumpToPage"
+                :showTooltip="'never'"
+              />
+            </div>
             <span class="w-24 text-right text-lg font-semibold">{{ currentPage + 1 }} / {{ totalPages }}</span>
             
             <div class="flex items-center space-x-2">
@@ -86,73 +80,73 @@
               </button>
             </div>
           </div>
-        </div>
-      </div>
-
-      <!-- Wrapper for animated expansion -->
-      <div
-        class="transition-[max-height] duration-300 ease-in-out overflow-hidden"
-        :style="{ 'max-height': isToolbarExpanded && activePanel ? '40vh' : '0px' }"
-      >
-        <transition name="fade" mode="out-in">
-          <!-- Expanded Content Area -->
-          <div v-if="activePanel" class="mt-2 pt-3 px-1 border-t border-gray-600 overflow-y-auto max-h-[40vh]">
-            <!-- Add Bookmark Content -->
-            <div v-if="activePanel === 'addBookmark'">
-                <p class="mb-2 text-gray-300 text-center text-sm">{{ $t('addBookmarkPrompt', { page: currentPage + 1 }) }}</p>
-                <input 
-                    ref="bookmarkNameInputRef"
-                    type="text" 
-                    v-model="newBookmarkName"
-                    :placeholder="$t('bookmarkNamePlaceholder')"
-                    @keyup.enter="saveNewBookmark"
-                    class="w-full bg-gray-700 text-white rounded p-2 mb-2 outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <div class="flex justify-end space-x-2">
-                    <button @click="activePanel = ''" class="px-3 py-1 bg-gray-600 rounded hover:bg-gray-500 text-sm">{{ $t('cancel') }}</button>
-                    <button @click="saveNewBookmark" class="px-3 py-1 bg-blue-600 rounded hover:bg-blue-500 text-sm">{{ $t('save') }}</button>
-                </div>
-            </div>
-
-            <!-- Bookmarks List Content -->
-            <div v-if="activePanel === 'bookmarks'">
-              <h3 class="text-base font-bold mb-2 text-center">{{ $t('bookmarks') }}</h3>
-              <ul v-if="bookmarks.length > 0" class="space-y-1">
-                <li v-for="bookmark in bookmarks" :key="bookmark.id" 
-                    @click="jumpToBookmark(bookmark.page_number)"
-                    class="cursor-pointer hover:bg-gray-700 p-1.5 rounded flex justify-between items-center text-sm">
-                    <div>
-                      <span class="font-semibold">{{ $t('page') }} {{ bookmark.page_number + 1 }}</span>
-                      <span v-if="bookmark.note" class="block text-xs text-gray-300">{{ bookmark.note }}</span>
+          
+          <!-- Wrapper for animated expansion -->
+          <div
+            class="transition-[max-height] duration-300 ease-in-out overflow-hidden"
+            :style="{ 'max-height': activePanel ? '40vh' : '0px' }"
+          >
+            <transition name="fade" mode="out-in">
+              <!-- Expanded Content Area -->
+              <div v-if="activePanel" class="mt-2 pt-3 px-1 border-t border-gray-600 overflow-y-auto max-h-[40vh]">
+                <!-- Add Bookmark Content -->
+                <div v-if="activePanel === 'addBookmark'">
+                    <p class="mb-2 text-gray-300 text-center text-sm">{{ $t('addBookmarkPrompt', { page: currentPage + 1 }) }}</p>
+                    <input 
+                        ref="bookmarkNameInputRef"
+                        type="text" 
+                        v-model="newBookmarkName"
+                        :placeholder="$t('bookmarkNamePlaceholder')"
+                        @keyup.enter="saveNewBookmark"
+                        class="w-full bg-gray-700 text-white rounded p-2 mb-2 outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <div class="flex justify-end space-x-2">
+                        <button @click="activePanel = ''" class="px-3 py-1 bg-gray-600 rounded hover:bg-gray-500 text-sm">{{ $t('cancel') }}</button>
+                        <button @click="saveNewBookmark" class="px-3 py-1 bg-blue-600 rounded hover:bg-blue-500 text-sm">{{ $t('save') }}</button>
                     </div>
-                  <button @click.stop="deleteBookmark(bookmark.id)" class="text-red-500 hover:text-red-400 text-xs px-2 py-1 rounded hover:bg-gray-600 shrink-0">{{ $t('remove') }}</button>
-                </li>
-              </ul>
-              <p v-else class="text-gray-400 text-center text-sm">{{ $t('noBookmarks') }}</p>
-            </div>
-
-            <!-- File Info Content -->
-            <div v-if="activePanel === 'fileInfo'">
-                <h3 class="text-base font-bold mb-2 text-center">{{ $t('fileInfo') }}</h3>
-                <div v-if="fileInfo.loading" class="text-gray-400 text-center">{{ $t('loading') }}...</div>
-                <div v-else-if="fileInfo.error" class="text-red-400 text-center">{{ fileInfo.error }}</div>
-                <div v-else class="space-y-1 text-xs">
-                  <div>
-                    <p class="font-semibold text-gray-300">Manga File:</p>
-                    <p class="text-gray-100 break-all">{{ fileInfo.data.manga_filename }}</p>
-                    <p class="text-gray-400">{{ formatBytes(fileInfo.data.manga_filesize) }}</p>
-                  </div>
-                  <div class="border-t border-gray-700 my-1"></div>
-                  <div>
-                    <p class="font-semibold text-gray-300">Current Page:</p>
-                    <p class="text-gray-100 break-all">{{ fileInfo.data.page_filename }}</p>
-                    <p class="text-gray-400">{{ formatBytes(fileInfo.data.page_filesize) }}</p>
-                  </div>
                 </div>
-            </div>
+
+                <!-- Bookmarks List Content -->
+                <div v-if="activePanel === 'bookmarks'">
+                  <h3 class="text-base font-bold mb-2 text-center">{{ $t('bookmarks') }}</h3>
+                  <ul v-if="bookmarks.length > 0" class="space-y-1">
+                    <li v-for="bookmark in bookmarks" :key="bookmark.id" 
+                        @click="jumpToBookmark(bookmark.page_number)"
+                        class="cursor-pointer hover:bg-gray-700 p-1.5 rounded flex justify-between items-center text-sm">
+                        <div>
+                          <span class="font-semibold">{{ $t('page') }} {{ bookmark.page_number + 1 }}</span>
+                          <span v-if="bookmark.note" class="block text-xs text-gray-300">{{ bookmark.note }}</span>
+                        </div>
+                      <button @click.stop="deleteBookmark(bookmark.id)" class="text-red-500 hover:text-red-400 text-xs px-2 py-1 rounded hover:bg-gray-600 shrink-0">{{ $t('remove') }}</button>
+                    </li>
+                  </ul>
+                  <p v-else class="text-gray-400 text-center text-sm">{{ $t('noBookmarks') }}</p>
+                </div>
+
+                <!-- File Info Content -->
+                <div v-if="activePanel === 'fileInfo'">
+                    <h3 class="text-base font-bold mb-2 text-center">{{ $t('fileInfo') }}</h3>
+                    <div v-if="fileInfo.loading" class="text-gray-400 text-center">{{ $t('loading') }}...</div>
+                    <div v-else-if="fileInfo.error" class="text-red-400 text-center">{{ fileInfo.error }}</div>
+                    <div v-else class="space-y-1 text-xs">
+                      <div>
+                        <p class="font-semibold text-gray-300">Manga File:</p>
+                        <p class="text-gray-100 break-all">{{ fileInfo.data.manga_filename }}</p>
+                        <p class="text-gray-400">{{ formatBytes(fileInfo.data.manga_filesize) }}</p>
+                      </div>
+                      <div class="border-t border-gray-700 my-1"></div>
+                      <div>
+                        <p class="font-semibold text-gray-300">Current Page:</p>
+                        <p class="text-gray-100 break-all">{{ fileInfo.data.page_filename }}</p>
+                        <p class="text-gray-400">{{ formatBytes(fileInfo.data.page_filesize) }}</p>
+                      </div>
+                    </div>
+                </div>
+              </div>
+            </transition>
           </div>
-        </transition>
-      </div>
+        </div>
+      </transition>
     </div>
   </div>
 </template>
@@ -161,6 +155,9 @@
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
+import Slider from '@vueform/slider';
+import '@vueform/slider/themes/default.css';
+
 
 const route = useRoute();
 const router = useRouter();
@@ -172,7 +169,6 @@ const spreadPages = ref([]); // To store the pages that are spreads
 const isLoading = ref(true);
 const error = ref(null);
 const isToolbarExpanded = ref(false);
-const showExpandedControls = ref(false);
 const bookmarks = ref([]);
 const newBookmarkName = ref('');
 const bookmarkNameInputRef = ref(null);
@@ -223,22 +219,6 @@ watch(currentPage, (newPage, oldPage) => {
   // Refetch file info if it was open for the previous page
   if (fileInfo.value.data && newPage !== oldPage) {
     fileInfo.value.data = null; // Invalidate old data
-  }
-});
-
-watch(isToolbarExpanded, (isExpanded) => {
-  if (isExpanded) {
-    // If expanding, wait for the animation to get part-way through before showing the full controls.
-    // This avoids the visual "squishing" of controls as the container expands.
-    setTimeout(() => {
-      // A quick collapse might have happened between the timeout being set and it firing.
-      if (isToolbarExpanded.value) {
-        showExpandedControls.value = true;
-      }
-    }, 150); // This delay should be less than the transition duration (300ms).
-  } else {
-    // If collapsing, hide the controls immediately.
-    showExpandedControls.value = false;
   }
 });
 
@@ -351,14 +331,12 @@ const jumpToBookmark = (page) => {
 const nextPage = () => {
   if (currentPage.value < totalPages.value - 1) {
     currentPage.value++;
-    collapseToolbar();
   }
 };
 
 const prevPage = () => {
   if (currentPage.value > 0) {
     currentPage.value--;
-    collapseToolbar();
   }
 };
 
@@ -449,27 +427,12 @@ const formatBytes = (bytes, decimals = 2) => {
 };
 
 const expandToolbar = () => {
-  if (isToolbarExpanded.value) return;
-
   isToolbarExpanded.value = true;
-  // If expanding, wait for the animation to get part-way through before showing the full controls.
-  // This avoids the visual "squishing" of controls as the container expands.
-  setTimeout(() => {
-    // A quick collapse might have happened between the timeout being set and it firing.
-    if (isToolbarExpanded.value) {
-      showExpandedControls.value = true;
-    }
-  }, 150); // This delay should be less than the transition duration (300ms).
 };
 
 const collapseToolbar = () => {
-  if (!isToolbarExpanded.value) return;
-
   // Close any active sub-panel
   activePanel.value = '';
-
-  // Set both states simultaneously to avoid any intermediate state
-  showExpandedControls.value = false;
   isToolbarExpanded.value = false;
 };
 
@@ -490,33 +453,37 @@ debouncedUpdateProgress.flush = () => {
 };
 </script>
 
+<style>
+.slider-custom {
+  --slider-bg: #4B5563; /* bg-gray-600 */
+  --slider-connect-bg: #3B82F6; /* bg-blue-500 */
+  --slider-handle-bg: #FFFFFF;
+  --slider-height: 8px;
+  --slider-handle-width: 20px;
+  --slider-handle-height: 20px;
+  --slider-handle-shadow: none;
+  --slider-handle-shadow-active: none;
+  --slider-handle-ring-color: transparent;
+}
+</style>
+
 <style scoped>
-.slider-thumb-white::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 20px;
-  height: 20px;
-  background: #ffffff;
-  cursor: pointer;
-  border-radius: 50%;
-}
-
-.slider-thumb-white::-moz-range-thumb {
-  width: 20px;
-  height: 20px;
-  background: #ffffff;
-  cursor: pointer;
-  border-radius: 50%;
-  border: none;
-}
-
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.2s ease;
+  transition: opacity 0.15s ease-in-out;
 }
-
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
 }
-</style> 
+
+.toolbar-enter-active,
+.toolbar-leave-active {
+  transition: all 0.2s ease-out;
+}
+.toolbar-enter-from,
+.toolbar-leave-to {
+  transform: translateY(100%);
+  opacity: 0;
+}
+</style>
