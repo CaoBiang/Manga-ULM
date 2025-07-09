@@ -19,8 +19,17 @@
 
     <div v-else class="relative w-full h-full flex items-center justify-center" @click="collapseToolbar">
       <!-- Main Image Display -->
-      <div class="relative max-w-full max-h-full">
-        <img :src="imageUrl" :alt="`${$t('page')} ${currentPage + 1}`" class="h-auto max-h-screen w-auto object-contain" />
+      <div 
+        class="relative max-w-full max-h-full overflow-hidden"
+        :class="{ 'split-mode': shouldShowSplitView }"
+      >
+        <img 
+          :src="imageUrl" 
+          :alt="`${$t('page')} ${currentPage + 1}`" 
+          class="h-auto max-h-screen w-auto object-contain transition-transform duration-200 ease-in-out"
+          :class="{ 'show-right': showRightHalf }"
+          @load="onImageLoad"
+        />
       </div>
 
       <!-- Navigation Arrows -->
@@ -63,6 +72,12 @@
             <span class="w-24 text-right text-lg font-semibold">{{ currentPage + 1 }} / {{ totalPages }}</span>
             
             <div class="flex items-center space-x-2">
+              <!-- Paging/Split-page Button -->
+              <button @click.stop="togglePagingMode" :class="['p-2 rounded-full transition-colors bg-gray-800 bg-opacity-75 hover:bg-gray-700', {'!bg-blue-600 text-white': isPagingEnabled}]">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+                </svg>
+              </button>
               <!-- Bookmark Button -->
               <button @click.stop="handleBookmarkButtonClick" :class="['p-2 rounded-full transition-colors', isCurrentPageBookmarked ? 'text-yellow-400 bg-gray-700' : 'bg-gray-800 bg-opacity-75 hover:bg-gray-700', {'!bg-blue-600 text-white': activePanel === 'addBookmark'}]">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" :fill="isCurrentPageBookmarked ? 'currentColor' : 'none'" viewBox="0 0 24 24" stroke="currentColor">
@@ -181,6 +196,27 @@ const fileInfo = ref({
   data: null,
 });
 
+// --- Paging/Splitting Logic ---
+const isPagingEnabled = ref(false);
+const isCurrentImageWide = ref(false);
+const showRightHalf = ref(false);
+
+const shouldShowSplitView = computed(() => {
+  return isPagingEnabled.value && isCurrentImageWide.value;
+});
+
+const onImageLoad = (event) => {
+  const img = event.target;
+  isCurrentImageWide.value = img.naturalWidth > img.naturalHeight;
+};
+
+const togglePagingMode = () => {
+  isPagingEnabled.value = !isPagingEnabled.value;
+  showRightHalf.value = false; // Reset on mode toggle
+};
+// --- End Paging/Splitting Logic ---
+
+
 const imageUrl = computed(() => {
   if (totalPages.value === 0) return '';
   return `/api/v1/files/${fileId}/page/${currentPage.value}`;
@@ -213,6 +249,10 @@ watch(currentPage, (newPage, oldPage) => {
   preloadImages();
   debouncedUpdateProgress();
   
+  // Reset paging state for new page
+  isCurrentImageWide.value = false;
+  showRightHalf.value = false;
+
   // Close any open toolbar content when page changes
   if (activePanel.value) {
     activePanel.value = '';
@@ -331,13 +371,17 @@ const jumpToBookmark = (page) => {
 };
 
 const nextPage = () => {
-  if (currentPage.value < totalPages.value - 1) {
+  if (shouldShowSplitView.value && !showRightHalf.value) {
+    showRightHalf.value = true;
+  } else if (currentPage.value < totalPages.value - 1) {
     currentPage.value++;
   }
 };
 
 const prevPage = () => {
-  if (currentPage.value > 0) {
+  if (shouldShowSplitView.value && showRightHalf.value) {
+    showRightHalf.value = false;
+  } else if (currentPage.value > 0) {
     currentPage.value--;
   }
 };
@@ -359,6 +403,8 @@ const handleKeydown = (e) => {
     togglePanel('fileInfo');
   } else if (e.key === 'l' || e.key === 'L') {
     togglePanel('bookmarks');
+  } else if (e.key === 'p' || e.key === 'P') {
+    togglePagingMode();
   } else if (e.key === 'Escape') {
     if (activePanel.value) {
       activePanel.value = '';
@@ -487,5 +533,16 @@ debouncedUpdateProgress.flush = () => {
 .toolbar-leave-to {
   transform: translateY(100%);
   opacity: 0;
+}
+
+/* Styles for page splitting */
+.split-mode img {
+  max-width: 200%;
+  width: 200%;
+  transform: translateX(0);
+}
+
+.split-mode img.show-right {
+  transform: translateX(-50%);
 }
 </style>
