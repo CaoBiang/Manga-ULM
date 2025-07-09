@@ -17,20 +17,17 @@
       <p>{{ error }}</p>
     </div>
 
-    <div v-else class="relative w-full h-full flex items-center justify-center" @click="collapseToolbar">
-      <!-- Main Image Display -->
-      <div 
-        class="relative w-full h-full flex items-center justify-center overflow-hidden"
-        :class="{ 'split-mode': shouldShowSplitView }"
-      >
-        <img 
-          :src="imageUrl" 
-          :alt="`${$t('page')} ${currentPage + 1}`" 
-          class="w-full h-full object-contain transition-transform duration-200 ease-in-out"
-          :class="{ 'show-right': showRightHalf }"
-          @load="onImageLoad"
-        />
-      </div>
+    <!-- Main Image Display -->
+    <div v-else class="relative w-full h-full flex items-center justify-center overflow-hidden" @click="collapseToolbar">
+      <img 
+        ref="imageRef"
+        :src="imageUrl" 
+        :alt="`${$t('page')} ${currentPage + 1}`" 
+        class="transition-transform duration-300 ease-in-out"
+        :class="imageClasses"
+        :style="imageStyles"
+        @load="onImageLoad"
+      />
 
       <!-- Navigation Arrows -->
       <div class="absolute left-0 top-0 h-full w-1/3 cursor-pointer" @click.stop="prevPage"></div>
@@ -195,6 +192,7 @@ const fileInfo = ref({
   error: null,
   data: null,
 });
+const imageRef = ref(null);
 
 // --- Paging/Splitting Logic ---
 const isPagingEnabled = ref(false);
@@ -205,9 +203,39 @@ const shouldShowSplitView = computed(() => {
   return isPagingEnabled.value && isCurrentImageWide.value;
 });
 
+const imageClasses = computed(() => {
+  if (shouldShowSplitView.value) {
+    return 'h-full w-auto max-w-none';
+  }
+  return 'object-contain max-w-full max-h-full';
+});
+
+const imageStyles = computed(() => {
+  if (!shouldShowSplitView.value || !imageRef.value) {
+    return { transform: 'translateX(0)' };
+  }
+
+  const imageWidth = imageRef.value.offsetWidth;
+  let translateX = 0;
+
+  // For a centered image, to show the left page (center of left half),
+  // we need to shift the image to the right by a quarter of its total width.
+  if (showRightHalf.value) {
+    translateX = -imageWidth * 0.25;
+  } else {
+    translateX = imageWidth * 0.25;
+  }
+  
+  return { transform: `translateX(${translateX}px)` };
+});
+
 const onImageLoad = (event) => {
   const img = event.target;
   isCurrentImageWide.value = img.naturalWidth > img.naturalHeight;
+  // When a new image loads, we might need to re-calculate the transform
+  nextTick(() => {
+    // This just ensures reactivity is triggered if needed, style is already computed
+  });
 };
 
 const togglePagingMode = () => {
@@ -249,18 +277,14 @@ watch(currentPage, (newPage, oldPage) => {
   preloadImages();
   debouncedUpdateProgress();
   
-  // Reset paging state for new page
-  isCurrentImageWide.value = false;
   showRightHalf.value = false;
 
-  // Close any open toolbar content when page changes
   if (activePanel.value) {
     activePanel.value = '';
   }
 
-  // Refetch file info if it was open for the previous page
   if (fileInfo.value.data && newPage !== oldPage) {
-    fileInfo.value.data = null; // Invalidate old data
+    fileInfo.value.data = null;
   }
 });
 
@@ -284,7 +308,7 @@ const updateProgress = async () => {
   }
 };
 
-const debouncedUpdateProgress = debounce(updateProgress, 1500); // Save after 1.5s of inactivity
+const debouncedUpdateProgress = debounce(updateProgress, 1500);
 // --- End Progress Saving Logic ---
 
 const fetchMangaDetails = async () => {
@@ -294,14 +318,14 @@ const fetchMangaDetails = async () => {
     
     if (fileData) {
       totalPages.value = fileData.total_pages;
-      currentPage.value = fileData.last_read_page || 0; // Start from last read page
+      currentPage.value = fileData.last_read_page || 0;
       try {
         spreadPages.value = JSON.parse(fileData.spread_pages || '[]');
       } catch(e) {
         console.error("Failed to parse spread_pages", e);
         spreadPages.value = [];
       }
-      preloadImages(); // Initial preload
+      preloadImages();
     } else {
       throw new Error(t('mangaNotFound'));
     }
@@ -325,14 +349,11 @@ const fetchBookmarks = async () => {
 
 const handleBookmarkButtonClick = () => {
   if (isCurrentPageBookmarked.value) {
-    // If it's already bookmarked, maybe remove it?
-    // For now, let's just open the bookmarks panel to show it.
     togglePanel('bookmarks');
     return;
   }
   
-  // Not bookmarked, open the 'add bookmark' panel
-  newBookmarkName.value = ''; // Clear previous input
+  newBookmarkName.value = '';
   activePanel.value = 'addBookmark';
   nextTick(() => {
     bookmarkNameInputRef.value?.focus();
@@ -347,8 +368,8 @@ const saveNewBookmark = async () => {
       note: newBookmarkName.value || null,
     });
     newBookmarkName.value = '';
-    activePanel.value = ''; // Close panel
-    fetchBookmarks(); // Refresh bookmarks list
+    activePanel.value = '';
+    fetchBookmarks();
   } catch (error) {
     console.error('Error saving bookmark:', error);
     alert(t('failedToSaveBookmark'));
@@ -391,7 +412,7 @@ const jumpToPage = (page) => {
 };
 
 const handleKeydown = (e) => {
-  if (e.target.tagName === 'INPUT') return; // Ignore keypresses if typing in an input
+  if (e.target.tagName === 'INPUT') return;
 
   if (e.key === 'ArrowLeft') {
     prevPage();
@@ -419,7 +440,6 @@ const handleKeydown = (e) => {
 const togglePanel = (panel) => {
   const currentPanel = activePanel.value;
 
-  // If the clicked panel is already open, close it.
   if (currentPanel === panel) {
     activePanel.value = '';
     return;
@@ -433,18 +453,13 @@ const togglePanel = (panel) => {
     }
   };
 
-  // If another panel is open, do a close-then-open animation.
   if (currentPanel) {
-    activePanel.value = ''; // Start closing the current panel.
-    
-    // Use a small timeout to ensure the browser has time to start the closing animation
-    // before the command to open the new panel is processed.
+    activePanel.value = '';
     setTimeout(() => {
-      activePanel.value = panel; // Open the new panel.
+      activePanel.value = panel;
       fetchData();
     }, 50);
   } else {
-    // If no panel is open, just open the new one.
     activePanel.value = panel;
     fetchData();
   }
@@ -479,7 +494,6 @@ const expandToolbar = () => {
 };
 
 const collapseToolbar = () => {
-  // Close any active sub-panel
   activePanel.value = '';
   isToolbarExpanded.value = false;
 };
@@ -533,18 +547,5 @@ debouncedUpdateProgress.flush = () => {
 .toolbar-leave-to {
   transform: translateY(100%);
   opacity: 0;
-}
-
-/* Styles for page splitting */
-.split-mode img {
-  max-width: 200%;
-  width: 200%;
-  max-height: 100%;
-  object-fit: contain;
-  transform: translateX(0);
-}
-
-.split-mode img.show-right {
-  transform: translateX(-50%);
 }
 </style>
