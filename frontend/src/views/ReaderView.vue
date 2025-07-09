@@ -20,13 +20,13 @@
     <div v-else class="relative w-full h-full flex items-center justify-center" @click="collapseToolbar">
       <!-- Main Image Display -->
       <div 
-        class="relative max-w-full max-h-full overflow-hidden"
+        class="relative w-full h-full flex items-center justify-center overflow-hidden"
         :class="{ 'split-mode': shouldShowSplitView }"
       >
         <img 
           :src="imageUrl" 
           :alt="`${$t('page')} ${currentPage + 1}`" 
-          class="h-auto max-h-screen w-auto object-contain transition-transform duration-200 ease-in-out"
+          class="w-full h-full object-contain transition-transform duration-200 ease-in-out"
           :class="{ 'show-right': showRightHalf }"
           @load="onImageLoad"
         />
@@ -539,6 +539,8 @@ debouncedUpdateProgress.flush = () => {
 .split-mode img {
   max-width: 200%;
   width: 200%;
+  max-height: 100%;
+  object-fit: contain;
   transform: translateX(0);
 }
 
