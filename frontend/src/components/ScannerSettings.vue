@@ -22,7 +22,7 @@
 
       <!-- 当前处理的文件 -->
       <div v-if="libraryStore.currentScanFile" class="mb-3">
-        <p class="text-sm text-gray-600 mb-1">当前处理文件：</p>
+        <p class="text-sm text-gray-600 mb-1">{{ $t('currentFile') }}</p>
         <p class="text-sm text-gray-800 bg-white p-2 rounded border font-mono break-all">
           {{ libraryStore.currentScanFile }}
         </p>
@@ -30,7 +30,7 @@
 
       <!-- 活跃任务列表 -->
       <div v-if="libraryStore.activeTasks.length > 0" class="mb-3">
-        <p class="text-sm text-gray-600 mb-2">活跃任务：</p>
+        <p class="text-sm text-gray-600 mb-2">{{ $t('activeTasks') }}</p>
         <div class="space-y-2">
           <div 
             v-for="task in libraryStore.activeTasks.filter(t => t.task_type === 'scan')" 
@@ -183,7 +183,9 @@
 import { ref, onMounted, computed } from 'vue'
 import axios from 'axios'
 import { useLibraryStore } from '@/store/library'
+import { useI18n } from 'vue-i18n'
 
+const { t } = useI18n()
 const libraryStore = useLibraryStore()
 
 const libraryPaths = ref([])
@@ -207,15 +209,15 @@ function formatTime(timestamp) {
 function getStatusText() {
   switch (libraryStore.scanStatus) {
     case 'scanning':
-      return '正在扫描...'
+      return t('scanning')
     case 'finished':
-      return '扫描完成'
+      return t('scanFinished')
     case 'error':
-      return '扫描出错'
+      return t('scanError')
     case 'pending':
-      return '等待扫描...'
+      return t('scanPending')
     default:
-      return '空闲'
+      return t('idle')
   }
 }
 
@@ -223,15 +225,15 @@ function getStatusText() {
 function getTaskStatusText(status) {
   switch (status) {
     case 'pending':
-      return '等待中'
+      return t('pending')
     case 'running':
-      return '运行中'
+      return t('running')
     case 'completed':
-      return '已完成'
+      return t('completed')
     case 'failed':
-      return '失败'
+      return t('failed')
     case 'cancelled':
-      return '已取消'
+      return t('cancelled')
     default:
       return status
   }
@@ -239,17 +241,17 @@ function getTaskStatusText(status) {
 
 // 取消任务
 async function cancelTask(taskId) {
-  if (!confirm('确定要取消此扫描任务吗？')) {
+  if (!confirm(t('confirmCancelTask'))) {
     return
   }
 
   try {
     await libraryStore.cancelTask(taskId)
-    statusMessage.value = '任务已取消'
+    statusMessage.value = t('taskCancelled')
     isError.value = false
   } catch (error) {
     console.error('Failed to cancel task:', error)
-    statusMessage.value = '取消任务失败'
+    statusMessage.value = t('failedToCancelTask')
     isError.value = true
   }
   
@@ -262,14 +264,14 @@ async function fetchLibraryPaths() {
     libraryPaths.value = response.data
   } catch (error) {
     console.error('Failed to fetch library paths:', error)
-    statusMessage.value = '获取库路径失败'
+    statusMessage.value = t('failedToFetchLibraryPaths')
     isError.value = true
   }
 }
 
 async function addPath() {
   if (!newPath.value) {
-    alert('请输入路径')
+    alert(t('pleaseEnterPath'))
     return
   }
   
@@ -277,11 +279,11 @@ async function addPath() {
     await axios.post('/api/v1/library_paths', { path: newPath.value })
     newPath.value = ''
     await fetchLibraryPaths()
-    statusMessage.value = '路径添加成功'
+    statusMessage.value = t('pathAddedSuccessfully')
     isError.value = false
   } catch (error) {
     console.error('Failed to add path:', error)
-    statusMessage.value = error.response?.data?.error || '添加路径失败'
+    statusMessage.value = error.response?.data?.error || t('failedToAddPath')
     isError.value = true
   }
   
@@ -289,18 +291,18 @@ async function addPath() {
 }
 
 async function deletePath(id) {
-  if (!confirm('确定要从库中移除此文件夹吗？（不会删除磁盘上的文件）')) {
+  if (!confirm(t('confirmRemovePath'))) {
     return
   }
   
   try {
     await axios.delete(`/api/v1/library_paths/${id}`)
     await fetchLibraryPaths()
-    statusMessage.value = '路径删除成功'
+    statusMessage.value = t('pathRemovedSuccessfully')
     isError.value = false
   } catch (error) {
     console.error('Failed to delete path:', error)
-    statusMessage.value = error.response?.data?.error || '删除路径失败'
+    statusMessage.value = error.response?.data?.error || t('failedToRemovePath')
     isError.value = true
   }
   
@@ -315,7 +317,7 @@ async function fetchSettings() {
     }
   } catch (error) {
     console.error('Failed to fetch settings:', error)
-    statusMessage.value = '获取高级设置失败'
+    statusMessage.value = t('failedToFetchSettings')
     isError.value = true
   }
 }
@@ -323,11 +325,11 @@ async function fetchSettings() {
 async function saveSetting(key, value) {
   try {
     await axios.post(`/api/v1/settings/${key}`, { value })
-    statusMessage.value = '设置保存成功！'
+    statusMessage.value = t('settingsSavedSuccessfully')
     isError.value = false
   } catch (error) {
     console.error(`Failed to save setting ${key}:`, error)
-    statusMessage.value = '保存设置失败'
+    statusMessage.value = t('failedToSaveSettings')
     isError.value = true
   }
   
@@ -337,11 +339,11 @@ async function saveSetting(key, value) {
 async function startScan(path) {
   try {
     await libraryStore.startScan(path)
-    statusMessage.value = `开始扫描 ${path}...`
+    statusMessage.value = t('scanStartedFor', { path })
     isError.value = false
   } catch (error) {
     console.error(`Failed to start scan for ${path}:`, error)
-    statusMessage.value = error.response?.data?.error || '启动扫描失败'
+    statusMessage.value = error.response?.data?.error || t('failedToStartScan')
     isError.value = true
   }
   
@@ -351,11 +353,11 @@ async function startScan(path) {
 async function scanAll() {
   try {
     await libraryStore.startScanAll()
-    statusMessage.value = '开始扫描所有库文件夹...'
+    statusMessage.value = t('scanStartedForAll')
     isError.value = false
   } catch (error) {
     console.error('Failed to start scan all:', error)
-    statusMessage.value = error.response?.data?.error || '启动全部扫描失败'
+    statusMessage.value = error.response?.data?.error || t('failedToStartScanAll')
     isError.value = true
   }
   

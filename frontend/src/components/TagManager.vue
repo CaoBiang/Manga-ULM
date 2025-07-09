@@ -1,6 +1,9 @@
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue';
 import axios from 'axios';
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 
 const props = defineProps({
   types: {
@@ -38,7 +41,7 @@ const fetchTags = async () => {
     filterTags();
   } catch (error) {
     console.error('Failed to fetch tags:', error);
-    alert('错误：无法获取标签。');
+    alert(t('errorFetchingTags'));
   } finally {
     isLoading.value = false;
   }
@@ -58,13 +61,13 @@ onMounted(fetchTags);
 
 const getTypeName = (typeId) => {
   const type = props.types.find(t => t.id === typeId);
-  return type ? type.name : '无';
+  return type ? type.name : t('none');
 };
 
 const getParentName = (parentId) => {
-    if (!parentId) return '无';
+    if (!parentId) return t('none');
     const parent = tags.value.find(t => t.id === parentId);
-    return parent ? parent.name : '无';
+    return parent ? parent.name : t('none');
 }
 
 const openCreateModal = () => {
@@ -113,7 +116,7 @@ const removeAlias = (aliasToRemove) => {
 
 const saveTag = async () => {
   if (!tagForm.value.name || !tagForm.value.type_id) {
-    alert('标签名和类型为必填项。');
+    alert(t('tagNameAndTypeRequired'));
     return;
   }
 
@@ -137,18 +140,18 @@ const saveTag = async () => {
     fetchTags(); // Refresh tag list
   } catch (error) {
     console.error('Failed to save tag:', error);
-    alert('错误：' + (error.response?.data?.error || '无法保存标签。'));
+    alert(t('errorSavingTag') + (error.response?.data?.error || ''));
   }
 };
 
 const deleteTag = async (id) => {
-    if (!confirm('确定要删除此标签吗？此操作不可撤销。')) return;
+    if (!confirm(t('confirmDeleteTag'))) return;
     try {
         await axios.delete(`/api/v1/tags/${id}`);
         fetchTags(); // Refresh tag list
     } catch (error) {
         console.error('Failed to delete tag:', error);
-        alert('错误：' + (error.response?.data?.error || '无法删除标签。'));
+        alert(t('errorDeletingTag') + (error.response?.data?.error || ''));
     }
 }
 
@@ -210,7 +213,7 @@ const availableParents = computed(() => {
             </td>
           </tr>
            <tr v-if="!isLoading && filteredTags.length === 0">
-            <td colspan="6" class="text-center py-4 text-gray-500">No tags found for the selected type.</td>
+            <td colspan="6" class="text-center py-4 text-gray-500">{{ $t('noTagsFoundForType') }}</td>
           </tr>
         </tbody>
       </table>
@@ -240,7 +243,7 @@ const availableParents = computed(() => {
           <div>
             <label class="block text-sm font-medium">{{ $t('parentTag') }}</label>
             <select v-model="tagForm.parent_id" class="w-full p-2 border rounded-md">
-              <option :value="null">无</option>
+              <option :value="null">{{ t('none') }}</option>
               <option v-for="parent in availableParents" :key="parent.id" :value="parent.id">
                 {{ parent.name }} ({{ getTypeName(parent.type_id) }})
               </option>
@@ -249,7 +252,7 @@ const availableParents = computed(() => {
           <div>
             <label class="block text-sm font-medium">{{ $t('aliases') }}</label>
             <div class="flex space-x-2">
-              <input v-model="tagForm.newAlias" @keyup.enter="addAlias" type="text" placeholder="添加别名后回车" class="w-full p-2 border rounded-md" />
+              <input v-model="tagForm.newAlias" @keyup.enter="addAlias" type="text" :placeholder="t('addAliasPlaceholder')" class="w-full p-2 border rounded-md" />
             </div>
             <div class="mt-2 flex flex-wrap gap-2">
               <span v-for="alias in tagForm.aliases" :key="alias" class="bg-gray-200 text-sm rounded-full px-3 py-1 flex items-center">

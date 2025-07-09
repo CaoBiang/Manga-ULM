@@ -70,7 +70,7 @@ const toggleLike = async (event) => {
       <h3 class="text-sm font-semibold text-gray-800 truncate" :title="fileName">
         {{ fileName }}
       </h3>
-      <p class="text-xs text-gray-500 mt-1">{{ manga.total_pages }} pages</p>
+      <p class="text-xs text-gray-500 mt-1">{{ manga.total_pages }} {{ t('pages') }}</p>
 
       <!-- Tags Display -->
       <div v-if="manga.tags && manga.tags.length" class="mt-2 flex flex-wrap gap-1">
@@ -85,10 +85,10 @@ const toggleLike = async (event) => {
     </div>
     <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center gap-x-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
       <RouterLink :to="{ name: 'reader', params: { id: manga.id } }" class="btn btn-primary">
-        Read
+        {{ t('read') }}
       </RouterLink>
       <RouterLink :to="{ name: 'edit', params: { id: manga.id } }" class="btn btn-secondary">
-        Edit
+        {{ t('edit') }}
       </RouterLink>
     </div>
   </div>

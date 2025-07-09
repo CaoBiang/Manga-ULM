@@ -1,6 +1,9 @@
 <script setup>
 import { ref } from 'vue';
 import axios from 'axios';
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 
 const props = defineProps({
   types: {
@@ -36,7 +39,7 @@ const createType = async () => {
     emit('dataChanged');
   } catch (error) {
     console.error('Failed to create tag type:', error);
-    alert('错误：' + (error.response?.data?.error || '无法创建标签类型。'));
+    alert(t('errorCreatingTagType') + (error.response?.data?.error || ''));
   }
 };
 
@@ -52,7 +55,7 @@ const startScan = async () => {
     scannedTags.value = response.data;
   } catch (error) {
     console.error('Failed to scan for undefined tags:', error);
-    alert('错误：' + (error.response?.data?.error || '无法扫描标签。'));
+    alert(t('errorScanningTags') + (error.response?.data?.error || ''));
   } finally {
     isLoadingScannedTags.value = false;
   }
@@ -60,7 +63,7 @@ const startScan = async () => {
 
 const addSelectedTags = async () => {
   if (selectedScannedTags.value.length === 0 || !selectedTagType.value) {
-    alert('请选择标签和标签类型。');
+    alert(t('selectTagsAndType'));
     return;
   }
 
@@ -71,24 +74,24 @@ const addSelectedTags = async () => {
         type_id: selectedTagType.value,
       });
     }
-    alert('所选标签添加成功！');
+    alert(t('tagsAddedSuccessfully'));
     showScanner.value = false;
     scannedTags.value = [];
     emit('dataChanged');
   } catch (error) {
     console.error('Failed to add tags:', error);
-    alert('错误：' + (error.response?.data?.error || '无法添加标签。'));
+    alert(t('errorAddingTags') + (error.response?.data?.error || ''));
   }
 };
 
 const deleteType = async (id) => {
-  if (!confirm('确定要删除此标签类型吗？')) return;
+  if (!confirm(t('confirmDeleteTagType'))) return;
   try {
     await axios.delete(`/api/v1/tag_types/${id}`);
     emit('dataChanged');
   } catch (error) {
     console.error('Failed to delete tag type:', error);
-    alert('错误：' + (error.response?.data?.error || '无法删除标签类型。'));
+    alert(t('errorDeletingTagType') + (error.response?.data?.error || ''));
   }
 };
 
@@ -113,7 +116,7 @@ const saveEdit = async () => {
     emit('dataChanged');
   } catch (error) {
     console.error('Failed to update tag type:', error);
-    alert('错误：' + (error.response?.data?.error || '无法更新标签类型。'));
+    alert(t('errorUpdatingTagType') + (error.response?.data?.error || ''));
   }
 };
 
@@ -130,7 +133,7 @@ const saveEdit = async () => {
       </div>
       <div v-else class="flex-grow">
         <span class="font-medium">{{ type.name }}</span>
-        <span class="text-xs text-gray-500 ml-2">（{{ $t('sortOrder') }}：{{ type.sort_order }}）</span>
+        <span class="text-xs text-gray-500 ml-2">({{ t('sortOrder') }}: {{ type.sort_order }})</span>
       </div>
       <div v-if="editingTypeId !== type.id" class="flex space-x-2">
         <button @click="startEditing(type)" class="btn btn-secondary btn-sm">{{ $t('edit') }}</button>

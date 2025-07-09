@@ -236,7 +236,7 @@ const isTagSelected = (tag) => {
           >{{ $t('prev') }}</button>
 
           <span class="px-3 py-1 text-sm">
-            Page {{ pagination.page }} of {{ pagination.total_pages }}
+            {{ $t('pageIndicator', { currentPage: pagination.page, totalPages: pagination.total_pages }) }}
           </span>
 
           <button

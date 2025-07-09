@@ -1,7 +1,9 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 const backups = ref([]);
 const isLoading = ref(false);
 
@@ -12,36 +14,35 @@ const fetchBackups = async () => {
     backups.value = response.data;
   } catch (error) {
     console.error('Failed to fetch backups:', error);
-    alert('无法加载备份列表。');
+    alert(t('errorFetchingBackups'));
   } finally {
     isLoading.value = false;
   }
 };
 
 const createBackup = async () => {
-  if (!confirm('现在创建新的数据库备份吗？')) return;
+  if (!confirm(t('confirmCreateBackup'))) return;
   try {
-    const response = await axios.post('/api/v1/backup/now');
-    alert(response.data.message);
+    await axios.post('/api/v1/backup/now');
+    alert(t('backupCreatedSuccessfully'));
     fetchBackups(); // Refresh the list
   } catch (error) {
     console.error('Failed to create backup:', error);
-    alert('备份创建失败。');
+    alert(t('errorCreatingBackup'));
   }
 };
 
 const restoreBackup = async (filename) => {
-  if (!prompt(`此操作将覆盖当前数据库，危险操作。若要继续，请在下方输入"RESTORE"。`)?.toUpperCase() === 'RESTORE') {
-    alert('已取消还原操作。');
+  if (!confirm(t('confirmRestore'))) {
     return;
   }
   
   try {
     const response = await axios.post('/api/v1/backup/restore', { filename });
-    alert(response.data.message);
+    alert(t('restoreSuccessful'));
   } catch (error) {
     console.error('Failed to restore backup:', error);
-    alert('还原操作失败。');
+    alert(t('errorRestoringBackup'));
   }
 };
 
@@ -68,7 +69,7 @@ onMounted(fetchBackups);
                 </button>
             </li>
         </ul>
-        <p v-else class="text-gray-500">{{ $t('noDuplicatesFound') }}</p>
+        <p v-else class="text-gray-500">{{ $t('noBackupsFound') }}</p>
     </div>
   </div>
 </template> 

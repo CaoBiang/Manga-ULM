@@ -5,7 +5,9 @@ import { storeToRefs } from 'pinia'
 import MangaCard from './MangaCard.vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
+import { useI18n } from 'vue-i18n'
 
+const { t } = useI18n();
 const router = useRouter()
 const libraryStore = useLibraryStore()
 const { 
@@ -25,7 +27,7 @@ const handleScan = () => {
   if (libraryPath.value) {
     libraryStore.startScan(libraryPath.value)
   } else {
-    alert('请填写库路径。')
+    alert(t('pleaseFillLibraryPath'))
   }
 }
 
@@ -35,11 +37,11 @@ const pickRandomManga = async () => {
     if (response.data) {
       router.push({ name: 'reader', params: { id: response.data.id } });
     } else {
-      alert('没有可供抽取的漫画。')
+      alert(t('noMangaToPick'))
     }
   } catch (error) {
     console.error('Failed to pick random manga:', error);
-    alert('无法抽取随机漫画。')
+    alert(t('failedToPickRandomManga'))
   }
 }
 
@@ -59,16 +61,16 @@ const handleFileSelection = (fileId, isSelected) => {
 const startBatchRename = async () => {
   const template = localStorage.getItem('mangaFilenameTemplate');
   if (!template) {
-    alert('请先在设置中保存文件名模板。');
+    alert(t('pleaseSaveFilenameTemplate'));
     return;
   }
   if (selectedFilesForRename.value.size === 0) {
-    alert('请至少选择一个要重命名的文件。');
+    alert(t('pleaseSelectFileToRename'));
     return;
   }
   if (!libraryPath.value) {
     // A root path is needed to construct the new paths.
-    alert('请指定库根路径以确保正确重命名。');
+    alert(t('pleaseSpecifyLibraryRoot'));
     return;
   }
 
@@ -79,12 +81,12 @@ const startBatchRename = async () => {
       template,
       root_path: libraryPath.value
     });
-    alert('批量重命名任务已启动！你可以通过WebSocket消息（目前请查看开发者控制台）监控进度。');
+    alert(t('batchRenameTaskStarted'));
     toggleRenameMode();
     libraryStore.fetchFiles(); // Refresh library
   } catch (error) {
     console.error('Failed to start batch rename:', error);
-    alert('启动批量重命名任务出错。');
+    alert(t('failedToStartBatchRename'));
   }
 }
 
@@ -105,15 +107,15 @@ onMounted(() => {
   <div>
     <!-- Scanner Section -->
     <div class="p-6 bg-white rounded-lg shadow mb-6">
-      <h2 class="text-xl font-semibold text-gray-700 mb-4">库管理</h2>
+      <h2 class="text-xl font-semibold text-gray-700 mb-4">{{ $t('libraryManagement') }}</h2>
       <div class="mb-4">
-        <label for="library-path" class="block text-sm font-medium text-gray-600 mb-1">库路径：</label>
+        <label for="library-path" class="block text-sm font-medium text-gray-600 mb-1">{{ $t('libraryPath') }}</label>
         <div class="flex">
           <input 
             id="library-path"
             type="text" 
             v-model="libraryPath" 
-            placeholder="例如：C:\Users\YourUser\Documents\Manga"
+            :placeholder="t('libraryPathPlaceholder')"
             class="flex-grow p-2 border rounded-l-md focus:ring-monet-blue focus:border-monet-blue"
           />
           <button 
@@ -121,12 +123,12 @@ onMounted(() => {
             :disabled="scanStatus === 'scanning'"
             class="btn btn-primary rounded-l-none"
           >
-            {{ scanStatus === 'scanning' ? '正在扫描...' : '开始扫描' }}
+            {{ scanStatus === 'scanning' ? t('scanning') : t('startScan') }}
           </button>
         </div>
       </div>
       <div v-if="scanStatus !== 'idle'" class="mt-4">
-        <h3 class="font-semibold text-gray-700">Scan Progress</h3>
+        <h3 class="font-semibold text-gray-700">{{ $t('scanProgress') }}</h3>
         <div class="mt-2">
           <div class="bg-monet-grey rounded-full h-4">
             <div 
@@ -137,39 +139,39 @@ onMounted(() => {
           <p class="text-sm text-gray-600 mt-1 text-center">{{ scanProgress.toFixed(2) }}%</p>
         </div>
         <p v-if="currentScanFile" class="text-sm text-gray-500 mt-2">
-          <strong>Status:</strong> {{ scanStatus }} | <strong>Processing:</strong> <span class="truncate">{{ currentScanFile }}</span>
+          <strong>{{ $t('status') }}:</strong> {{ scanStatus }} | <strong>{{ $t('processing') }}:</strong> <span class="truncate">{{ currentScanFile }}</span>
         </p>
-        <p v-if="scanStatus === 'finished'" class="text-green-600 font-semibold">Scan completed successfully!</p>
-        <p v-if="scanStatus === 'error'" class="text-red-600 font-semibold">An error occurred during the scan.</p>
+        <p v-if="scanStatus === 'finished'" class="text-green-600 font-semibold">{{ $t('scanCompletedSuccessfully') }}</p>
+        <p v-if="scanStatus === 'error'" class="text-red-600 font-semibold">{{ $t('scanErrorOccurred') }}</p>
       </div>
     </div>
 
     <!-- Quick Actions -->
     <div class="p-6 bg-white rounded-lg shadow mb-6">
-      <h2 class="text-xl font-semibold text-gray-700 mb-4">快捷操作</h2>
+      <h2 class="text-xl font-semibold text-gray-700 mb-4">{{ $t('quickActions') }}</h2>
       <div class="flex space-x-2">
         <button @click="pickRandomManga" class="btn btn-primary">
-          随机抽取一本漫画
+          {{ $t('pickRandomManga') }}
         </button>
         <button @click="toggleRenameMode" class="btn btn-secondary">
-          {{ isRenameMode ? '取消重命名' : '批量重命名' }}
+          {{ isRenameMode ? t('cancelRename') : t('batchRename') }}
         </button>
         <button v-if="isRenameMode" @click="startBatchRename" class="btn btn-secondary">
-          应用模板到 {{ selectedFilesForRename.size }} 个文件
+          {{ t('applyTemplateToFiles', { count: selectedFilesForRename.size }) }}
         </button>
       </div>
     </div>
 
     <!-- Gallery Section -->
     <div class="p-6 bg-white rounded-lg shadow">
-      <h2 class="text-xl font-semibold text-gray-700 mb-4">我的漫画库</h2>
+      <h2 class="text-xl font-semibold text-gray-700 mb-4">{{ $t('myMangaLibrary') }}</h2>
       
       <div v-if="libraryStatus === 'loading'" class="text-center">
-        <p>正在加载漫画库...</p>
+        <p>{{ $t('loadingLibrary') }}</p>
       </div>
 
       <div v-else-if="libraryStatus === 'error'" class="text-center text-red-500">
-        <p>加载漫画库失败，请稍后重试。</p>
+        <p>{{ $t('failedToLoadLibrary') }}</p>
       </div>
       
       <div v-else-if="files.length > 0">
@@ -188,20 +190,20 @@ onMounted(() => {
         <!-- Pagination Controls -->
         <div class="mt-6 flex justify-center items-center space-x-2">
           <button @click="changePage(pagination.page - 1)" :disabled="pagination.page === 1" class="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-monet-blue hover:text-white disabled:opacity-50">
-            &laquo; 上一页
+            &laquo; {{ $t('prev') }}
           </button>
           <span class="text-sm text-gray-700">
-            第 {{ pagination.page }} 页 / 共 {{ pagination.total_pages }} 页
+            {{ $t('pageIndicator', { currentPage: pagination.page, totalPages: pagination.total_pages }) }}
           </span>
           <button @click="changePage(pagination.page + 1)" :disabled="pagination.page === pagination.total_pages" class="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-monet-blue hover:text-white disabled:opacity-50">
-            下一页 &raquo;
+            {{ $t('next') }} &raquo;
           </button>
         </div>
       </div>
 
       <div v-else class="text-center text-gray-500">
-        <p>Your library is empty.</p>
-        <p>Use the form above to scan a directory containing your manga.</p>
+        <p>{{ $t('libraryEmpty') }}</p>
+        <p>{{ $t('useScanToPopulate') }}</p>
       </div>
     </div>
   </div>

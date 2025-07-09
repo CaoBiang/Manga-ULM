@@ -5,12 +5,12 @@
         &larr; {{ $t('backToLibrary') }}
       </button>
       <span v-if="isCurrentPageSpread" class="px-2 py-1 text-xs font-bold bg-purple-600 rounded">
-        SPREAD
+        {{ $t('spread') }}
       </span>
     </div>
     
     <div v-if="isLoading" class="text-center">
-      <p>Loading reader...</p>
+      <p>{{ $t('loading') }}...</p>
     </div>
     
     <div v-else-if="error" class="text-center text-red-400">
@@ -20,7 +20,7 @@
     <div v-else class="relative w-full h-full flex items-center justify-center" @click="collapseToolbar">
       <!-- Main Image Display -->
       <div class="relative max-w-full max-h-full">
-        <img :src="imageUrl" :alt="`Page ${currentPage + 1}`" class="h-auto max-h-screen w-auto object-contain" />
+        <img :src="imageUrl" :alt="`${$t('page')} ${currentPage + 1}`" class="h-auto max-h-screen w-auto object-contain" />
       </div>
 
       <!-- Navigation Arrows -->
@@ -131,13 +131,13 @@
                     <div v-else-if="fileInfo.error" class="text-red-400 text-center">{{ fileInfo.error }}</div>
                     <div v-else class="space-y-1 text-xs">
                       <div>
-                        <p class="font-semibold text-gray-300">Manga File:</p>
+                        <p class="font-semibold text-gray-300">{{ $t('mangaFile') }}:</p>
                         <p class="text-gray-100 break-all">{{ fileInfo.data.manga_filename }}</p>
                         <p class="text-gray-400">{{ formatBytes(fileInfo.data.manga_filesize) }}</p>
                       </div>
                       <div class="border-t border-gray-700 my-1"></div>
                       <div>
-                        <p class="font-semibold text-gray-300">Current Page:</p>
+                        <p class="font-semibold text-gray-300">{{ $t('currentPageFile') }}:</p>
                         <p class="text-gray-100 break-all">{{ fileInfo.data.page_filename }}</p>
                         <p class="text-gray-400">{{ formatBytes(fileInfo.data.page_filesize) }}</p>
                       </div>
@@ -158,8 +158,9 @@ import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 import Slider from '@vueform/slider';
 import '@vueform/slider/themes/default.css';
+import { useI18n } from 'vue-i18n';
 
-
+const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 
@@ -262,11 +263,11 @@ const fetchMangaDetails = async () => {
       }
       preloadImages(); // Initial preload
     } else {
-      throw new Error('Manga not found');
+      throw new Error(t('mangaNotFound'));
     }
   } catch (e) {
     console.error('Failed to fetch manga details:', e);
-    error.value = 'Failed to load manga details. Please try again.';
+    error.value = t('failedToLoadMangaDetails');
   } finally {
     isLoading.value = false;
   }
@@ -310,7 +311,7 @@ const saveNewBookmark = async () => {
     fetchBookmarks(); // Refresh bookmarks list
   } catch (error) {
     console.error('Error saving bookmark:', error);
-    alert('Failed to save bookmark.');
+    alert(t('failedToSaveBookmark'));
   }
 };
 
@@ -320,7 +321,7 @@ const deleteBookmark = async (bookmarkId) => {
     fetchBookmarks();
   } catch (err) {
     console.error('Failed to delete bookmark:', err);
-    alert('Failed to delete bookmark.');
+    alert(t('failedToDeleteBookmark'));
   }
 };
 
@@ -412,7 +413,7 @@ const fetchFileInfo = async () => {
     fileInfo.value.data = response.data;
   } catch (err) {
     console.error("Failed to fetch file info:", err);
-    fileInfo.value.error = "Failed to load file information.";
+    fileInfo.value.error = t('failedToLoadFileInfo');
   } finally {
     fileInfo.value.loading = false;
   }
