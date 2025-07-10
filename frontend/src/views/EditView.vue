@@ -66,6 +66,10 @@
       </div>
 
       <div class="flex justify-end items-center gap-4 mt-6">
+        <label class="flex items-center">
+          <input type="checkbox" v-model="renameFileOnSave" class="h-4 w-4 text-monet-blue focus:ring-monet-blue border-gray-300 rounded">
+          <span class="ml-2 text-sm text-gray-600">Rename file based on tags</span>
+        </label>
          <p v-if="saveStatus === 'success'" class="text-green-600">Successfully saved!</p>
          <p v-if="saveStatus === 'error'" class="text-red-500">{{ saveError }}</p>
         <button @click="handleSave" :disabled="isSaving" class="btn btn-primary">
@@ -92,6 +96,7 @@ const allTags = ref([])
 const bookmarks = ref([])
 const loading = ref(true)
 const error = ref(null)
+const renameFileOnSave = ref(true)
 
 const newBookmark = ref({ page: null, note: '' })
 const bookmarkError = ref(null)
@@ -143,6 +148,7 @@ const handleSave = async () => {
   try {
     const payload = {
       tags: file.value.tags,
+      rename_file: renameFileOnSave.value
     }
     const response = await axios.put(`/api/v1/files/${file.value.id}`, payload)
     file.value = response.data // Update local state with response from server
@@ -173,4 +179,22 @@ onMounted(async () => {
     loading.value = false
   }
 })
-</script> 
+</script>
+
+<style>
+.btn {
+  @apply py-2 px-4 rounded-md font-semibold text-sm transition-colors;
+}
+.btn-primary {
+  @apply bg-monet-blue text-white hover:bg-blue-700 disabled:bg-gray-400;
+}
+.btn-secondary {
+  @apply bg-monet-grey text-gray-800 hover:bg-gray-300;
+}
+.btn-danger {
+  @apply bg-red-500 text-white hover:bg-red-600;
+}
+.btn-sm {
+  @apply py-1 px-2 text-xs;
+}
+</style> 

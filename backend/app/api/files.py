@@ -9,6 +9,7 @@ import py7zr
 import io
 import re
 from sqlalchemy.sql.expression import func
+from ..tasks.rename import sanitize_filename
 
 def natural_sort_key(s):
     """
@@ -215,6 +216,42 @@ def get_random_file():
     else:
         return jsonify({'error': 'No files in the library.'}), 404
 
+def rename_file_based_on_tags(file_obj):
+    """
+    Renames a file based on its tags.
+    """
+    # First, remove all tags from the filename
+    base_name = os.path.basename(file_obj.file_path)
+    _, ext = os.path.splitext(base_name)
+    
+    # This regex will remove all bracketed tags, e.g., "[tag] file.txt" -> " file.txt"
+    name_without_tags = re.sub(r'^(\[[^\]]+\]\s*)+', '', base_name).strip()
+
+    # Now, construct the new filename with the updated tags
+    tags_string = "".join([f"[{tag.name}]" for tag in file_obj.tags])
+    
+    # Sanitize the final filename components
+    sanitized_tags = sanitize_filename(tags_string)
+    sanitized_name = sanitize_filename(name_without_tags)
+
+    new_filename = f"{sanitized_tags}{sanitized_name}{ext}"
+    
+    # Construct the full new path
+    directory = os.path.dirname(file_obj.file_path)
+    new_path = os.path.join(directory, new_filename)
+
+    # Rename the file if the path is different
+    if new_path != file_obj.file_path:
+        try:
+            os.rename(file_obj.file_path, new_path)
+            file_obj.file_path = new_path
+            return True, None # Success
+        except OSError as e:
+            return False, str(e) # Failure
+    
+    return True, None # No change needed
+
+
 @api.route('/files/<int:id>', methods=['GET', 'PUT'])
 def handle_file_details(id):
     """Gets or updates a single file's details."""
@@ -228,16 +265,12 @@ def handle_file_details(id):
         if not data:
             return jsonify({'error': 'Invalid JSON'}), 400
 
-        # For now, only allow updating tags.
-        # More fields can be added here later.
+        # Update tags if provided
         if 'tags' in data:
             try:
                 tag_ids = [t['id'] for t in data['tags']]
-                # Fetch actual Tag objects from the database
                 tags = Tag.query.filter(Tag.id.in_(tag_ids)).all()
-                # Validate that all provided tag IDs were found
                 if len(tags) != len(tag_ids):
-                    # Find which tags are invalid to give a better error message.
                     found_ids = {t.id for t in tags}
                     invalid_ids = [tid for tid in tag_ids if tid not in found_ids]
                     return jsonify({'error': f'Invalid tag IDs provided: {invalid_ids}'}), 400
@@ -246,6 +279,12 @@ def handle_file_details(id):
             except (KeyError, TypeError):
                  return jsonify({'error': 'Invalid format for tags. Expected a list of objects with an "id" key.'}), 400
 
+        # Check if rename is requested
+        if data.get('rename_file', False):
+            success, error_msg = rename_file_based_on_tags(file_record)
+            if not success:
+                db.session.rollback() # Rollback tag changes if rename fails
+                return jsonify({'error': f'Failed to rename file: {error_msg}'}), 500
 
         db.session.commit()
         
