@@ -3,6 +3,7 @@ from flask import request, jsonify
 from . import api
 from .. import db
 from ..models import Tag, TagType, TagAlias, File
+from ..tasks.rename import tag_file_change_task
 
 def tag_to_dict(tag):
     return {
@@ -168,3 +169,37 @@ def remove_tag_from_file(file_id, tag_id):
         db.session.commit()
         
     return jsonify({'message': 'Tag removed from file successfully'}) 
+
+@api.route('/tags/<int:tag_id>/file-change', methods=['POST'])
+def change_tag_in_files(tag_id):
+    """
+    修改所有文件名中的指定标签：删除或重命名
+    """
+    tag = db.session.get(Tag, tag_id)
+    if not tag:
+        return jsonify({'error': 'Tag not found'}), 404
+    
+    data = request.get_json()
+    if not data or not data.get('action'):
+        return jsonify({'error': 'action is required'}), 400
+    
+    action = data['action']  # 'delete' or 'rename'
+    
+    if action not in ['delete', 'rename']:
+        return jsonify({'error': 'action must be delete or rename'}), 400
+    
+    if action == 'rename':
+        new_name = data.get('new_name')
+        if not new_name:
+            return jsonify({'error': 'new_name is required for rename action'}), 400
+    else:
+        new_name = None
+    
+    # 开始后台任务
+    try:
+        task = tag_file_change_task(tag_id, action, new_name)
+        print(f"Started tag file change task with ID: {task.id}")
+        return jsonify({'task_id': task.id}), 202
+    except Exception as e:
+        print(f"Failed to start tag file change task: {e}")
+        return jsonify({'error': f'Failed to start task: {str(e)}'}), 500 
