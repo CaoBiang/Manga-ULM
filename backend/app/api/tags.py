@@ -3,7 +3,7 @@ from flask import request, jsonify
 from . import api
 from .. import db
 from ..models import Tag, TagType, TagAlias, File
-from ..tasks.rename import tag_file_change_task
+from ..tasks.rename import tag_file_change_task, tag_split_task
 
 def tag_to_dict(tag):
     return {
@@ -202,4 +202,40 @@ def change_tag_in_files(tag_id):
         return jsonify({'task_id': task.id}), 202
     except Exception as e:
         print(f"Failed to start tag file change task: {e}")
+        return jsonify({'error': f'Failed to start task: {str(e)}'}), 500 
+
+@api.route('/tags/<int:tag_id>/split', methods=['POST'])
+def split_tag(tag_id):
+    """
+    拆分标签：将一个标签拆分成多个同类型标签
+    """
+    tag = db.session.get(Tag, tag_id)
+    if not tag:
+        return jsonify({'error': 'Tag not found'}), 404
+    
+    data = request.get_json()
+    if not data or not data.get('new_tag_names'):
+        return jsonify({'error': 'new_tag_names is required'}), 400
+    
+    new_tag_names = data['new_tag_names']
+    
+    # 验证新标签名称列表
+    if not isinstance(new_tag_names, list) or len(new_tag_names) == 0:
+        return jsonify({'error': 'new_tag_names must be a non-empty list'}), 400
+    
+    # 验证新标签名称不为空
+    for tag_name in new_tag_names:
+        if not tag_name or not tag_name.strip():
+            return jsonify({'error': 'Tag names cannot be empty'}), 400
+    
+    # 去重和清理
+    new_tag_names = list(set(name.strip() for name in new_tag_names))
+    
+    # 开始后台任务
+    try:
+        task = tag_split_task(tag_id, new_tag_names)
+        print(f"Started tag split task with ID: {task.id}")
+        return jsonify({'task_id': task.id}), 202
+    except Exception as e:
+        print(f"Failed to start tag split task: {e}")
         return jsonify({'error': f'Failed to start task: {str(e)}'}), 500 

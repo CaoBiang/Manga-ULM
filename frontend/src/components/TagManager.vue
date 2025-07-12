@@ -27,6 +27,14 @@ const newTagName = ref('');
 const fileChangeProgress = ref(null);
 const isProcessingFileChange = ref(false);
 
+// 拆分标签相关状态
+const showSplitModal = ref(false);
+const splitTag = ref(null);
+const newTagNames = ref([]);
+const newTagNameInput = ref('');
+const splitProgress = ref(null);
+const isProcessingSplit = ref(false);
+
 const tagForm = ref({
   id: null,
   name: '',
@@ -355,6 +363,134 @@ const runInBackground = () => {
   // 任务将继续在后台运行，通过Socket.IO接收更新
 };
 
+// 拆分标签相关方法
+const openSplitModal = (tag) => {
+  splitTag.value = { ...tag };
+  newTagNames.value = [];
+  newTagNameInput.value = '';
+  splitProgress.value = null;
+  isProcessingSplit.value = false;
+  showSplitModal.value = true;
+};
+
+const closeSplitModal = () => {
+  showSplitModal.value = false;
+  splitTag.value = null;
+  newTagNames.value = [];
+  newTagNameInput.value = '';
+  splitProgress.value = null;
+  isProcessingSplit.value = false;
+};
+
+const addNewTagName = () => {
+  const trimmedName = newTagNameInput.value.trim();
+  if (trimmedName && !newTagNames.value.includes(trimmedName)) {
+    newTagNames.value.push(trimmedName);
+    newTagNameInput.value = '';
+  }
+};
+
+const removeNewTagName = (tagName) => {
+  newTagNames.value = newTagNames.value.filter(name => name !== tagName);
+};
+
+const executeSplit = async () => {
+  if (!splitTag.value || newTagNames.value.length === 0) {
+    alert('请至少添加一个新标签名称');
+    return;
+  }
+
+  const confirmMessage = `确定要将标签 [${splitTag.value.name}] 拆分为以下标签吗？\n\n` +
+    newTagNames.value.map(name => `• [${name}]`).join('\n') + '\n\n' +
+    `此操作将：\n` +
+    `1. 创建上述新标签\n` +
+    `2. 将所有包含 [${splitTag.value.name}] 的文件重命名\n` +
+    `3. 移除原标签并更新文件的标签关联\n\n` +
+    `此操作不可撤销！`;
+
+  if (!confirm(confirmMessage)) {
+    return;
+  }
+
+  isProcessingSplit.value = true;
+  splitProgress.value = {
+    progress: 0,
+    current_step: '准备开始拆分...',
+    total_steps: 0
+  };
+
+  try {
+    const payload = {
+      new_tag_names: newTagNames.value
+    };
+
+    console.log('Sending split request:', payload);
+    const response = await axios.post(`/api/v1/tags/${splitTag.value.id}/split`, payload);
+    console.log('Split response:', response.data);
+
+    // 监听Socket.IO事件
+    setupSplitSocketListeners();
+
+    // 开始任务成功，显示初始进度
+    console.log('Split task started successfully with ID:', response.data.task_id);
+
+    // 更新进度显示为等待状态
+    splitProgress.value = {
+      progress: 0,
+      current_step: '拆分任务已启动，等待开始处理...',
+      total_steps: 0
+    };
+
+  } catch (error) {
+    console.error('Failed to start split:', error);
+    alert('启动标签拆分失败: ' + (error.response?.data?.error || error.message));
+    isProcessingSplit.value = false;
+    splitProgress.value = null;
+  }
+};
+
+const setupSplitSocketListeners = () => {
+  console.log('Setting up split socket listeners');
+
+  // 清理之前的监听器
+  socket.off('tag_split_progress');
+  socket.off('tag_split_complete');
+  socket.off('tag_split_error');
+
+  // 进度更新
+  socket.on('tag_split_progress', (data) => {
+    console.log('Received split progress:', data);
+    splitProgress.value = {
+      progress: data.progress || 0,
+      current_step: data.current_step || '',
+      total_steps: data.total_steps || 0
+    };
+  });
+
+  // 完成
+  socket.on('tag_split_complete', (data) => {
+    console.log('Split completed:', data);
+    alert('拆分完成：' + data.message);
+    
+    // 关闭模态框并刷新数据
+    closeSplitModal();
+    fetchTags();
+  });
+
+  // 错误
+  socket.on('tag_split_error', (data) => {
+    console.error('Split error:', data);
+    alert('拆分失败：' + data.error);
+    isProcessingSplit.value = false;
+    splitProgress.value = null;
+  });
+};
+
+const runSplitInBackground = () => {
+  closeSplitModal();
+  alert('拆分任务已在后台运行，您可以在任务管理中查看进度。');
+};
+
 const testSocketConnection = () => {
   console.log('Testing Socket.IO connection...');
   console.log('Socket connected:', socket.connected);
@@ -429,6 +565,7 @@ const testSocketConnection = () => {
               <div class="flex space-x-2">
                 <button @click="openEditModal(tag)" class="btn btn-secondary btn-sm">{{ $t('edit') }}</button>
                 <button @click="openFileChangeModal(tag)" class="btn btn-warning btn-sm">文件变更</button>
+                <button @click="openSplitModal(tag)" class="btn btn-info btn-sm">拆分标签</button>
                 <button @click="deleteTag(tag.id)" class="btn btn-danger btn-sm">{{ $t('delete') }}</button>
               </div>
             </td>
@@ -554,6 +691,96 @@ const testSocketConnection = () => {
           
           <div class="flex justify-center">
             <button @click="runInBackground" class="btn btn-secondary">
+              后台运行
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 拆分标签模态框 -->
+    <div v-if="showSplitModal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+      <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+        <h4 class="text-xl font-semibold mb-4">拆分标签 - {{ splitTag?.name }}</h4>
+        
+        <div v-if="!isProcessingSplit" class="space-y-4">
+          <!-- 当前标签信息 -->
+          <div class="bg-gray-50 border border-gray-200 rounded-md p-3">
+            <p class="text-sm text-gray-700">
+              <strong>当前标签：</strong>{{ splitTag?.name }}
+            </p>
+            <p class="text-sm text-gray-600 mt-1">
+              <strong>类型：</strong>{{ getTypeName(splitTag?.type_id) }}
+            </p>
+          </div>
+
+          <!-- 新标签名称输入 -->
+          <div>
+            <label class="block text-sm font-medium mb-2">新标签名称</label>
+            <div class="flex space-x-2">
+              <input v-model="newTagNameInput" @keyup.enter="addNewTagName" type="text" 
+                     placeholder="输入新标签名称" class="flex-1 p-2 border rounded-md">
+              <button @click="addNewTagName" class="btn btn-primary">添加</button>
+            </div>
+          </div>
+
+          <!-- 新标签列表 -->
+          <div v-if="newTagNames.length > 0">
+            <label class="block text-sm font-medium mb-2">拆分后的标签 ({{ newTagNames.length }})</label>
+            <div class="space-y-2 max-h-32 overflow-y-auto">
+              <div v-for="tagName in newTagNames" :key="tagName" 
+                   class="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-md p-2">
+                <span class="text-sm font-medium text-blue-800">[{{ tagName }}]</span>
+                <button @click="removeNewTagName(tagName)" class="text-red-500 hover:text-red-700">
+                  &times;
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 操作说明 -->
+          <div class="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+            <p class="text-sm text-yellow-800">
+              <strong>注意：</strong>此操作将：
+            </p>
+            <ul class="text-sm text-yellow-700 mt-1 list-disc list-inside">
+              <li>创建新的标签记录</li>
+              <li>重命名所有包含原标签的文件</li>
+              <li>删除原标签</li>
+              <li>此操作不可撤销</li>
+            </ul>
+          </div>
+
+          <!-- 按钮 -->
+          <div class="flex justify-end space-x-2 mt-6">
+            <button @click="closeSplitModal" class="btn btn-secondary">取消</button>
+            <button @click="executeSplit" :disabled="newTagNames.length === 0" 
+                    class="btn btn-primary">确认拆分</button>
+          </div>
+        </div>
+
+        <!-- 进度显示 -->
+        <div v-if="isProcessingSplit && splitProgress" class="space-y-4">
+          <div class="text-center">
+            <p class="text-lg font-medium">正在拆分标签...</p>
+            <p class="text-sm text-gray-600 mt-2">{{ splitProgress.current_step }}</p>
+          </div>
+          
+          <!-- 进度条 -->
+          <div class="w-full bg-gray-200 rounded-full h-2">
+            <div class="bg-green-600 h-2 rounded-full transition-all duration-300" 
+                 :style="{ width: splitProgress.progress + '%' }"></div>
+          </div>
+          
+          <div class="text-center text-sm text-gray-600">
+            {{ Math.round(splitProgress.progress || 0) }}%
+            <span v-if="splitProgress.total_steps > 0">
+              (第 {{ Math.ceil((splitProgress.progress || 0) / 100 * splitProgress.total_steps) }} 步 / 共 {{ splitProgress.total_steps }} 步)
+            </span>
+          </div>
+          
+          <div class="flex justify-center">
+            <button @click="runSplitInBackground" class="btn btn-secondary">
               后台运行
             </button>
           </div>

@@ -454,3 +454,232 @@ def sync_file_tag_indexes_general(files_to_process):
             db.session.rollback()
     
     return sync_count 
+
+@huey.task()
+def tag_split_task(tag_id, new_tag_names):
+    """
+    将一个标签拆分成多个同类型标签
+    """
+    print(f"Tag split task started: tag_id={tag_id}, new_tag_names={new_tag_names}")
+    
+    app = create_app(os.getenv('FLASK_CONFIG') or 'default')
+    with app.app_context():
+        from ..models.manga import TagType
+        
+        # 重新初始化socketio以确保在任务中正常工作
+        socketio.init_app(app, async_mode='eventlet', cors_allowed_origins="*")
+        
+        # 获取原标签
+        original_tag = db.session.get(Tag, tag_id)
+        if not original_tag:
+            socketio.emit('tag_split_error', {'error': '原标签不存在'})
+            return "Original tag not found"
+        
+        old_tag_name = original_tag.name
+        tag_type_id = original_tag.type_id
+        
+        # 验证新标签名称
+        if not new_tag_names or not isinstance(new_tag_names, list):
+            socketio.emit('tag_split_error', {'error': '新标签名称列表不能为空'})
+            return "New tag names list is empty"
+        
+        # 初始化进度
+        total_steps = len(new_tag_names) + 3  # 创建标签 + 处理文件 + 同步 + 清理
+        current_step = 0
+        
+        socketio.emit('tag_split_progress', {
+            'progress': 0,
+            'current_step': '开始拆分标签...',
+            'total_steps': total_steps
+        })
+        
+        try:
+            # 第一步：创建或查找新标签
+            new_tags = []
+            for new_tag_name in new_tag_names:
+                current_step += 1
+                progress = (current_step / total_steps) * 100
+                
+                socketio.emit('tag_split_progress', {
+                    'progress': progress,
+                    'current_step': f'创建标签: {new_tag_name}',
+                    'total_steps': total_steps
+                })
+                
+                # 检查标签是否已存在
+                existing_tag = Tag.query.filter(Tag.name.ilike(new_tag_name)).first()
+                if existing_tag:
+                    if existing_tag.type_id != tag_type_id:
+                        socketio.emit('tag_split_error', {
+                            'error': f'标签 [{new_tag_name}] 已存在但类型不匹配'
+                        })
+                        return f"Tag {new_tag_name} exists with different type"
+                    new_tags.append(existing_tag)
+                else:
+                    # 创建新标签
+                    new_tag = Tag(
+                        name=new_tag_name,
+                        type_id=tag_type_id,
+                        description=f'从 [{old_tag_name}] 拆分而来'
+                    )
+                    db.session.add(new_tag)
+                    db.session.flush()  # 获取ID
+                    new_tags.append(new_tag)
+                
+                print(f"Created/found tag: {new_tag_name}")
+            
+            # 第二步：查找所有使用原标签的文件
+            current_step += 1
+            progress = (current_step / total_steps) * 100
+            socketio.emit('tag_split_progress', {
+                'progress': progress,
+                'current_step': '查找相关文件...',
+                'total_steps': total_steps
+            })
+            
+            # 获取所有文件，查找包含该标签的文件
+            all_files = File.query.all()
+            files_to_update = []
+            
+            # 创建所有可能的标签名（包括别名）
+            tag_patterns = [old_tag_name]
+            tag_patterns.extend([alias.alias_name for alias in original_tag.aliases])
+            
+            for file_obj in all_files:
+                file_path = file_obj.file_path
+                # 检查文件名是否包含该标签（在方括号内）
+                for tag_pattern in tag_patterns:
+                    if f'[{tag_pattern}]' in file_path:
+                        files_to_update.append(file_obj)
+                        break
+            
+            total_files = len(files_to_update)
+            print(f"Found {total_files} files to update")
+            
+            if total_files == 0:
+                socketio.emit('tag_split_complete', {
+                    'message': f'没有找到包含标签 [{old_tag_name}] 的文件，但已成功创建新标签'
+                })
+                return "No files found with this tag, but new tags created"
+            
+            # 第三步：处理文件
+            current_step += 1
+            processed_files = 0
+            success_count = 0
+            error_count = 0
+            
+            for file_obj in files_to_update:
+                old_path = file_obj.file_path
+                processed_files += 1
+                
+                # 计算综合进度
+                file_progress = (processed_files / total_files) * 0.8  # 文件处理占总进度的80%
+                total_progress = ((current_step - 1) / total_steps) * 100 + (file_progress / total_steps) * 100
+                
+                socketio.emit('tag_split_progress', {
+                    'progress': total_progress,
+                    'current_step': f'处理文件 {processed_files}/{total_files}: {os.path.basename(old_path)}',
+                    'total_steps': total_steps
+                })
+                
+                try:
+                    new_path = old_path
+                    
+                    # 对所有可能的标签名进行替换
+                    for tag_pattern in tag_patterns:
+                        tag_bracket = f'[{tag_pattern}]'
+                        if tag_bracket in new_path:
+                            # 移除原标签
+                            new_path = new_path.replace(tag_bracket, '')
+                            
+                            # 添加新标签
+                            new_tags_str = ''.join([f'[{tag.name}]' for tag in new_tags])
+                            
+                            # 在文件名开头添加新标签
+                            dir_name = os.path.dirname(new_path)
+                            file_name = os.path.basename(new_path)
+                            new_path = os.path.join(dir_name, new_tags_str + file_name)
+                            break
+                    
+                    # 清理多余的空格和路径分隔符
+                    new_path = re.sub(r'\s+', ' ', new_path).strip()
+                    new_path = os.path.normpath(new_path)
+                    
+                    # 如果路径没有变化，跳过
+                    if new_path == old_path:
+                        continue
+                    
+                    # 确保目标目录存在
+                    os.makedirs(os.path.dirname(new_path), exist_ok=True)
+                    
+                    # 重命名文件
+                    os.rename(old_path, new_path)
+                    
+                    # 更新数据库中的文件路径
+                    file_obj.file_path = new_path
+                    
+                    # 更新标签关联
+                    # 移除原标签
+                    if original_tag in file_obj.tags:
+                        file_obj.tags.remove(original_tag)
+                    
+                    # 添加新标签
+                    for new_tag in new_tags:
+                        if new_tag not in file_obj.tags:
+                            file_obj.tags.append(new_tag)
+                    
+                    db.session.commit()
+                    success_count += 1
+                    
+                    print(f"Successfully processed file: {old_path} -> {new_path}")
+                    
+                except Exception as e:
+                    error_count += 1
+                    socketio.emit('tag_split_error', {
+                        'error': f"处理文件 {os.path.basename(old_path)} 失败: {str(e)}"
+                    })
+                    db.session.rollback()
+                    print(f"Failed to process file {old_path}: {e}")
+            
+            # 第四步：同步标签索引
+            current_step += 1
+            progress = (current_step / total_steps) * 100
+            socketio.emit('tag_split_progress', {
+                'progress': progress,
+                'current_step': '同步标签索引...',
+                'total_steps': total_steps
+            })
+            
+            # 同步更新后的文件的标签关联
+            sync_count = sync_file_tag_indexes_general(files_to_update)
+            print(f"Synchronized tag indexes for {sync_count} changes")
+            
+            # 第五步：清理原标签
+            current_step += 1
+            progress = (current_step / total_steps) * 100
+            socketio.emit('tag_split_progress', {
+                'progress': progress,
+                'current_step': '清理原标签...',
+                'total_steps': total_steps
+            })
+            
+            # 删除原标签
+            db.session.delete(original_tag)
+            db.session.commit()
+            
+            # 完成
+            new_tag_names_str = ', '.join([f'[{tag.name}]' for tag in new_tags])
+            message = f'标签拆分完成：[{old_tag_name}] 已拆分为 {new_tag_names_str}，成功处理 {success_count} 个文件'
+            if error_count > 0:
+                message += f'，{error_count} 个文件处理失败'
+            
+            socketio.emit('tag_split_complete', {'message': message})
+            print(f"Tag split task completed: {message}")
+            return message
+            
+        except Exception as e:
+            error_msg = f"标签拆分失败: {str(e)}"
+            socketio.emit('tag_split_error', {'error': error_msg})
+            db.session.rollback()
+            print(f"Tag split task failed: {e}")
+            return error_msg 

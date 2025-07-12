@@ -4,6 +4,10 @@ ECHO Three new command prompt windows will be opened.
 ECHO Please keep them open to run the application.
 ECHO To stop the services, close all three new windows.
 
+REM Activate virtual environment
+ECHO Activating virtual environment...
+call .venv\Scripts\activate.bat
+
 REM Set FLASK_APP environment variable for this session
 set FLASK_APP=main:app
 
@@ -16,8 +20,8 @@ flask db upgrade
 
 REM Start Backend Services
 ECHO Starting backend...
-start "Huey Worker (keep open)" cmd /k "huey_consumer main.huey"
-start "Flask API (keep open)" cmd /k "cd backend && python serve.py"
+start "Huey Worker (keep open)" cmd /k "call .venv\Scripts\activate.bat && huey_consumer main.huey"
+start "Flask API (keep open)" cmd /k "call .venv\Scripts\activate.bat && cd backend && python serve.py"
 
 REM Start Frontend Service
 ECHO Starting frontend...
