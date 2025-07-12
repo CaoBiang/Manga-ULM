@@ -291,6 +291,9 @@ export const useLibraryStore = defineStore('library', () => {
     pagination,
     libraryStatus,
     
+    // Socket instance
+    socket,
+    
     // Computed
     hasActiveScanTasks,
     currentScanTask,

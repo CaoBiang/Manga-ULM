@@ -20,6 +20,12 @@
           <ScannerSettings />
         </div>
 
+        <!-- Section: Task Manager -->
+        <div class="p-6 bg-white rounded-lg shadow-md">
+          <h2 class="text-xl font-semibold mb-4 border-b pb-2">{{ $t('taskManager') }}</h2>
+          <TaskManager />
+        </div>
+
         <!-- Section: Filename Templates -->
         <!-- <div class="p-6 bg-white rounded-lg shadow-md">
           <h2 class="text-xl font-semibold mb-4 border-b pb-2">Filename Templates</h2>
@@ -58,6 +64,7 @@ import ScannerSettings from '@/components/ScannerSettings.vue';
 // import FilenameTemplateManager from '@/components/FilenameTemplateManager.vue';
 import TagTypeManager from '@/components/TagTypeManager.vue';
 import TagManager from '@/components/TagManager.vue';
+import TaskManager from '@/components/TaskManager.vue';
 
 const tagTypes = ref([]);
 const isLoading = ref(true);

@@ -2,10 +2,11 @@
 import { ref, onMounted, computed, watch } from 'vue';
 import axios from 'axios';
 import { useI18n } from 'vue-i18n';
-import io from 'socket.io-client';
+import { useLibraryStore } from '@/store/library';
 
 const { t } = useI18n();
-const socket = io({ transports: ['websocket'] });
+const libraryStore = useLibraryStore();
+const socket = libraryStore.socket; // 使用store中的统一socket实例
 
 const props = defineProps({
   types: {
@@ -24,16 +25,12 @@ const showFileChangeModal = ref(false);
 const fileChangeTag = ref(null);
 const fileChangeAction = ref('delete'); // 'delete' or 'rename'
 const newTagName = ref('');
-const fileChangeProgress = ref(null);
-const isProcessingFileChange = ref(false);
 
 // 拆分标签相关状态
 const showSplitModal = ref(false);
 const splitTag = ref(null);
 const newTagNames = ref([]);
 const newTagNameInput = ref('');
-const splitProgress = ref(null);
-const isProcessingSplit = ref(false);
 
 const tagForm = ref({
   id: null,
@@ -195,16 +192,14 @@ const openFileChangeModal = (tag) => {
   fileChangeTag.value = { ...tag };
   fileChangeAction.value = 'delete';
   newTagName.value = '';
-  fileChangeProgress.value = null;
-  isProcessingFileChange.value = false;
   showFileChangeModal.value = true;
 };
 
 const closeFileChangeModal = () => {
   showFileChangeModal.value = false;
   fileChangeTag.value = null;
-  fileChangeProgress.value = null;
-  isProcessingFileChange.value = false;
+  fileChangeAction.value = 'delete';
+  newTagName.value = '';
 };
 
 const executeFileChange = async () => {
@@ -234,14 +229,6 @@ const executeFileChange = async () => {
     return;
   }
   
-  isProcessingFileChange.value = true;
-  fileChangeProgress.value = {
-    progress: 0,
-    current_file: '准备开始...',
-    total_files: 0,
-    processed: 0
-  };
-  
   try {
     const payload = {
       action: fileChangeAction.value,
@@ -252,115 +239,23 @@ const executeFileChange = async () => {
     const response = await axios.post(`/api/v1/tags/${fileChangeTag.value.id}/file-change`, payload);
     console.log('File change response:', response.data);
     
-    // 监听Socket.IO事件
-    setupFileChangeSocketListeners();
+    // 任务已提交到后台，关闭模态框
+    closeFileChangeModal();
     
-    // 开始任务成功，显示初始进度
-    console.log('Task started successfully with ID:', response.data.task_id);
-    
-    // 更新进度显示为等待状态
-    fileChangeProgress.value = {
-      progress: 0,
-      current_file: '任务已启动，等待开始处理...',
-      total_files: 0,
-      processed: 0
-    };
+    // 显示成功消息
+    const actionText = fileChangeAction.value === 'delete' ? '删除' : '重命名';
+    alert(`${actionText}任务已提交到后台，您可以在任务管理器中查看进度。`);
     
   } catch (error) {
     console.error('Failed to start file change:', error);
     alert('启动文件变更失败: ' + (error.response?.data?.error || error.message));
-    isProcessingFileChange.value = false;
-    fileChangeProgress.value = null;
-  }
-};
-
-const setupFileChangeSocketListeners = () => {
-  console.log('Setting up file change socket listeners');
-  
-  // 清理之前的监听器
-  socket.off('tag_change_progress');
-  socket.off('tag_change_complete');
-  socket.off('tag_change_error');
-  socket.off('tag_change_info');
-  
-  // 监听标签变更进度
-  socket.on('tag_change_progress', (data) => {
-    console.log('Received tag_change_progress:', data);
-    fileChangeProgress.value = {
-      progress: data.progress || 0,
-      current_file: data.current_file || '处理中...',
-      total_files: data.total_files || 0,
-      processed: data.processed || 0
-    };
-  });
-
-  // 监听标签变更完成
-  socket.on('tag_change_complete', (data) => {
-    console.log('Received tag_change_complete:', data);
-    fileChangeProgress.value = {
-      progress: 100,
-      current_file: '完成',
-      total_files: fileChangeProgress.value?.total_files || 0,
-      processed: fileChangeProgress.value?.total_files || 0
-    };
-    isProcessingFileChange.value = false;
-    
-    // 根据操作类型显示不同的完成消息
-    let completionMessage = data.message || '文件变更完成';
-    if (fileChangeAction.value === 'delete') {
-      completionMessage += '\n标签已从系统中删除。';
-    } else if (fileChangeAction.value === 'rename') {
-      completionMessage += `\n标签已重命名为"${newTagName.value}"。`;
-    }
-    
-    alert(completionMessage);
-    fetchTags(); // 刷新标签列表以反映最新状态
-    
-    // 移除监听器
-    cleanupFileChangeListeners();
-  });
-
-  // 监听标签变更错误
-  socket.on('tag_change_error', (data) => {
-    console.error('Tag change error:', data.error);
-    alert('文件变更错误: ' + data.error);
-    // 不要在这里停止处理，让任务继续
-  });
-
-  // 监听标签变更信息
-  socket.on('tag_change_info', (data) => {
-    console.log('Tag change info:', data.message);
-  });
-  
-  // 设置超时处理（30秒后如果没有进度更新，显示警告）
-  const timeoutId = setTimeout(() => {
-    if (isProcessingFileChange.value) {
-      console.warn('File change task seems to be stuck, no progress received');
-      // 不自动停止，只是警告
-    }
-  }, 30000);
-  
-  // 保存超时ID以便清理
-  socket._fileChangeTimeoutId = timeoutId;
-};
-
-const cleanupFileChangeListeners = () => {
-  console.log('Cleaning up file change socket listeners');
-  socket.off('tag_change_progress');
-  socket.off('tag_change_complete');
-  socket.off('tag_change_error');
-  socket.off('tag_change_info');
-  
-  if (socket._fileChangeTimeoutId) {
-    clearTimeout(socket._fileChangeTimeoutId);
-    delete socket._fileChangeTimeoutId;
   }
 };
 
 const runInBackground = () => {
   console.log('Running file change task in background');
   closeFileChangeModal();
-  // 任务将继续在后台运行，通过Socket.IO接收更新
+  // 任务将继续在后台运行，通过任务管理器查看进度
 };
 
 // 拆分标签相关方法
@@ -368,8 +263,6 @@ const openSplitModal = (tag) => {
   splitTag.value = { ...tag };
   newTagNames.value = [];
   newTagNameInput.value = '';
-  splitProgress.value = null;
-  isProcessingSplit.value = false;
   showSplitModal.value = true;
 };
 
@@ -378,8 +271,6 @@ const closeSplitModal = () => {
   splitTag.value = null;
   newTagNames.value = [];
   newTagNameInput.value = '';
-  splitProgress.value = null;
-  isProcessingSplit.value = false;
 };
 
 const addNewTagName = () => {
@@ -412,13 +303,6 @@ const executeSplit = async () => {
     return;
   }
 
-  isProcessingSplit.value = true;
-  splitProgress.value = {
-    progress: 0,
-    current_step: '准备开始拆分...',
-    total_steps: 0
-  };
-
   try {
     const payload = {
       new_tag_names: newTagNames.value
@@ -428,89 +312,26 @@ const executeSplit = async () => {
     const response = await axios.post(`/api/v1/tags/${splitTag.value.id}/split`, payload);
     console.log('Split response:', response.data);
 
-    // 监听Socket.IO事件
-    setupSplitSocketListeners();
+    // 任务已提交到后台，关闭模态框
+    closeSplitModal();
 
-    // 开始任务成功，显示初始进度
-    console.log('Split task started successfully with ID:', response.data.task_id);
-
-    // 更新进度显示为等待状态
-    splitProgress.value = {
-      progress: 0,
-      current_step: '拆分任务已启动，等待开始处理...',
-      total_steps: 0
-    };
+    // 显示成功消息
+    alert('拆分任务已提交到后台，您可以在任务管理器中查看进度。');
 
   } catch (error) {
     console.error('Failed to start split:', error);
     alert('启动标签拆分失败: ' + (error.response?.data?.error || error.message));
-    isProcessingSplit.value = false;
-    splitProgress.value = null;
   }
 };
 
-const setupSplitSocketListeners = () => {
-  console.log('Setting up split socket listeners');
 
-  // 清理之前的监听器
-  socket.off('tag_split_progress');
-  socket.off('tag_split_complete');
-  socket.off('tag_split_error');
-
-  // 进度更新
-  socket.on('tag_split_progress', (data) => {
-    console.log('Received split progress:', data);
-    splitProgress.value = {
-      progress: data.progress || 0,
-      current_step: data.current_step || '',
-      total_steps: data.total_steps || 0
-    };
-  });
-
-  // 完成
-  socket.on('tag_split_complete', (data) => {
-    console.log('Split completed:', data);
-    alert('拆分完成：' + data.message);
-    
-    // 关闭模态框并刷新数据
-    closeSplitModal();
-    fetchTags();
-  });
-
-  // 错误
-  socket.on('tag_split_error', (data) => {
-    console.error('Split error:', data);
-    alert('拆分失败：' + data.error);
-    isProcessingSplit.value = false;
-    splitProgress.value = null;
-  });
-};
 
 const runSplitInBackground = () => {
   closeSplitModal();
   alert('拆分任务已在后台运行，您可以在任务管理中查看进度。');
 };
 
-const testSocketConnection = () => {
-  console.log('Testing Socket.IO connection...');
-  console.log('Socket connected:', socket.connected);
-  console.log('Socket ID:', socket.id);
-  
-  if (!socket.connected) {
-    alert('Socket.IO连接未建立！请检查网络连接。');
-  } else {
-    alert('Socket.IO连接正常！');
-    
-    // 测试事件监听
-    socket.emit('test_event', {message: 'test from frontend'});
-    
-    // 监听测试事件
-    socket.once('test_response', (data) => {
-      console.log('Received test response:', data);
-      alert('Socket.IO双向通信测试成功！');
-    });
-  }
-};
+
 
 </script>
 
@@ -528,7 +349,6 @@ const testSocketConnection = () => {
         </select>
       </div>
       <div class="flex space-x-2">
-        <button @click="testSocketConnection" class="btn btn-secondary btn-sm">测试连接</button>
         <button @click="openCreateModal" class="btn btn-primary">
           + {{ $t('newTag') }}
         </button>
@@ -634,7 +454,7 @@ const testSocketConnection = () => {
       <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
         <h4 class="text-xl font-semibold mb-4">文件变更 - {{ fileChangeTag?.name }}</h4>
         
-        <div v-if="!isProcessingFileChange" class="space-y-4">
+        <div class="space-y-4">
           <!-- 操作选择 -->
           <div>
             <label class="block text-sm font-medium mb-2">选择操作</label>
@@ -671,30 +491,7 @@ const testSocketConnection = () => {
           </div>
         </div>
 
-        <!-- 进度显示 -->
-        <div v-if="isProcessingFileChange && fileChangeProgress" class="space-y-4">
-          <div class="text-center">
-            <p class="text-lg font-medium">正在处理文件变更...</p>
-            <p class="text-sm text-gray-600 mt-2">{{ fileChangeProgress.current_file }}</p>
-          </div>
-          
-          <!-- 进度条 -->
-          <div class="w-full bg-gray-200 rounded-full h-2">
-            <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" 
-                 :style="{ width: fileChangeProgress.progress + '%' }"></div>
-          </div>
-          
-          <div class="text-center text-sm text-gray-600">
-            {{ fileChangeProgress.processed || 0 }} / {{ fileChangeProgress.total_files || 0 }} 文件
-            ({{ Math.round(fileChangeProgress.progress || 0) }}%)
-          </div>
-          
-          <div class="flex justify-center">
-            <button @click="runInBackground" class="btn btn-secondary">
-              后台运行
-            </button>
-          </div>
-        </div>
+
       </div>
     </div>
 
@@ -703,7 +500,7 @@ const testSocketConnection = () => {
       <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
         <h4 class="text-xl font-semibold mb-4">拆分标签 - {{ splitTag?.name }}</h4>
         
-        <div v-if="!isProcessingSplit" class="space-y-4">
+        <div class="space-y-4">
           <!-- 当前标签信息 -->
           <div class="bg-gray-50 border border-gray-200 rounded-md p-3">
             <p class="text-sm text-gray-700">
@@ -759,32 +556,7 @@ const testSocketConnection = () => {
           </div>
         </div>
 
-        <!-- 进度显示 -->
-        <div v-if="isProcessingSplit && splitProgress" class="space-y-4">
-          <div class="text-center">
-            <p class="text-lg font-medium">正在拆分标签...</p>
-            <p class="text-sm text-gray-600 mt-2">{{ splitProgress.current_step }}</p>
-          </div>
-          
-          <!-- 进度条 -->
-          <div class="w-full bg-gray-200 rounded-full h-2">
-            <div class="bg-green-600 h-2 rounded-full transition-all duration-300" 
-                 :style="{ width: splitProgress.progress + '%' }"></div>
-          </div>
-          
-          <div class="text-center text-sm text-gray-600">
-            {{ Math.round(splitProgress.progress || 0) }}%
-            <span v-if="splitProgress.total_steps > 0">
-              (第 {{ Math.ceil((splitProgress.progress || 0) / 100 * splitProgress.total_steps) }} 步 / 共 {{ splitProgress.total_steps }} 步)
-            </span>
-          </div>
-          
-          <div class="flex justify-center">
-            <button @click="runSplitInBackground" class="btn btn-secondary">
-              后台运行
-            </button>
-          </div>
-        </div>
+
       </div>
     </div>
   </div>
