@@ -23,12 +23,10 @@ const showModal = ref(false);
 const editingTag = ref(null);
 const showFileChangeModal = ref(false);
 const fileChangeTag = ref(null);
-const fileChangeAction = ref('delete'); // 'delete' or 'rename'
+const fileChangeAction = ref('delete'); // 'delete', 'rename', or 'split'
 const newTagName = ref('');
 
 // 拆分标签相关状态
-const showSplitModal = ref(false);
-const splitTag = ref(null);
 const newTagNames = ref([]);
 const newTagNameInput = ref('');
 
@@ -132,9 +130,18 @@ const closeModal = () => {
 };
 
 const addAlias = () => {
-  if (tagForm.value.newAlias && !tagForm.value.aliases.includes(tagForm.value.newAlias)) {
-    tagForm.value.aliases.push(tagForm.value.newAlias);
+  console.log('addAlias called, newAlias:', tagForm.value.newAlias);
+  if (tagForm.value.newAlias && tagForm.value.newAlias.trim()) {
+    const trimmedAlias = tagForm.value.newAlias.trim();
+    if (!tagForm.value.aliases.includes(trimmedAlias)) {
+      tagForm.value.aliases.push(trimmedAlias);
+      console.log('Alias added:', trimmedAlias, 'Current aliases:', tagForm.value.aliases);
+    } else {
+      console.log('Alias already exists:', trimmedAlias);
+    }
     tagForm.value.newAlias = '';
+  } else {
+    console.log('No alias to add or empty alias');
   }
 };
 
@@ -192,6 +199,8 @@ const openFileChangeModal = (tag) => {
   fileChangeTag.value = { ...tag };
   fileChangeAction.value = 'delete';
   newTagName.value = '';
+  newTagNames.value = [];
+  newTagNameInput.value = '';
   showFileChangeModal.value = true;
 };
 
@@ -200,6 +209,8 @@ const closeFileChangeModal = () => {
   fileChangeTag.value = null;
   fileChangeAction.value = 'delete';
   newTagName.value = '';
+  newTagNames.value = [];
+  newTagNameInput.value = '';
 };
 
 const executeFileChange = async () => {
@@ -210,6 +221,11 @@ const executeFileChange = async () => {
     return;
   }
   
+  if (fileChangeAction.value === 'split' && newTagNames.value.length === 0) {
+    alert('请至少添加一个新标签名称');
+    return;
+  }
+  
   let confirmMessage = '';
   if (fileChangeAction.value === 'delete') {
     confirmMessage = `确定要执行以下操作吗？\n\n` +
@@ -217,12 +233,20 @@ const executeFileChange = async () => {
       `2. 从系统中完全删除此标签\n` +
       `3. 清理所有相关的标签索引\n\n` +
       `此操作不可撤销！`;
-  } else {
+  } else if (fileChangeAction.value === 'rename') {
     confirmMessage = `确定要执行以下操作吗？\n\n` +
       `1. 将所有文件名中的 [${fileChangeTag.value.name}] 重命名为 [${newTagName.value}]\n` +
       `2. 更新标签系统中的标签名称\n` +
       `3. 同步所有相关的标签索引\n\n` +
       `注意：如果目标标签已存在，将自动合并到现有标签。`;
+  } else if (fileChangeAction.value === 'split') {
+    confirmMessage = `确定要将标签 [${fileChangeTag.value.name}] 拆分为以下标签吗？\n\n` +
+      newTagNames.value.map(name => `• [${name}]`).join('\n') + '\n\n' +
+      `此操作将：\n` +
+      `1. 创建上述新标签\n` +
+      `2. 将所有包含 [${fileChangeTag.value.name}] 的文件重命名\n` +
+      `3. 移除原标签并更新文件的标签关联\n\n` +
+      `此操作不可撤销！`;
   }
   
   if (!confirm(confirmMessage)) {
@@ -230,25 +254,37 @@ const executeFileChange = async () => {
   }
   
   try {
-    const payload = {
-      action: fileChangeAction.value,
-      new_name: fileChangeAction.value === 'rename' ? newTagName.value.trim() : undefined
-    };
+    let payload;
+    let endpoint;
     
-    console.log('Sending file change request:', payload);
-    const response = await axios.post(`/api/v1/tags/${fileChangeTag.value.id}/file-change`, payload);
-    console.log('File change response:', response.data);
+    if (fileChangeAction.value === 'split') {
+      payload = {
+        new_tag_names: newTagNames.value
+      };
+      endpoint = `/api/v1/tags/${fileChangeTag.value.id}/split`;
+    } else {
+      payload = {
+        action: fileChangeAction.value,
+        new_name: fileChangeAction.value === 'rename' ? newTagName.value.trim() : undefined
+      };
+      endpoint = `/api/v1/tags/${fileChangeTag.value.id}/file-change`;
+    }
+    
+    console.log('Sending request:', payload);
+    const response = await axios.post(endpoint, payload);
+    console.log('Response:', response.data);
     
     // 任务已提交到后台，关闭模态框
     closeFileChangeModal();
     
     // 显示成功消息
-    const actionText = fileChangeAction.value === 'delete' ? '删除' : '重命名';
+    const actionText = fileChangeAction.value === 'delete' ? '删除' : 
+                      fileChangeAction.value === 'rename' ? '重命名' : '拆分';
     alert(`${actionText}任务已提交到后台，您可以在任务管理器中查看进度。`);
     
   } catch (error) {
-    console.error('Failed to start file change:', error);
-    alert('启动文件变更失败: ' + (error.response?.data?.error || error.message));
+    console.error('Failed to start operation:', error);
+    alert('启动操作失败: ' + (error.response?.data?.error || error.message));
   }
 };
 
@@ -259,20 +295,6 @@ const runInBackground = () => {
 };
 
 // 拆分标签相关方法
-const openSplitModal = (tag) => {
-  splitTag.value = { ...tag };
-  newTagNames.value = [];
-  newTagNameInput.value = '';
-  showSplitModal.value = true;
-};
-
-const closeSplitModal = () => {
-  showSplitModal.value = false;
-  splitTag.value = null;
-  newTagNames.value = [];
-  newTagNameInput.value = '';
-};
-
 const addNewTagName = () => {
   const trimmedName = newTagNameInput.value.trim();
   if (trimmedName && !newTagNames.value.includes(trimmedName)) {
@@ -285,51 +307,7 @@ const removeNewTagName = (tagName) => {
   newTagNames.value = newTagNames.value.filter(name => name !== tagName);
 };
 
-const executeSplit = async () => {
-  if (!splitTag.value || newTagNames.value.length === 0) {
-    alert('请至少添加一个新标签名称');
-    return;
-  }
 
-  const confirmMessage = `确定要将标签 [${splitTag.value.name}] 拆分为以下标签吗？\n\n` +
-    newTagNames.value.map(name => `• [${name}]`).join('\n') + '\n\n' +
-    `此操作将：\n` +
-    `1. 创建上述新标签\n` +
-    `2. 将所有包含 [${splitTag.value.name}] 的文件重命名\n` +
-    `3. 移除原标签并更新文件的标签关联\n\n` +
-    `此操作不可撤销！`;
-
-  if (!confirm(confirmMessage)) {
-    return;
-  }
-
-  try {
-    const payload = {
-      new_tag_names: newTagNames.value
-    };
-
-    console.log('Sending split request:', payload);
-    const response = await axios.post(`/api/v1/tags/${splitTag.value.id}/split`, payload);
-    console.log('Split response:', response.data);
-
-    // 任务已提交到后台，关闭模态框
-    closeSplitModal();
-
-    // 显示成功消息
-    alert('拆分任务已提交到后台，您可以在任务管理器中查看进度。');
-
-  } catch (error) {
-    console.error('Failed to start split:', error);
-    alert('启动标签拆分失败: ' + (error.response?.data?.error || error.message));
-  }
-};
-
-
-
-const runSplitInBackground = () => {
-  closeSplitModal();
-  alert('拆分任务已在后台运行，您可以在任务管理中查看进度。');
-};
 
 
 
@@ -385,7 +363,6 @@ const runSplitInBackground = () => {
               <div class="flex space-x-2">
                 <button @click="openEditModal(tag)" class="btn btn-secondary btn-sm">{{ $t('edit') }}</button>
                 <button @click="openFileChangeModal(tag)" class="btn btn-warning btn-sm">文件变更</button>
-                <button @click="openSplitModal(tag)" class="btn btn-info btn-sm">拆分标签</button>
                 <button @click="deleteTag(tag.id)" class="btn btn-danger btn-sm">{{ $t('delete') }}</button>
               </div>
             </td>
@@ -430,7 +407,8 @@ const runSplitInBackground = () => {
           <div>
             <label class="block text-sm font-medium">{{ $t('aliases') }}</label>
             <div class="flex space-x-2">
-              <input v-model="tagForm.newAlias" @keyup.enter="addAlias" type="text" :placeholder="t('addAliasPlaceholder')" class="w-full p-2 border rounded-md" />
+              <input v-model="tagForm.newAlias" @keyup.enter="addAlias" type="text" placeholder="输入别名" class="flex-1 p-2 border rounded-md" />
+              <button @click="addAlias" type="button" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">添加</button>
             </div>
             <div class="mt-2 flex flex-wrap gap-2">
               <span v-for="alias in tagForm.aliases" :key="alias" class="bg-gray-200 text-sm rounded-full px-3 py-1 flex items-center">
@@ -467,6 +445,10 @@ const runSplitInBackground = () => {
                 <input v-model="fileChangeAction" type="radio" value="rename" class="mr-2">
                 重命名标签 - 将所有文件名中的 [{{ fileChangeTag?.name }}] 替换为新名称
               </label>
+              <label class="flex items-center">
+                <input v-model="fileChangeAction" type="radio" value="split" class="mr-2">
+                拆分标签 - 将 [{{ fileChangeTag?.name }}] 拆分为多个新标签
+              </label>
             </div>
           </div>
 
@@ -475,6 +457,32 @@ const runSplitInBackground = () => {
             <label class="block text-sm font-medium mb-2">新标签名称</label>
             <input v-model="newTagName" type="text" :placeholder="fileChangeTag?.name" 
                    class="w-full p-2 border rounded-md">
+          </div>
+
+          <!-- 拆分标签输入（只在拆分时显示） -->
+          <div v-if="fileChangeAction === 'split'" class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium mb-2">新标签名称</label>
+              <div class="flex space-x-2">
+                <input v-model="newTagNameInput" @keyup.enter="addNewTagName" type="text" 
+                       placeholder="输入新标签名称" class="flex-1 p-2 border rounded-md">
+                <button @click="addNewTagName" class="btn btn-primary">添加</button>
+              </div>
+            </div>
+
+            <!-- 新标签列表 -->
+            <div v-if="newTagNames.length > 0">
+              <label class="block text-sm font-medium mb-2">拆分后的标签 ({{ newTagNames.length }})</label>
+              <div class="space-y-2 max-h-32 overflow-y-auto">
+                <div v-for="tagName in newTagNames" :key="tagName" 
+                     class="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-md p-2">
+                  <span class="text-sm font-medium text-blue-800">[{{ tagName }}]</span>
+                  <button @click="removeNewTagName(tagName)" class="text-red-500 hover:text-red-700">
+                    &times;
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- 操作说明 -->
@@ -488,71 +496,6 @@ const runSplitInBackground = () => {
           <div class="flex justify-end space-x-2 mt-6">
             <button @click="closeFileChangeModal" class="btn btn-secondary">取消</button>
             <button @click="executeFileChange" class="btn btn-primary">确认执行</button>
-          </div>
-        </div>
-
-
-      </div>
-    </div>
-
-    <!-- 拆分标签模态框 -->
-    <div v-if="showSplitModal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
-      <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-        <h4 class="text-xl font-semibold mb-4">拆分标签 - {{ splitTag?.name }}</h4>
-        
-        <div class="space-y-4">
-          <!-- 当前标签信息 -->
-          <div class="bg-gray-50 border border-gray-200 rounded-md p-3">
-            <p class="text-sm text-gray-700">
-              <strong>当前标签：</strong>{{ splitTag?.name }}
-            </p>
-            <p class="text-sm text-gray-600 mt-1">
-              <strong>类型：</strong>{{ getTypeName(splitTag?.type_id) }}
-            </p>
-          </div>
-
-          <!-- 新标签名称输入 -->
-          <div>
-            <label class="block text-sm font-medium mb-2">新标签名称</label>
-            <div class="flex space-x-2">
-              <input v-model="newTagNameInput" @keyup.enter="addNewTagName" type="text" 
-                     placeholder="输入新标签名称" class="flex-1 p-2 border rounded-md">
-              <button @click="addNewTagName" class="btn btn-primary">添加</button>
-            </div>
-          </div>
-
-          <!-- 新标签列表 -->
-          <div v-if="newTagNames.length > 0">
-            <label class="block text-sm font-medium mb-2">拆分后的标签 ({{ newTagNames.length }})</label>
-            <div class="space-y-2 max-h-32 overflow-y-auto">
-              <div v-for="tagName in newTagNames" :key="tagName" 
-                   class="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-md p-2">
-                <span class="text-sm font-medium text-blue-800">[{{ tagName }}]</span>
-                <button @click="removeNewTagName(tagName)" class="text-red-500 hover:text-red-700">
-                  &times;
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- 操作说明 -->
-          <div class="bg-yellow-50 border border-yellow-200 rounded-md p-3">
-            <p class="text-sm text-yellow-800">
-              <strong>注意：</strong>此操作将：
-            </p>
-            <ul class="text-sm text-yellow-700 mt-1 list-disc list-inside">
-              <li>创建新的标签记录</li>
-              <li>重命名所有包含原标签的文件</li>
-              <li>删除原标签</li>
-              <li>此操作不可撤销</li>
-            </ul>
-          </div>
-
-          <!-- 按钮 -->
-          <div class="flex justify-end space-x-2 mt-6">
-            <button @click="closeSplitModal" class="btn btn-secondary">取消</button>
-            <button @click="executeSplit" :disabled="newTagNames.length === 0" 
-                    class="btn btn-primary">确认拆分</button>
           </div>
         </div>
 

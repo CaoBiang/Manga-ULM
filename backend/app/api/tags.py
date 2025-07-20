@@ -28,6 +28,7 @@ def get_tags():
 @api.route('/tags', methods=['POST'])
 def create_tag():
     data = request.get_json()
+    print(f"Creating tag with data: {data}")
     if not data or not data.get('name') or not data.get('type_id'):
         return jsonify({'error': 'Name and type_id are required'}), 400
     
@@ -38,8 +39,22 @@ def create_tag():
         description=data.get('description')
     )
     db.session.add(tag)
+    db.session.flush()  # 获取tag的ID
+    print(f"Created tag with ID: {tag.id}")
+    
+    # 添加别名
+    if 'aliases' in data and isinstance(data['aliases'], list):
+        print(f"Processing aliases: {data['aliases']}")
+        for alias_name in data['aliases']:
+            if alias_name and alias_name.strip():
+                alias = TagAlias(tag_id=tag.id, alias_name=alias_name.strip())
+                db.session.add(alias)
+                print(f"Added alias: {alias_name.strip()}")
+    
     db.session.commit()
-    return jsonify(tag_to_dict(tag)), 201
+    result = tag_to_dict(tag)
+    print(f"Returning tag: {result}")
+    return jsonify(result), 201
 
 # GET, PUT, DELETE for a single tag
 @api.route('/tags/<int:id>', methods=['GET'])
@@ -55,6 +70,7 @@ def update_tag(id):
     if not tag:
         return jsonify({'error': 'Tag not found'}), 404
     data = request.get_json()
+    print(f"Updating tag {id} with data: {data}")
     if not data:
         return jsonify({'error': 'Request body cannot be empty'}), 400
     
@@ -66,13 +82,18 @@ def update_tag(id):
     
     # Atomically update aliases
     if 'aliases' in data and isinstance(data['aliases'], list):
+        print(f"Processing aliases update: {data['aliases']}")
         # Get new and old alias sets
         new_aliases = set(data['aliases'])
         old_aliases = {a.alias_name for a in tag.aliases}
+        print(f"Old aliases: {old_aliases}")
+        print(f"New aliases: {new_aliases}")
 
         # Find which to add and which to remove
         to_add = new_aliases - old_aliases
         to_remove = old_aliases - new_aliases
+        print(f"Aliases to add: {to_add}")
+        print(f"Aliases to remove: {to_remove}")
 
         # Remove old ones
         if to_remove:
@@ -81,9 +102,12 @@ def update_tag(id):
         # Add new ones
         for alias_name in to_add:
             db.session.add(TagAlias(tag_id=id, alias_name=alias_name))
+            print(f"Added alias: {alias_name}")
     
     db.session.commit()
-    return jsonify(tag_to_dict(tag))
+    result = tag_to_dict(tag)
+    print(f"Updated tag result: {result}")
+    return jsonify(result)
 
 @api.route('/tags/<int:id>', methods=['DELETE'])
 def delete_tag(id):
