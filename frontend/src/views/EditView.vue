@@ -1,50 +1,56 @@
 <template>
   <div class="p-8 max-w-4xl mx-auto">
     <div class="flex justify-between items-center mb-6">
-      <h1 class="text-2xl font-bold text-gray-800">Edit File Details</h1>
+      <h1 class="text-2xl font-bold text-gray-800">{{ $t('editFileDetails') }}</h1>
       <button @click="goBack" class="btn btn-secondary">
-        Back
+        {{ $t('back') }}
       </button>
     </div>
     <div v-if="loading" class="text-center">
-      <p>Loading...</p>
+      <p>{{ $t('loading') }}</p>
     </div>
     <div v-else-if="error" class="text-center text-red-500">
-      <p>Error loading data: {{ error }}</p>
+      <p>{{ $t('errorLoadingData', { error: error }) }}</p>
     </div>
     <div v-else-if="file" class="space-y-6">
       <div class="p-6 bg-white rounded-lg shadow">
-        <h2 class="text-lg font-semibold border-b pb-2 mb-4">Metadata</h2>
+        <h2 class="text-lg font-semibold border-b pb-2 mb-4">{{ $t('metadata') }}</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div><strong class="font-medium text-gray-600">Filename:</strong> <span class="text-gray-800 break-all">{{ file.file_path.split(/[\\/]/).pop() }}</span></div>
-          <div><strong class="font-medium text-gray-600">Pages:</strong> <span class="text-gray-800">{{ file.total_pages }}</span></div>
-          <div class="col-span-full"><strong class="font-medium text-gray-600">Full Path:</strong> <span class="text-gray-800 break-all">{{ file.file_path }}</span></div>
-          <div class="col-span-full"><strong class="font-medium text-gray-600">Hash:</strong> <span class="text-gray-800 break-all">{{ file.file_hash }}</span></div>
+          <div><strong class="font-medium text-gray-600">{{ $t('filename') }}:</strong> <span class="text-gray-800 break-all">{{ file.file_path.split(/[\\/]/).pop() }}</span></div>
+          <div><strong class="font-medium text-gray-600">{{ $t('pages') }}:</strong> <span class="text-gray-800">{{ file.total_pages }}</span></div>
+          <div class="col-span-full"><strong class="font-medium text-gray-600">{{ $t('fullPath') }}:</strong> <span class="text-gray-800 break-all">{{ file.file_path }}</span></div>
+          <div class="col-span-full"><strong class="font-medium text-gray-600">{{ $t('hash') }}:</strong> <span class="text-gray-800 break-all">{{ file.file_hash }}</span></div>
         </div>
       </div>
       
       <div class="p-6 bg-white rounded-lg shadow">
-        <h2 class="text-lg font-semibold border-b pb-2 mb-4">Tags</h2>
-        <VueMultiselect
-          v-model="file.tags"
-          :options="allTags"
-          :multiple="true"
-          :close-on-select="false"
-          :clear-on-select="false"
-          placeholder="Select tags"
-          label="name"
-          track-by="id"
-        />
+        <h2 class="text-lg font-semibold border-b pb-2 mb-4">{{ $t('tags') }}</h2>
+        <div class="flex items-start gap-4">
+          <TagSelector v-model="file.tags" />
+          <div v-if="file.tags && file.tags.length > 0" class="flex-grow pl-4">
+            <div class="flex flex-wrap gap-2">
+              <span v-for="tag in file.tags" :key="tag.id" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                {{ tag.name }}
+                <button @click="toggleTag(tag)" class="flex-shrink-0 ml-1.5 h-4 w-4 rounded-full inline-flex items-center justify-center text-blue-400 hover:bg-blue-200 hover:text-blue-500 focus:outline-none focus:bg-blue-500 focus:text-white">
+                  <span class="sr-only">{{ $t('removeTag') }}</span>
+                  <svg class="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
+                    <path stroke-linecap="round" stroke-width="1.5" d="M1 1l6 6m0-6L1 7" />
+                  </svg>
+                </button>
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Bookmarks Section -->
       <div class="p-6 bg-white rounded-lg shadow">
-        <h2 class="text-lg font-semibold border-b pb-2 mb-4">Bookmarks</h2>
+        <h2 class="text-lg font-semibold border-b pb-2 mb-4">{{ $t('bookmarks') }}</h2>
         <!-- Add new bookmark form -->
         <div class="flex items-start gap-4 mb-6 pb-6 border-b">
-          <input type="number" v-model.number="newBookmark.page" placeholder="Page" min="1" class="w-24 p-2 border rounded-md">
-          <input type="text" v-model="newBookmark.note" placeholder="Note (optional)" class="flex-grow p-2 border rounded-md">
-          <button @click="addBookmark" :disabled="!newBookmark.page" class="btn btn-primary">Add</button>
+          <input type="number" v-model.number="newBookmark.page" :placeholder="$t('pagePlaceholder')" min="1" class="w-24 p-2 border rounded-md">
+          <input type="text" v-model="newBookmark.note" :placeholder="$t('noteOptional')" class="flex-grow p-2 border rounded-md">
+          <button @click="addBookmark" :disabled="!newBookmark.page" class="btn btn-primary">{{ $t('add') }}</button>
         </div>
         <p v-if="bookmarkError" class="text-red-500 text-sm mb-4">{{ bookmarkError }}</p>
 
@@ -52,7 +58,7 @@
         <div v-if="bookmarks.length" class="space-y-3">
             <div v-for="bookmark in bookmarks" :key="bookmark.id" class="flex justify-between items-center p-3 bg-gray-50 rounded-md">
                 <div>
-                    <p class="font-semibold">Page {{ bookmark.page_number }}</p>
+                    <p class="font-semibold">{{ $t('page') }} {{ bookmark.page_number }}</p>
                     <p v-if="bookmark.note" class="text-sm text-gray-600">{{ bookmark.note }}</p>
                 </div>
                 <button @click="deleteBookmark(bookmark.id)" class="btn btn-danger btn-sm">
@@ -61,19 +67,19 @@
             </div>
         </div>
         <div v-else>
-            <p class="text-gray-500">No bookmarks for this file yet.</p>
+            <p class="text-gray-500">{{ $t('noBookmarksYet') }}</p>
         </div>
       </div>
 
       <div class="flex justify-end items-center gap-4 mt-6">
         <label class="flex items-center">
           <input type="checkbox" v-model="renameFileOnSave" class="h-4 w-4 text-monet-blue focus:ring-monet-blue border-gray-300 rounded">
-          <span class="ml-2 text-sm text-gray-600">Rename file based on tags</span>
+          <span class="ml-2 text-sm text-gray-600">{{ $t('renameFileOnSave') }}</span>
         </label>
-         <p v-if="saveStatus === 'success'" class="text-green-600">Successfully saved!</p>
+         <p v-if="saveStatus === 'success'" class="text-green-600">{{ $t('successfullySaved') }}</p>
          <p v-if="saveStatus === 'error'" class="text-red-500">{{ saveError }}</p>
         <button @click="handleSave" :disabled="isSaving" class="btn btn-primary">
-          {{ isSaving ? 'Saving...' : 'Save Changes' }}
+          {{ isSaving ? $t('saving') : $t('saveChanges') }}
         </button>
       </div>
 
@@ -81,13 +87,12 @@
   </div>
 </template>
 
-<style src="vue-multiselect/dist/vue-multiselect.css"></style>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
-import VueMultiselect from 'vue-multiselect'
+import TagSelector from '@/components/TagSelector.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -108,6 +113,14 @@ const goBack = () => {
 const isSaving = ref(false)
 const saveStatus = ref('idle') // idle, success, error
 const saveError = ref(null)
+
+const toggleTag = (tag) => {
+    if (!file.value || !file.value.tags) return;
+    const index = file.value.tags.findIndex(t => t.id === tag.id);
+    if (index > -1) {
+        file.value.tags.splice(index, 1);
+    }
+};
 
 const addBookmark = async () => {
     bookmarkError.value = null

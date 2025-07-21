@@ -276,3 +276,7 @@ manga_manager.db
 /frontend/.vite
 /backend/instance
 .DS_Store 
+.idea/inspectionProfiles/profiles_settings.xml
+.idea/Manga-ULM.iml
+.idea/misc.xml
+.idea/vcs.xml
