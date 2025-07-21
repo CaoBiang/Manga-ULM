@@ -683,3 +683,48 @@ def tag_split_task(tag_id, new_tag_names):
             db.session.rollback()
             print(f"Tag split task failed: {e}")
             return error_msg 
+
+@huey.task()
+def rename_single_file_task(file_id, new_filename):
+    """
+    Renames a single file.
+    """
+    with db.app.app_context():
+        file_to_rename = db.session.get(File, file_id)
+        if not file_to_rename:
+            return "File not found"
+
+        old_path = file_to_rename.file_path
+        
+        # Sanitize the new filename
+        sanitized_filename = sanitize_filename(new_filename)
+        
+        # Get the directory and extension from the old path
+        directory = os.path.dirname(old_path)
+        _, ext = os.path.splitext(old_path)
+        
+        # Construct the new path
+        new_path = os.path.join(directory, sanitized_filename + ext)
+
+        try:
+            # Ensure destination directory exists
+            os.makedirs(os.path.dirname(new_path), exist_ok=True)
+            
+            # Rename file on filesystem
+            os.rename(old_path, new_path)
+            
+            # Update database record
+            file_to_rename.file_path = new_path
+            db.session.commit()
+
+            # Synchronize tags from the new filename
+            sync_file_tag_indexes_general([file_to_rename])
+            db.session.commit()
+            
+            socketio.emit('rename_single_complete', {'message': f'File renamed to {os.path.basename(new_path)}', 'file_id': file_id, 'new_path': new_path})
+            return f"File {file_id} renamed to {new_path}"
+            
+        except Exception as e:
+            db.session.rollback()
+            socketio.emit('rename_single_error', {'error': f"Failed to rename file: {e}", 'file_id': file_id})
+            return f"Failed to rename file {file_id}: {e}"

@@ -16,7 +16,17 @@
       <div class="p-6 bg-white rounded-lg shadow">
         <h2 class="text-lg font-semibold border-b pb-2 mb-4">{{ $t('metadata') }}</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div><strong class="font-medium text-gray-600">{{ $t('filename') }}:</strong> <span class="text-gray-800 break-all">{{ file.file_path.split(/[\\/]/).pop() }}</span></div>
+          <div class="col-span-full">
+            <strong class="font-medium text-gray-600">{{ $t('filename') }}:</strong>
+            <div class="flex items-center gap-2 mt-1">
+              <input type="text" v-model="editableFilename" class="flex-grow p-2 border rounded-md">
+              <button @click="handleRename" :disabled="isRenaming" class="btn btn-secondary">
+                {{ isRenaming ? $t('renaming') : $t('rename') }}
+              </button>
+            </div>
+            <p v-if="renameStatus === 'error'" class="text-red-500 text-sm mt-1">{{ renameError }}</p>
+            <p v-if="renameStatus === 'success'" class="text-green-500 text-sm mt-1">{{ $t('renameSuccess') }}</p>
+          </div>
           <div><strong class="font-medium text-gray-600">{{ $t('pages') }}:</strong> <span class="text-gray-800">{{ file.total_pages }}</span></div>
           <div class="col-span-full"><strong class="font-medium text-gray-600">{{ $t('fullPath') }}:</strong> <span class="text-gray-800 break-all">{{ file.file_path }}</span></div>
           <div class="col-span-full"><strong class="font-medium text-gray-600">{{ $t('hash') }}:</strong> <span class="text-gray-800 break-all">{{ file.file_hash }}</span></div>
@@ -102,6 +112,11 @@ const bookmarks = ref([])
 const loading = ref(true)
 const error = ref(null)
 const renameFileOnSave = ref(true)
+const editableFilename = ref('')
+
+const isRenaming = ref(false)
+const renameStatus = ref('idle') // idle, success, error
+const renameError = ref(null)
 
 const newBookmark = ref({ page: null, note: '' })
 const bookmarkError = ref(null)
@@ -175,6 +190,39 @@ const handleSave = async () => {
   }
 }
 
+const handleRename = async () => {
+  if (!editableFilename.value || !file.value) return;
+
+  // Extract filename without extension
+  const currentFilenameWithoutExt = editableFilename.value.includes('.')
+    ? editableFilename.value.substring(0, editableFilename.value.lastIndexOf('.'))
+    : editableFilename.value;
+
+  isRenaming.value = true
+  renameStatus.value = 'idle'
+  renameError.value = null
+  try {
+    await axios.post(`/api/rename/file/${file.value.id}`, {
+      new_filename: currentFilenameWithoutExt
+    })
+    renameStatus.value = 'success'
+    // The backend will emit a socket event, so we might not need to update the path manually here.
+    // However, it's good practice to update it for immediate feedback.
+    const parts = file.value.file_path.split(/[\\/]/);
+    const ext = parts.pop().split('.').pop();
+    parts[parts.length - 1] = `${currentFilenameWithoutExt}.${ext}`;
+    file.value.file_path = parts.join('/');
+    editableFilename.value = `${currentFilenameWithoutExt}`
+
+    setTimeout(() => renameStatus.value = 'idle', 3000)
+  } catch (err) {
+    renameStatus.value = 'error'
+    renameError.value = err.response?.data?.error || 'An unexpected error occurred during rename.'
+  } finally {
+    isRenaming.value = false
+  }
+}
+
 onMounted(async () => {
   const fileId = route.params.id
   try {
@@ -186,6 +234,10 @@ onMounted(async () => {
     file.value = fileResponse.data
     allTags.value = tagsResponse.data
     bookmarks.value = bookmarksResponse.data
+    if (file.value) {
+      const filename = file.value.file_path.split(/[\\/]/).pop()
+      editableFilename.value = filename.substring(0, filename.lastIndexOf('.'))
+    }
   } catch (err) {
     error.value = err.response?.data?.error || err.message
   } finally {
