@@ -83,7 +83,7 @@ const toggleLike = async (event) => {
         </span>
       </div>
     </div>
-    <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center gap-x-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+    <div class="absolute inset-0 bg-black bg-opacity-50 flex flex-col items-center justify-center gap-y-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
       <RouterLink :to="{ name: 'reader', params: { id: manga.id } }" class="btn btn-primary">
         {{ t('read') }}
       </RouterLink>

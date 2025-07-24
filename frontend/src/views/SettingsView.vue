@@ -2,9 +2,9 @@
   <div class="space-y-8 p-4 md:p-8">
     <h1 class="text-3xl font-bold text-gray-800">{{ $t('settings') }}</h1>
     
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <div class="space-y-8">
       
-      <div class="lg:col-span-1 space-y-8">
+      <div class="space-y-8">
         <!-- Section: Language -->
         <div class="p-6 bg-white rounded-lg shadow-md">
           <h2 class="text-xl font-semibold mb-4 border-b pb-2">{{ $t('language') }}</h2>
@@ -33,7 +33,7 @@
         </div> -->
       </div>
 
-      <div class="lg:col-span-2 space-y-8">
+      <div class="space-y-8">
         <!-- Section: Tag Management -->
         <div class="p-6 bg-white rounded-lg shadow-md">
           <h2 class="text-xl font-semibold mb-4 border-b pb-2">{{ $t('tagTypeManagement') }}</h2>

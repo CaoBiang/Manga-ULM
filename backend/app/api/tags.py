@@ -18,12 +18,23 @@ def tag_to_dict(tag):
 # GET all tags (with optional filtering) and POST a new tag
 @api.route('/tags', methods=['GET'])
 def get_tags():
-    query = Tag.query
-    type_id = request.args.get('type_id', type=int)
-    if type_id:
-        query = query.filter_by(type_id=type_id)
-    tags = query.all()
-    return jsonify([tag_to_dict(t) for t in tags])
+    query = Tag.query.order_by(Tag.name)
+    type_id = request.args.get('type_id')
+    if type_id and type_id != 'all':
+        query = query.filter_by(type_id=int(type_id))
+
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+    
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    tags = pagination.items
+    
+    return jsonify({
+        'tags': [tag_to_dict(t) for t in tags],
+        'total': pagination.total,
+        'page': pagination.page,
+        'pages': pagination.pages,
+    })
 
 @api.route('/tags', methods=['POST'])
 def create_tag():

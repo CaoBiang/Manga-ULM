@@ -3,6 +3,7 @@ import { ref, onMounted, computed, watch } from 'vue';
 import axios from 'axios';
 import { useI18n } from 'vue-i18n';
 import { useLibraryStore } from '@/store/library';
+import Pagination from './Pagination.vue';
 
 const { t } = useI18n();
 const libraryStore = useLibraryStore();
@@ -20,6 +21,10 @@ const filteredTags = ref([]);
 const selectedTypeId = ref(null);
 const isLoading = ref(false);
 const showModal = ref(false);
+const currentPage = ref(1);
+const totalPages = ref(1);
+const totalTags = ref(0);
+const perPage = ref(20);
 const editingTag = ref(null);
 const showFileChangeModal = ref(false);
 const fileChangeTag = ref(null);
@@ -40,16 +45,24 @@ const tagForm = ref({
   newAlias: ''
 });
 
-const fetchTags = async () => {
+const fetchTags = async (page = 1) => {
   isLoading.value = true;
   try {
-    const response = await axios.get('/api/v1/tags');
-    tags.value = response.data;
-    // Initially, show all tags
+    const params = {
+      page: page,
+      per_page: perPage.value,
+      type_id: selectedTypeId.value,
+    };
+    const response = await axios.get('/api/v1/tags', { params });
+    tags.value = response.data.tags;
+    filteredTags.value = response.data.tags;
+    currentPage.value = response.data.page;
+    totalPages.value = response.data.pages;
+    totalTags.value = response.data.total;
+    
     if (selectedTypeId.value === null && props.types.length > 0) {
       selectedTypeId.value = 'all';
     }
-    filterTags();
   } catch (error) {
     console.error('Failed to fetch tags:', error);
     alert(t('errorFetchingTags'));
@@ -58,15 +71,11 @@ const fetchTags = async () => {
   }
 };
 
-const filterTags = () => {
-    if (selectedTypeId.value === 'all') {
-        filteredTags.value = tags.value;
-    } else {
-        filteredTags.value = tags.value.filter(t => t.type_id === selectedTypeId.value);
-    }
+const handlePageChange = (page) => {
+  fetchTags(page);
 };
 
-watch(selectedTypeId, filterTags);
+watch(selectedTypeId, () => fetchTags(1));
 
 onMounted(() => {
   fetchTags();
@@ -172,7 +181,7 @@ const saveTag = async () => {
       await axios.post('/api/v1/tags', payload);
     }
     closeModal();
-    fetchTags(); // Refresh tag list
+    fetchTags(currentPage.value); // Refresh tag list
   } catch (error) {
     console.error('Failed to save tag:', error);
     alert(t('errorSavingTag') + (error.response?.data?.error || ''));
@@ -183,7 +192,7 @@ const deleteTag = async (id) => {
     if (!confirm(t('confirmDeleteTag'))) return;
     try {
         await axios.delete(`/api/v1/tags/${id}`);
-        fetchTags(); // Refresh tag list
+        fetchTags(currentPage.value); // Refresh tag list
     } catch (error) {
         console.error('Failed to delete tag:', error);
         alert(t('errorDeletingTag') + (error.response?.data?.error || ''));
@@ -372,6 +381,15 @@ const removeNewTagName = (tagName) => {
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="mt-4">
+      <Pagination
+        :current-page="currentPage"
+        :total-pages="totalPages"
+        @page-changed="handlePageChange"
+      />
     </div>
 
     <!-- Create/Edit Modal -->
