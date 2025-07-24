@@ -9,11 +9,8 @@
       </span>
     </div>
     
-    <div v-if="isLoading" class="text-center">
-      <p>{{ $t('loading') }}...</p>
-    </div>
     
-    <div v-else-if="error" class="text-center text-red-400">
+    <div v-if="error" class="text-center text-red-400">
       <p>{{ error }}</p>
     </div>
 
@@ -139,8 +136,7 @@
                 <!-- File Info Content -->
                 <div v-if="activePanel === 'fileInfo'">
                     <h3 class="text-base font-bold mb-2 text-center">{{ $t('fileInfo') }}</h3>
-                    <div v-if="fileInfo.loading" class="text-gray-400 text-center">{{ $t('loading') }}...</div>
-                    <div v-else-if="fileInfo.error" class="text-red-400 text-center">{{ fileInfo.error }}</div>
+                    <div v-if="fileInfo.error" class="text-red-400 text-center">{{ fileInfo.error }}</div>
                     <div v-else class="space-y-1 text-xs">
                       <div>
                         <p class="font-semibold text-gray-300">{{ $t('mangaFile') }}:</p>

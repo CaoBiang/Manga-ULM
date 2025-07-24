@@ -30,11 +30,8 @@ onMounted(fetchLikes);
   <div class="p-6 bg-white rounded-lg shadow">
     <h2 class="text-xl font-semibold text-gray-700 mb-4">{{ $t('myWishlist') }}</h2>
     
-    <div v-if="isLoading" class="text-center">
-      <p>{{ $t('loadingWishlist') }}</p>
-    </div>
     
-    <div v-else-if="likedItems.length > 0">
+    <div v-if="likedItems.length > 0">
       <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
         <MangaCard 
           v-for="manga in likedItems" 

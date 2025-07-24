@@ -166,11 +166,8 @@ onMounted(() => {
     <div class="p-6 bg-white rounded-lg shadow">
       <h2 class="text-xl font-semibold text-gray-700 mb-4">{{ $t('myMangaLibrary') }}</h2>
       
-      <div v-if="libraryStatus === 'loading'" class="text-center">
-        <p>{{ $t('loadingLibrary') }}</p>
-      </div>
 
-      <div v-else-if="libraryStatus === 'error'" class="text-center text-red-500">
+      <div v-if="libraryStatus === 'error'" class="text-center text-red-500">
         <p>{{ $t('failedToLoadLibrary') }}</p>
       </div>
       

@@ -37,8 +37,7 @@
         <!-- Section: Tag Management -->
         <div class="p-6 bg-white rounded-lg shadow-md">
           <h2 class="text-xl font-semibold mb-4 border-b pb-2">{{ $t('tagTypeManagement') }}</h2>
-          <div v-if="isLoading" class="text-center">{{ $t('loadingTagData') }}</div>
-          <div v-else class="space-y-6">
+          <div class="space-y-6">
             <div>
               <h3 class="text-lg font-semibold mb-3">{{ $t('tagTypes') }}</h3>
               <TagTypeManager :types="tagTypes" @dataChanged="fetchTagData" />

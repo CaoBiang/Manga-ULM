@@ -13,12 +13,9 @@
     </div>
 
     <!-- 加载状态 -->
-    <div v-if="isLoading" class="text-center py-4">
-      <p class="text-gray-600">{{ $t('loading') }}...</p>
-    </div>
 
     <!-- 无活跃任务 -->
-    <div v-else-if="activeTasks.length === 0" class="text-center py-8">
+    <div v-if="activeTasks.length === 0" class="text-center py-8">
       <div class="text-gray-400">
         <svg class="mx-auto h-12 w-12 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>

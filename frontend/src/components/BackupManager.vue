@@ -60,7 +60,7 @@ onMounted(fetchBackups);
 
     <div>
         <h3 class="text-lg font-semibold text-gray-600 mb-2">{{ $t('availableBackups') }}</h3>
-        <div v-if="isLoading" class="text-center">{{ $t('loading') }}</div>
+        <div v-if="isLoading"></div>
         <ul v-else-if="backups.length > 0" class="divide-y border rounded-md">
             <li v-for="backup in backups" :key="backup" class="p-3 flex justify-between items-center">
                 <span class="font-mono text-sm">{{ backup }}</span>

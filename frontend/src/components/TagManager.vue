@@ -356,9 +356,6 @@ const removeNewTagName = (tagName) => {
           </tr>
         </thead>
         <tbody>
-          <tr v-if="isLoading">
-            <td colspan="6" class="text-center py-4">{{ $t('loading') }}...</td>
-          </tr>
           <tr v-for="tag in filteredTags" :key="tag.id" class="border-b hover:bg-gray-50">
             <td class="py-2 px-4 font-medium">{{ tag.name }}</td>
             <td class="py-2 px-4 text-sm text-gray-600 max-w-xs truncate">{{ tag.description || '-' }}</td>

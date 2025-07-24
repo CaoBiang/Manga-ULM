@@ -164,7 +164,7 @@ const saveEdit = async () => {
     </div>
     <div v-if="showScanner" class="mt-4 p-4 border rounded-md bg-gray-50">
       <h4 class="font-semibold text-lg mb-2">{{ $t('foundUndefinedTags') }}</h4>
-      <div v-if="isLoadingScannedTags">{{ $t('loading') }}...</div>
+      <div v-if="isLoadingScannedTags"></div>
       <div v-else-if="scannedTags.length === 0">{{ $t('noNewTagsFound') }}</div>
       <div v-else>
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-60 overflow-y-auto p-2 bg-white border rounded">

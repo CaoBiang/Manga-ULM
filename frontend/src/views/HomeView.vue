@@ -126,11 +126,8 @@ const toggleTag = (tag) => {
       </div>
     </div>
 
-    <div v-if="isLoading" class="text-center py-10">
-      <p>{{ $t('loadingLibrary') }}</p>
-    </div>
 
-    <div v-else-if="library.length > 0">
+    <div v-if="library.length > 0">
       <!-- Grid for manga cards -->
       <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
         <MangaCard v-for="manga in library" :key="manga.id" :manga="manga" v-memo="[manga.is_liked]" />

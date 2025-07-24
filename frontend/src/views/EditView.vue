@@ -6,10 +6,7 @@
         {{ $t('back') }}
       </button>
     </div>
-    <div v-if="loading" class="text-center">
-      <p>{{ $t('loading') }}</p>
-    </div>
-    <div v-else-if="error" class="text-center text-red-500">
+    <div v-if="error" class="text-center text-red-500">
       <p>{{ $t('errorLoadingData', { error: error }) }}</p>
     </div>
     <div v-else-if="file" class="space-y-6">
