@@ -78,7 +78,7 @@ const fetchAllTagTypes = async () => {
 
 const fetchAllTags = async () => {
     try {
-        const response = await axios.get('/api/v1/tags');
+        const response = await axios.get('/api/v1/tags/all');
         allTags.value = response.data;
     } catch (error) {
         console.error('Failed to fetch tags:', error);

@@ -36,6 +36,11 @@ def get_tags():
         'pages': pagination.pages,
     })
 
+@api.route('/tags/all', methods=['GET'])
+def get_all_tags():
+    tags = Tag.query.order_by(Tag.name).all()
+    return jsonify([tag_to_dict(t) for t in tags])
+
 @api.route('/tags', methods=['POST'])
 def create_tag():
     data = request.get_json()
