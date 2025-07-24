@@ -8,6 +8,7 @@ import rarfile
 import py7zr
 import io
 import re
+from sqlalchemy.orm import selectinload
 from sqlalchemy.sql.expression import func
 from ..tasks.rename import sanitize_filename
 
@@ -157,7 +158,10 @@ def get_files():
     keyword = request.args.get('keyword')
 
     # Basic query
-    query = File.query
+    query = File.query.options(
+        selectinload(File.tags),
+        selectinload(File.like_item)
+    )
 
     # Filtering
     if keyword:

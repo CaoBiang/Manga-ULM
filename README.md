@@ -106,6 +106,28 @@ You need to run the backend and frontend servers in two separate terminals.
     ```
     The application will be accessible at `http://127.0.0.1:5173` (or another port if 5173 is busy).
 
+## Production Deployment
+
+For a production environment, it's recommended to use a robust web server like Nginx to serve the frontend and proxy requests to the backend. The `start.bat` script is configured to use `gunicorn` for a more performant backend server.
+
+1.  **Build the Frontend:**
+    *   Navigate to the `frontend` directory.
+    *   Run the build command to generate optimized static assets in the `dist` directory.
+    ```bash
+    npm run build
+    ```
+
+2.  **Run Backend Services:**
+    *   Use the provided `start.bat` script from the project root. It will launch the Gunicorn server and the Huey worker.
+    ```bash
+    ./start.bat
+    ```
+
+3.  **Configure Nginx:**
+    *   Install Nginx on your server.
+    *   Use a configuration similar to `nginx.conf.example` (located in the root of this project). You will need to update the `server_name` and the `root` path to your project's `frontend/dist` directory.
+    *   This configuration will serve the static frontend files and correctly proxy API and WebSocket requests to the Gunicorn backend.
+
 ## Next Steps
 
 This project is now at a stage where individual features can be built out. The next steps would be to replace the placeholder components and API endpoints with full functionality, following the specifications in the design document. Key areas include:
@@ -114,4 +136,4 @@ This project is now at a stage where individual features can be built out. The n
 *   **Manga Reader**: Implementing the image streaming and reading experience.
 *   **Tagging System**: Building the UI and API for creating, editing, and applying tags.
 *   **Data Maintenance**: Adding logic to the maintenance tools.
-*   **Settings**: Implementing the configuration options. 
+*   **Settings**: Implementing the configuration options.

@@ -64,7 +64,7 @@ const toggleLike = async (event) => {
       </svg>
     </button>
     <div class="w-full h-64 bg-monet-grey">
-      <img :src="manga.cover_url" :alt="fileName" class="w-full h-full object-cover" @error.once="e => e.target.src = 'https://via.placeholder.com/300x400.png?text=No+Cover'"/>
+      <img :src="manga.cover_url" :alt="fileName" class="w-full h-full object-cover" @error.once="e => e.target.src = 'https://via.placeholder.com/300x400.png?text=No+Cover'" loading="lazy"/>
     </div>
     <div class="p-3">
       <h3 class="text-sm font-semibold text-gray-800 truncate" :title="fileName">
