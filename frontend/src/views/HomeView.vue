@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, onActivated, onDeactivated, nextTick } from 'vue';
 import axios from 'axios';
 import MangaCard from '@/components/MangaCard.vue';
 import TagSelector from '@/components/TagSelector.vue';
@@ -15,6 +15,9 @@ const selectedTags = ref([]);
 
 const perPageOptions = ref([20, 50, 100, 200]);
 const currentPageSize = ref(200); // Default value
+
+const scrollPosition = ref(0);
+let isLoaded = false;
 
 const fetchLibrary = async () => {
   isLoading.value = true;
@@ -52,8 +55,18 @@ const goToPage = () => {
     }
 };
 
-onMounted(() => {
+onDeactivated(() => {
+  scrollPosition.value = window.scrollY;
+});
+
+onActivated(() => {
+  if (!isLoaded) {
     fetchLibrary();
+    isLoaded = true;
+  }
+  nextTick(() => {
+    window.scrollTo(0, scrollPosition.value);
+  });
 });
 
 watch(currentPage, fetchLibrary);

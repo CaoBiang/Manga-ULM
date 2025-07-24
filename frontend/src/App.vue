@@ -8,7 +8,12 @@ import PageHeader from '@/components/PageHeader.vue'
     <PageHeader />
     
     <main class="container mx-auto p-6">
-      <RouterView />
+      <router-view v-slot="{ Component, route }">
+        <keep-alive>
+          <component :is="Component" :key="route.name" v-if="route.meta.keepAlive" />
+        </keep-alive>
+        <component :is="Component" :key="route.name" v-if="!route.meta.keepAlive" />
+      </router-view>
     </main>
   </div>
 </template>
