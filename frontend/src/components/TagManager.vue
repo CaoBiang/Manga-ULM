@@ -1,40 +1,31 @@
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue';
-import axios from 'axios';
-import { useI18n } from 'vue-i18n';
-import { useLibraryStore } from '@/store/library';
-import Pagination from './Pagination.vue';
+import { ref, computed, watch, onMounted } from 'vue'
+import axios from 'axios'
+import { useI18n } from 'vue-i18n'
+import { message, Modal } from 'ant-design-vue'
+import Pagination from './Pagination.vue'
+import { useLibraryStore } from '@/store/library'
 
-const { t } = useI18n();
-const libraryStore = useLibraryStore();
-const socket = libraryStore.socket; // 使用store中的统一socket实例
+const { t } = useI18n()
+const libraryStore = useLibraryStore()
+const socket = libraryStore.socket
 
 const props = defineProps({
-  types: {
-    type: Array,
-    required: true,
-  },
-});
+  types: { type: Array, required: true }
+})
 
-const tags = ref([]);
-const filteredTags = ref([]);
-const selectedTypeId = ref(null);
-const isLoading = ref(false);
-const showModal = ref(false);
-const currentPage = ref(1);
-const totalPages = ref(1);
-const totalTags = ref(0);
-const perPage = ref(20);
-const editingTag = ref(null);
-const showFileChangeModal = ref(false);
-const fileChangeTag = ref(null);
-const fileChangeAction = ref('delete'); // 'delete', 'rename', or 'split'
-const newTagName = ref('');
+// listing state
+const tags = ref([])
+const selectedTypeId = ref(null)
+const isLoading = ref(false)
+const currentPage = ref(1)
+const totalPages = ref(1)
+const totalTags = ref(0)
+const perPage = ref(20)
 
-// 拆分标签相关状态
-const newTagNames = ref([]);
-const newTagNameInput = ref('');
-
+// editor state
+const showModal = ref(false)
+const editingTag = ref(null)
 const tagForm = ref({
   id: null,
   name: '',
@@ -43,84 +34,105 @@ const tagForm = ref({
   parent_id: null,
   aliases: [],
   newAlias: ''
-});
+})
+
+// parent remote suggest
+const parentSuggestions = ref([])
+const isParentLoading = ref(false)
+const loadParentSuggestions = async (query = '') => {
+  if (!tagForm.value.type_id) return
+  try {
+    isParentLoading.value = true
+    const { data } = await axios.get('/api/v1/tags/suggest', {
+      params: { q: query, type_id: tagForm.value.type_id, limit: 20 }
+    })
+    parentSuggestions.value = data.filter(x => x.id !== tagForm.value.id)
+  } catch (e) {
+    console.error('Failed to load parent suggestions:', e)
+  } finally {
+    isParentLoading.value = false
+  }
+}
+
+// file change state
+const showFileChangeModal = ref(false)
+const fileChangeTag = ref(null)
+const fileChangeAction = ref('delete') // delete | rename | split
+const newTagName = ref('')
+const newTagNames = ref([])
+const newTagNameInput = ref('')
+const isFileChanging = ref(false)
+const isPreviewLoading = ref(false)
+const previewData = ref({ impacted: 0, examples: [] })
+
+// merge state
+const showMergeModal = ref(false)
+const mergeSourceTag = ref(null)
+const mergeTarget = ref(null)
+const isMerging = ref(false)
+const mergeSuggestions = ref([])
+
+const fileChangeOkDisabled = computed(() => {
+  if (!fileChangeTag.value) return true
+  if (fileChangeAction.value === 'rename') return !newTagName.value.trim()
+  if (fileChangeAction.value === 'split') return newTagNames.value.length === 0
+  return false
+})
+
+const fileChangeTagName = computed(() => fileChangeTag.value?.name || '')
 
 const fetchTags = async (page = 1) => {
-  isLoading.value = true;
+  isLoading.value = true
   try {
-    const params = {
-      page: page,
-      per_page: perPage.value,
-      type_id: selectedTypeId.value,
-    };
-    const response = await axios.get('/api/v1/tags', { params });
-    tags.value = response.data.tags;
-    filteredTags.value = response.data.tags;
-    currentPage.value = response.data.page;
-    totalPages.value = response.data.pages;
-    totalTags.value = response.data.total;
-    
-    if (selectedTypeId.value === null && props.types.length > 0) {
-      selectedTypeId.value = 'all';
-    }
-  } catch (error) {
-    console.error('Failed to fetch tags:', error);
-    alert(t('errorFetchingTags'));
+    const params = { page, per_page: perPage.value, type_id: selectedTypeId.value ?? undefined }
+    const { data } = await axios.get('/api/v1/tags', { params })
+    tags.value = data.tags
+    currentPage.value = data.page
+    totalPages.value = data.pages
+    totalTags.value = data.total
+  } catch (e) {
+    console.error('Failed to fetch tags:', e)
+    message.error(t('errorFetchingTags'))
   } finally {
-    isLoading.value = false;
+    isLoading.value = false
   }
-};
+}
 
-const handlePageChange = (page) => {
-  fetchTags(page);
-};
-
-watch(selectedTypeId, () => fetchTags(1));
+const handlePageChange = (page) => fetchTags(page)
+watch(selectedTypeId, () => fetchTags(1))
 
 onMounted(() => {
-  fetchTags();
-  
-  // 添加Socket.IO连接调试
-  socket.on('connect', () => {
-    console.log('Socket.IO connected successfully');
-  });
-  
-  socket.on('disconnect', () => {
-    console.log('Socket.IO disconnected');
-  });
-  
-  socket.on('connect_error', (error) => {
-    console.error('Socket.IO connection error:', error);
-  });
-});
+  fetchTags()
+  socket.on('connect', () => console.log('Socket connected'))
+  socket.on('disconnect', () => console.log('Socket disconnected'))
+  socket.on('connect_error', (e) => console.error('Socket error:', e))
+})
 
-const getTypeName = (typeId) => {
-  const type = props.types.find(t => t.id === typeId);
-  return type ? type.name : t('none');
-};
-
+const getTypeName = (typeId) => props.types.find(ti => ti.id === typeId)?.name || t('none')
 const getParentName = (parentId) => {
-    if (!parentId) return t('none');
-    const parent = tags.value.find(t => t.id === parentId);
-    return parent ? parent.name : t('none');
+  if (!parentId) return t('none')
+  const p = tags.value.find(tg => tg.id === parentId)
+  return p ? p.name : t('none')
 }
 
 const openCreateModal = () => {
-  editingTag.value = null;
+  editingTag.value = null
   tagForm.value = {
     id: null,
     name: '',
     description: '',
-    type_id: selectedTypeId.value !== 'all' ? selectedTypeId.value : (props.types.length > 0 ? props.types[0].id : null),
+    type_id: selectedTypeId.value ?? props.types[0]?.id ?? null,
     parent_id: null,
     aliases: [],
     newAlias: ''
-  };
-  showModal.value = true;
-};
+  }
+  parentSuggestions.value = []
+  if (tagForm.value.type_id) loadParentSuggestions('')
+  showModal.value = true
+}
 
 const openEditModal = (tag) => {
-  editingTag.value = { ...tag };
+  editingTag.value = { ...tag }
   tagForm.value = {
     id: tag.id,
     name: tag.name,
@@ -129,393 +141,236 @@ const openEditModal = (tag) => {
     parent_id: tag.parent_id,
     aliases: [...tag.aliases],
     newAlias: ''
-  };
-  showModal.value = true;
-};
-
-const closeModal = () => {
-  showModal.value = false;
-  editingTag.value = null;
-};
-
-const addAlias = () => {
-  console.log('addAlias called, newAlias:', tagForm.value.newAlias);
-  if (tagForm.value.newAlias && tagForm.value.newAlias.trim()) {
-    const trimmedAlias = tagForm.value.newAlias.trim();
-    if (!tagForm.value.aliases.includes(trimmedAlias)) {
-      tagForm.value.aliases.push(trimmedAlias);
-      console.log('Alias added:', trimmedAlias, 'Current aliases:', tagForm.value.aliases);
-    } else {
-      console.log('Alias already exists:', trimmedAlias);
-    }
-    tagForm.value.newAlias = '';
-  } else {
-    console.log('No alias to add or empty alias');
   }
-};
-
-const removeAlias = (aliasToRemove) => {
-  tagForm.value.aliases = tagForm.value.aliases.filter(alias => alias !== aliasToRemove);
-};
-
-const saveTag = async () => {
-  if (!tagForm.value.name || !tagForm.value.type_id) {
-    alert(t('tagNameAndTypeRequired'));
-    return;
-  }
-
-  const payload = {
-    name: tagForm.value.name,
-    description: tagForm.value.description,
-    type_id: tagForm.value.type_id,
-    parent_id: tagForm.value.parent_id,
-    aliases: tagForm.value.aliases,
-  };
-
-  try {
-    if (editingTag.value) {
-      // Update existing tag
-      await axios.put(`/api/v1/tags/${editingTag.value.id}`, payload);
-    } else {
-      // Create new tag
-      await axios.post('/api/v1/tags', payload);
-    }
-    closeModal();
-    fetchTags(currentPage.value); // Refresh tag list
-  } catch (error) {
-    console.error('Failed to save tag:', error);
-    alert(t('errorSavingTag') + (error.response?.data?.error || ''));
-  }
-};
-
-const deleteTag = async (id) => {
-    if (!confirm(t('confirmDeleteTag'))) return;
-    try {
-        await axios.delete(`/api/v1/tags/${id}`);
-        fetchTags(currentPage.value); // Refresh tag list
-    } catch (error) {
-        console.error('Failed to delete tag:', error);
-        alert(t('errorDeletingTag') + (error.response?.data?.error || ''));
-    }
+  parentSuggestions.value = []
+  if (tagForm.value.type_id) loadParentSuggestions('')
+  showModal.value = true
 }
 
-const availableParents = computed(() => {
-    return tags.value.filter(tag => tag.id !== editingTag.value?.id);
-});
+const closeModal = () => { showModal.value = false; editingTag.value = null }
 
-// 文件变更相关方法
-const openFileChangeModal = (tag) => {
-  fileChangeTag.value = { ...tag };
-  fileChangeAction.value = 'delete';
-  newTagName.value = '';
-  newTagNames.value = [];
-  newTagNameInput.value = '';
-  showFileChangeModal.value = true;
-};
+const addAlias = () => {
+  const a = (tagForm.value.newAlias || '').trim()
+  if (!a) return
+  if (tagForm.value.aliases.includes(a)) { message.warning('Alias already exists'); return }
+  tagForm.value.aliases.push(a)
+  tagForm.value.newAlias = ''
+}
+const removeAlias = (a) => { tagForm.value.aliases = tagForm.value.aliases.filter(x => x !== a) }
 
-const closeFileChangeModal = () => {
-  showFileChangeModal.value = false;
-  fileChangeTag.value = null;
-  fileChangeAction.value = 'delete';
-  newTagName.value = '';
-  newTagNames.value = [];
-  newTagNameInput.value = '';
-};
-
-const executeFileChange = async () => {
-  if (!fileChangeTag.value) return;
-  
-  if (fileChangeAction.value === 'rename' && !newTagName.value.trim()) {
-    alert('请输入新的标签名称');
-    return;
-  }
-  
-  if (fileChangeAction.value === 'split' && newTagNames.value.length === 0) {
-    alert('请至少添加一个新标签名称');
-    return;
-  }
-  
-  let confirmMessage = '';
-  if (fileChangeAction.value === 'delete') {
-    confirmMessage = `确定要执行以下操作吗？\n\n` +
-      `1. 从所有文件名中删除标签 [${fileChangeTag.value.name}]\n` +
-      `2. 从系统中完全删除此标签\n` +
-      `3. 清理所有相关的标签索引\n\n` +
-      `此操作不可撤销！`;
-  } else if (fileChangeAction.value === 'rename') {
-    confirmMessage = `确定要执行以下操作吗？\n\n` +
-      `1. 将所有文件名中的 [${fileChangeTag.value.name}] 重命名为 [${newTagName.value}]\n` +
-      `2. 更新标签系统中的标签名称\n` +
-      `3. 同步所有相关的标签索引\n\n` +
-      `注意：如果目标标签已存在，将自动合并到现有标签。`;
-  } else if (fileChangeAction.value === 'split') {
-    confirmMessage = `确定要将标签 [${fileChangeTag.value.name}] 拆分为以下标签吗？\n\n` +
-      newTagNames.value.map(name => `• [${name}]`).join('\n') + '\n\n' +
-      `此操作将：\n` +
-      `1. 创建上述新标签\n` +
-      `2. 将所有包含 [${fileChangeTag.value.name}] 的文件重命名\n` +
-      `3. 移除原标签并更新文件的标签关联\n\n` +
-      `此操作不可撤销！`;
-  }
-  
-  if (!confirm(confirmMessage)) {
-    return;
-  }
-  
+const saveTag = async () => {
+  if (!tagForm.value.name || !tagForm.value.type_id) { message.warning(t('tagNameAndTypeRequired')); return }
+  const payload = { name: tagForm.value.name, description: tagForm.value.description, type_id: tagForm.value.type_id, parent_id: tagForm.value.parent_id, aliases: tagForm.value.aliases }
   try {
-    let payload;
-    let endpoint;
-    
-    if (fileChangeAction.value === 'split') {
-      payload = {
-        new_tag_names: newTagNames.value
-      };
-      endpoint = `/api/v1/tags/${fileChangeTag.value.id}/split`;
-    } else {
-      payload = {
-        action: fileChangeAction.value,
-        new_name: fileChangeAction.value === 'rename' ? newTagName.value.trim() : undefined
-      };
-      endpoint = `/api/v1/tags/${fileChangeTag.value.id}/file-change`;
+    if (editingTag.value) await axios.put(`/api/v1/tags/${editingTag.value.id}`, payload)
+    else await axios.post('/api/v1/tags', payload)
+    message.success(t('settingsSavedSuccessfully'))
+    closeModal(); fetchTags(currentPage.value)
+  } catch (e) {
+    console.error('Failed to save tag:', e)
+    message.error(t('errorSavingTag') + (e.response?.data?.error || ''))
+  }
+}
+
+const deleteTag = (tag) => {
+  Modal.confirm({
+    title: t('confirmDeletionTitle'),
+    content: t('confirmDeleteTagWithUsage', { name: tag.name, count: tag.usage_count ?? 0 }),
+    okType: 'danger',
+    onOk: async () => {
+      try {
+        await axios.delete(`/api/v1/tags/${tag.id}`)
+        message.success(t('settingsSavedSuccessfully'))
+        fetchTags(currentPage.value)
+      } catch (e) {
+        console.error('Failed to delete tag:', e)
+        message.error(t('errorDeletingTag') + (e.response?.data?.error || ''))
+      }
     }
-    
-    console.log('Sending request:', payload);
-    const response = await axios.post(endpoint, payload);
-    console.log('Response:', response.data);
-    
-    // 任务已提交到后台，关闭模态框
-    closeFileChangeModal();
-    
-    // 显示成功消息
-    const actionText = fileChangeAction.value === 'delete' ? '删除' : 
-                      fileChangeAction.value === 'rename' ? '重命名' : '拆分';
-    alert(`${actionText}任务已提交到后台，您可以在任务管理器中查看进度。`);
-    
-  } catch (error) {
-    console.error('Failed to start operation:', error);
-    alert('启动操作失败: ' + (error.response?.data?.error || error.message));
-  }
-};
+  })
+}
 
-const runInBackground = () => {
-  console.log('Running file change task in background');
-  closeFileChangeModal();
-  // 任务将继续在后台运行，通过任务管理器查看进度
-};
+// file-change modal
+const openFileChangeModal = (tag) => { fileChangeTag.value = { ...tag }; fileChangeAction.value = 'delete'; newTagName.value=''; newTagNames.value=[]; newTagNameInput.value=''; previewData.value={impacted:0,examples:[]}; showFileChangeModal.value = true }
+const closeFileChangeModal = () => { showFileChangeModal.value=false; fileChangeTag.value=null; fileChangeAction.value='delete'; newTagName.value=''; newTagNames.value=[]; newTagNameInput.value=''; isFileChanging.value=false }
+const loadPreview = async () => {
+  if (!fileChangeTag.value) return
+  try {
+    isPreviewLoading.value = true
+    let endpoint, payload
+    if (fileChangeAction.value === 'split') { endpoint = `/api/v1/tags/${fileChangeTag.value.id}/split/preview`; payload = { new_tag_names: newTagNames.value } }
+    else { endpoint = `/api/v1/tags/${fileChangeTag.value.id}/file-change/preview`; payload = { action: fileChangeAction.value, new_name: fileChangeAction.value === 'rename' ? newTagName.value.trim() : undefined } }
+    const { data } = await axios.post(endpoint, payload)
+    previewData.value = data
+  } catch (e) {
+    console.error('Failed to load preview:', e)
+    message.error(t('errorLoadingPreview') + (e.response?.data?.error || ''))
+  } finally { isPreviewLoading.value = false }
+}
+const executeFileChange = async () => {
+  if (!fileChangeTag.value) return
+  if (fileChangeAction.value === 'rename' && !newTagName.value.trim()) { message.warning(t('pleaseEnterNewTagName')); return }
+  if (fileChangeAction.value === 'split' && newTagNames.value.length === 0) { message.warning(t('noNewTagsAdded')); return }
+  try {
+    isFileChanging.value = true
+    let endpoint, payload
+    if (fileChangeAction.value === 'split') { endpoint = `/api/v1/tags/${fileChangeTag.value.id}/split`; payload = { new_tag_names: newTagNames.value } }
+    else { endpoint = `/api/v1/tags/${fileChangeTag.value.id}/file-change`; payload = { action: fileChangeAction.value, new_name: fileChangeAction.value === 'rename' ? newTagName.value.trim() : undefined } }
+    await axios.post(endpoint, payload)
+    message.success(t('operationSubmittedCheckTaskManager'))
+    closeFileChangeModal()
+  } catch (e) {
+    console.error('Failed to start operation:', e)
+    message.error(t('errorStartingOperation') + (e.response?.data?.error || e.message))
+  } finally { isFileChanging.value = false }
+}
+const addNewTagName = () => { const n = newTagNameInput.value.trim(); if (n && !newTagNames.value.includes(n)) { newTagNames.value.push(n); newTagNameInput.value='' } }
+const removeNewTagName = (n) => { newTagNames.value = newTagNames.value.filter(x => x !== n) }
 
-// 拆分标签相关方法
-const addNewTagName = () => {
-  const trimmedName = newTagNameInput.value.trim();
-  if (trimmedName && !newTagNames.value.includes(trimmedName)) {
-    newTagNames.value.push(trimmedName);
-    newTagNameInput.value = '';
-  }
-};
-
-const removeNewTagName = (tagName) => {
-  newTagNames.value = newTagNames.value.filter(name => name !== tagName);
-};
-
-
-
-
-
+// merge modal
+const openMergeModal = (tag) => { mergeSourceTag.value = tag; mergeTarget.value=null; mergeSuggestions.value=[]; showMergeModal.value = true }
+const searchMergeTargets = async (q='') => { if (!mergeSourceTag.value) return; const { data } = await axios.get('/api/v1/tags/suggest', { params: { q, type_id: mergeSourceTag.value.type_id, limit: 20 } }); mergeSuggestions.value = data.filter(x => x.id !== mergeSourceTag.value.id) }
+const executeMerge = async () => { if (!mergeSourceTag.value || !mergeTarget.value) return; try { isMerging.value = true; await axios.post(`/api/v1/tags/${mergeSourceTag.value.id}/merge`, { target_tag_id: mergeTarget.value }); message.success(t('mergeSuccess')); showMergeModal.value = false; fetchTags(currentPage.value) } catch (e) { console.error('Failed to merge:', e); message.error(t('mergeError') + (e.response?.data?.error || '')) } finally { isMerging.value = false } }
 </script>
 
 <template>
-  <div class="p-4 bg-white rounded-lg shadow-md">
-    <h3 class="text-xl font-semibold mb-4">{{ $t('tagManagement') }}</h3>
-
-    <!-- Filter and Actions -->
-    <div class="flex justify-between items-center mb-4">
-  <div>
-        <label for="type-filter" class="mr-2 font-medium">{{ $t('filterByType') }}</label>
-        <select id="type-filter" v-model="selectedTypeId" class="p-2 border rounded-md">
-          <option value="all">{{ $t('allTypes') }}</option>
-          <option v-for="type in types" :key="type.id" :value="type.id">{{ type.name }}</option>
-        </select>
-      </div>
-      <div class="flex space-x-2">
-        <button @click="openCreateModal" class="btn btn-primary">
-          + {{ $t('newTag') }}
-        </button>
-      </div>
-    </div>
-
-    <!-- Tags Table -->
-    <div class="overflow-x-auto">
-      <table class="min-w-full bg-white">
-        <thead class="bg-gray-100">
-          <tr>
-            <th class="text-left py-2 px-4">{{ $t('name') }}</th>
-            <th class="text-left py-2 px-4">{{ $t('description') }}</th>
-            <th class="text-left py-2 px-4">{{ $t('type') }}</th>
-            <th class="text-left py-2 px-4">{{ $t('parentTag') }}</th>
-            <th class="text-left py-2 px-4">{{ $t('aliases') }}</th>
-            <th class="text-left py-2 px-4">{{ $t('actions') }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="tag in filteredTags" :key="tag.id" class="border-b hover:bg-gray-50">
-            <td class="py-2 px-4 font-medium">{{ tag.name }}</td>
-            <td class="py-2 px-4 text-sm text-gray-600 max-w-xs truncate">{{ tag.description || '-' }}</td>
-            <td class="py-2 px-4">{{ getTypeName(tag.type_id) }}</td>
-            <td class="py-2 px-4">{{ getParentName(tag.parent_id) }}</td>
-            <td class="py-2 px-4">
-                <span v-if="tag.aliases.length" class="text-sm text-gray-500">{{ tag.aliases.join(', ') }}</span>
-                <span v-else class="text-sm text-gray-400">-</span>
-            </td>
-            <td class="py-2 px-4">
-              <div class="flex space-x-2">
-                <button @click="openEditModal(tag)" class="btn btn-secondary btn-sm">{{ $t('edit') }}</button>
-                <button @click="openFileChangeModal(tag)" class="btn btn-warning btn-sm">文件变更</button>
-                <button @click="deleteTag(tag.id)" class="btn btn-danger btn-sm">{{ $t('delete') }}</button>
-              </div>
-            </td>
-          </tr>
-           <tr v-if="!isLoading && filteredTags.length === 0">
-            <td colspan="6" class="text-center py-4 text-gray-500">{{ $t('noTagsFoundForType') }}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Pagination -->
-    <div class="mt-4">
-      <Pagination
-        :current-page="currentPage"
-        :total-pages="totalPages"
-        @page-changed="handlePageChange"
-      />
-    </div>
-
-    <!-- Create/Edit Modal -->
-    <div v-if="showModal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
-      <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg max-h-full overflow-y-auto">
-        <h4 class="text-xl font-semibold mb-4">{{ editingTag ? $t('edit') + ' ' + $t('tag') : $t('newTag') }}</h4>
-        
-        <!-- Form -->
-        <div class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium">{{ $t('name') }}*</label>
-            <input v-model="tagForm.name" type="text" class="w-full p-2 border rounded-md" />
-          </div>
-          <div>
-            <label class="block text-sm font-medium">{{ $t('description') }}</label>
-            <textarea v-model="tagForm.description" class="w-full p-2 border rounded-md"></textarea>
-          </div>
-          <div>
-            <label class="block text-sm font-medium">{{ $t('type') }}*</label>
-            <select v-model="tagForm.type_id" class="w-full p-2 border rounded-md">
-              <option v-for="type in types" :key="type.id" :value="type.id">{{ type.name }}</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-sm font-medium">{{ $t('parentTag') }}</label>
-            <select v-model="tagForm.parent_id" class="w-full p-2 border rounded-md">
-              <option :value="null">{{ t('none') }}</option>
-              <option v-for="parent in availableParents" :key="parent.id" :value="parent.id">
-                {{ parent.name }} ({{ getTypeName(parent.type_id) }})
-              </option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-sm font-medium">{{ $t('aliases') }}</label>
-            <div class="flex space-x-2">
-              <input v-model="tagForm.newAlias" @keyup.enter="addAlias" type="text" placeholder="输入别名" class="flex-1 p-2 border rounded-md" />
-              <button @click="addAlias" type="button" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">添加</button>
-            </div>
-            <div class="mt-2 flex flex-wrap gap-2">
-              <span v-for="alias in tagForm.aliases" :key="alias" class="bg-gray-200 text-sm rounded-full px-3 py-1 flex items-center">
-                {{ alias }}
-                <button @click="removeAlias(alias)" class="ml-2 text-red-500">&times;</button>
-              </span>
-            </div>
-          </div>
+  <a-space direction="vertical" size="large" class="w-full">
+    <a-card class="shadow-sm">
+      <a-space direction="vertical" size="large" class="w-full">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <a-form layout="inline" @submit.prevent>
+            <a-form-item :label="$t('filterByType')">
+              <a-select v-model:value="selectedTypeId" allow-clear style="min-width: 220px">
+                <a-select-option :value="null">{{ $t('allTypes') }}</a-select-option>
+                <a-select-option v-for="type in types" :key="type.id" :value="type.id">{{ type.name }}</a-select-option>
+              </a-select>
+            </a-form-item>
+          </a-form>
+          <a-button type="primary" @click="openCreateModal">+ {{ $t('newTag') }}</a-button>
         </div>
 
-        <!-- Actions -->
-        <div class="mt-6 flex justify-end space-x-2">
-          <button @click="closeModal" class="btn btn-secondary">{{ $t('cancel') }}</button>
-          <button @click="saveTag" class="btn btn-primary">{{ $t('save') }}</button>
+        <a-table :data-source="tags" :loading="isLoading" :row-key="r => r.id" :pagination="false" size="middle" :locale="{ emptyText: $t('noTagsFoundForType') }">
+          <a-table-column :title="$t('name')" dataIndex="name" key="name" />
+          <a-table-column :title="$t('description')" key="description">
+            <template #default="{ record }"><a-typography-text type="secondary">{{ record.description || '-' }}</a-typography-text></template>
+          </a-table-column>
+          <a-table-column :title="$t('type')" key="type"><template #default="{ record }">{{ getTypeName(record.type_id) }}</template></a-table-column>
+          <a-table-column :title="$t('parentTag')" key="parent"><template #default="{ record }">{{ getParentName(record.parent_id) }}</template></a-table-column>
+          <a-table-column :title="$t('aliases')" key="aliases">
+            <template #default="{ record }">
+              <a-space wrap>
+                <a-tag v-for="alias in record.aliases" :key="alias">{{ alias }}</a-tag>
+                <a-typography-text v-if="!record.aliases.length" type="secondary">-</a-typography-text>
+              </a-space>
+            </template>
+          </a-table-column>
+          <a-table-column :title="$t('usage')" key="usage_count"><template #default="{ record }"><a-tag color="blue">{{ record.usage_count }}</a-tag></template></a-table-column>
+          <a-table-column :title="$t('actions')" key="actions" :width="320">
+            <template #default="{ record }">
+              <a-space size="small" wrap>
+                <a-button size="small" @click="openEditModal(record)">{{ $t('edit') }}</a-button>
+                <a-button size="small" type="default" @click="openFileChangeModal(record)">{{ $t('fileChange') }}</a-button>
+                <a-button size="small" type="default" @click="openMergeModal(record)">{{ $t('mergeTag') }}</a-button>
+                <a-button size="small" danger @click="deleteTag(record)">{{ $t('delete') }}</a-button>
+              </a-space>
+            </template>
+          </a-table-column>
+        </a-table>
+
+        <div class="flex justify-end">
+          <Pagination :current-page="currentPage" :total-pages="totalPages" @page-changed="handlePageChange" />
+        </div>
+      </a-space>
+    </a-card>
+  </a-space>
+
+  <a-modal v-model:open="showModal" :title="editingTag ? `${$t('edit')} ${$t('tag')}` : $t('newTag')" :ok-text="$t('save')" :cancel-text="$t('cancel')" :confirm-loading="false" :width="640" @ok="saveTag" @cancel="closeModal">
+    <a-form layout="vertical">
+      <a-form-item :label="$t('name')" :required="true"><a-input v-model:value="tagForm.name" /></a-form-item>
+      <a-form-item :label="$t('description')"><a-textarea v-model:value="tagForm.description" :rows="3" /></a-form-item>
+      <a-form-item :label="$t('type')" :required="true">
+        <a-select v-model:value="tagForm.type_id" :dropdown-match-select-width="false">
+          <a-select-option v-for="type in types" :key="type.id" :value="type.id">{{ type.name }}</a-select-option>
+        </a-select>
+      </a-form-item>
+      <a-form-item :label="$t('parentTag')">
+        <a-select v-model:value="tagForm.parent_id" show-search allow-clear :filter-option="false" :placeholder="t('none')" :not-found-content="isParentLoading ? $t('loading') : null" @search="loadParentSuggestions" @focus="loadParentSuggestions('')" :dropdown-match-select-width="false">
+          <a-select-option :value="null">{{ t('none') }}</a-select-option>
+          <a-select-option v-for="parent in parentSuggestions" :key="parent.id" :value="parent.id">{{ parent.name }} ({{ getTypeName(parent.type_id) }})</a-select-option>
+        </a-select>
+      </a-form-item>
+      <a-form-item :label="$t('aliases')">
+        <a-space align="start" class="w-full">
+          <a-input v-model:value="tagForm.newAlias" :placeholder="$t('aliases')" @pressEnter.prevent="addAlias" />
+          <a-button type="dashed" @click="addAlias">{{ $t('add') }}</a-button>
+        </a-space>
+        <div class="mt-2 flex flex-wrap gap-2">
+          <a-tag v-for="alias in tagForm.aliases" :key="alias" closable @close.prevent="removeAlias(alias)">{{ alias }}</a-tag>
+        </div>
+      </a-form-item>
+    </a-form>
+  </a-modal>
+
+  <a-modal v-model:open="showFileChangeModal" :title="`${$t('fileChange')} - ${fileChangeTagName}`" :cancel-text="$t('cancel')" :ok-button-props="{ disabled: fileChangeOkDisabled }" :confirm-loading="isFileChanging" width="720px" @ok="executeFileChange" @cancel="closeFileChangeModal">
+    <a-form layout="vertical">
+      <a-form-item :label="$t('selectAction')">
+        <a-radio-group v-model:value="fileChangeAction">
+          <a-radio value="delete">{{ $t('deleteTagFromFilenames') }} [{{ fileChangeTagName }}]</a-radio>
+          <a-radio value="rename">{{ $t('renameTagInFilenames') }} [{{ fileChangeTagName }}]</a-radio>
+          <a-radio value="split">{{ $t('splitTagInFilenames') }} [{{ fileChangeTagName }}]</a-radio>
+        </a-radio-group>
+      </a-form-item>
+
+      <a-form-item v-if="fileChangeAction === 'rename'" :label="$t('newTagName')">
+        <a-input v-model:value="newTagName" :placeholder="fileChangeTagName" />
+      </a-form-item>
+
+      <div v-if="fileChangeAction === 'split'" class="space-y-4">
+        <a-form-item :label="$t('addNewTagName')">
+          <a-space class="w-full">
+            <a-input v-model:value="newTagNameInput" :placeholder="$t('newTagNamePlaceholder')" @pressEnter.prevent="addNewTagName" />
+            <a-button type="dashed" @click="addNewTagName">{{ $t('add') }}</a-button>
+          </a-space>
+        </a-form-item>
+
+        <div v-if="newTagNames.length > 0" class="space-y-2 max-h-48 overflow-y-auto">
+          <a-list :data-source="newTagNames" size="small" bordered>
+            <template #renderItem="{ item }">
+              <a-list-item class="flex items-center justify-between">
+                <a-typography-text>[{{ item }}]</a-typography-text>
+                <a-button type="text" danger size="small" @click="removeNewTagName(item)">{{ $t('delete') }}</a-button>
+              </a-list-item>
+            </template>
+          </a-list>
         </div>
       </div>
-    </div>
 
-    <!-- 文件变更模态框 -->
-    <div v-if="showFileChangeModal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
-      <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-        <h4 class="text-xl font-semibold mb-4">文件变更 - {{ fileChangeTag?.name }}</h4>
-        
-        <div class="space-y-4">
-          <!-- 操作选择 -->
-          <div>
-            <label class="block text-sm font-medium mb-2">选择操作</label>
-            <div class="space-y-2">
-              <label class="flex items-center">
-                <input v-model="fileChangeAction" type="radio" value="delete" class="mr-2">
-                删除标签 - 从所有文件名中删除 [{{ fileChangeTag?.name }}]
-              </label>
-              <label class="flex items-center">
-                <input v-model="fileChangeAction" type="radio" value="rename" class="mr-2">
-                重命名标签 - 将所有文件名中的 [{{ fileChangeTag?.name }}] 替换为新名称
-              </label>
-              <label class="flex items-center">
-                <input v-model="fileChangeAction" type="radio" value="split" class="mr-2">
-                拆分标签 - 将 [{{ fileChangeTag?.name }}] 拆分为多个新标签
-              </label>
-            </div>
-          </div>
-
-          <!-- 新标签名称（只在重命名时显示） -->
-          <div v-if="fileChangeAction === 'rename'">
-            <label class="block text-sm font-medium mb-2">新标签名称</label>
-            <input v-model="newTagName" type="text" :placeholder="fileChangeTag?.name" 
-                   class="w-full p-2 border rounded-md">
-          </div>
-
-          <!-- 拆分标签输入（只在拆分时显示） -->
-          <div v-if="fileChangeAction === 'split'" class="space-y-4">
-            <div>
-              <label class="block text-sm font-medium mb-2">新标签名称</label>
-              <div class="flex space-x-2">
-                <input v-model="newTagNameInput" @keyup.enter="addNewTagName" type="text" 
-                       placeholder="输入新标签名称" class="flex-1 p-2 border rounded-md">
-                <button @click="addNewTagName" class="btn btn-primary">添加</button>
-              </div>
-            </div>
-
-            <!-- 新标签列表 -->
-            <div v-if="newTagNames.length > 0">
-              <label class="block text-sm font-medium mb-2">拆分后的标签 ({{ newTagNames.length }})</label>
-              <div class="space-y-2 max-h-32 overflow-y-auto">
-                <div v-for="tagName in newTagNames" :key="tagName" 
-                     class="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-md p-2">
-                  <span class="text-sm font-medium text-blue-800">[{{ tagName }}]</span>
-                  <button @click="removeNewTagName(tagName)" class="text-red-500 hover:text-red-700">
-                    &times;
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 操作说明 -->
-          <div class="bg-yellow-50 border border-yellow-200 rounded-md p-3">
-            <p class="text-sm text-yellow-800">
-              <strong>注意：</strong>此操作将修改文件系统中的实际文件名，请确保已备份重要数据。
-            </p>
-          </div>
-
-          <!-- 按钮 -->
-          <div class="flex justify-end space-x-2 mt-6">
-            <button @click="closeFileChangeModal" class="btn btn-secondary">取消</button>
-            <button @click="executeFileChange" class="btn btn-primary">确认执行</button>
-          </div>
+      <a-space direction="vertical" class="w-full">
+        <a-button :loading="isPreviewLoading" @click="loadPreview">{{ $t('preview') }}</a-button>
+        <div v-if="previewData">
+          <a-typography-paragraph>
+            {{ $t('impactedFiles') }}: <a-typography-text strong>{{ previewData.impacted }}</a-typography-text>
+          </a-typography-paragraph>
+          <a-list v-if="previewData.examples && previewData.examples.length" :data-source="previewData.examples" size="small" bordered>
+            <template #renderItem="{ item }">
+              <a-list-item>
+                <div class="flex flex-col"><span><strong>OLD:</strong> {{ item.old }}</span><span><strong>NEW:</strong> {{ item.new }}</span></div>
+              </a-list-item>
+            </template>
+          </a-list>
         </div>
+        <a-alert type="warning" show-icon class="mt-2" :message="$t('warningFileRename')" />
+      </a-space>
+    </a-form>
+  </a-modal>
 
-
-      </div>
-    </div>
-  </div>
-</template> 
+  <a-modal v-model:open="showMergeModal" :title="$t('mergeTag')" :ok-text="$t('confirmMerge')" :cancel-text="$t('cancel')" :confirm-loading="isMerging" @ok="executeMerge" @cancel="() => (showMergeModal.value = false)">
+    <a-form layout="vertical">
+      <a-form-item :label="$t('selectTargetTag')">
+        <a-select v-model:value="mergeTarget" show-search :filter-option="false" :placeholder="$t('selectTargetTag')" @search="searchMergeTargets" @focus="searchMergeTargets('')">
+          <a-select-option v-for="opt in mergeSuggestions" :key="opt.id" :value="opt.id">{{ opt.name }} ({{ $t('usage') }}: {{ opt.usage_count }})</a-select-option>
+        </a-select>
+      </a-form-item>
+    </a-form>
+  </a-modal>
+</template>

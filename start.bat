@@ -21,7 +21,7 @@ flask db upgrade
 REM Start Backend Services
 ECHO Starting backend...
 start "Huey Worker (keep open)" cmd /k "call .venv\Scripts\activate.bat && huey_consumer main.huey"
-start "Flask API (keep open)" cmd /k "call .venv\Scripts\activate.bat && cd backend && gunicorn --workers 4 --worker-class eventlet --bind 0.0.0.0:5000 main:app"
+start "Flask API (keep open)" cmd /k "call .venv\Scripts\activate.bat && cd backend && python serve.py"
 
 REM Start Frontend Service
 ECHO Starting frontend...

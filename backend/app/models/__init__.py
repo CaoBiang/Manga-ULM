@@ -1,6 +1,6 @@
 # This file can be empty, but it is required to make the 'models' directory a Python package.
 # For convenience, you can import all models here to make them easily accessible.
-from .manga import File, Tag, TagAlias, TagType, Bookmark, Like, Task, Config, LibraryPath
+from .manga import File, Tag, TagAlias, TagType, Bookmark, Like, Task, Config, LibraryPath, FileTagMap
 
 __all__ = [
     'File',

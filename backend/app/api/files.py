@@ -11,6 +11,16 @@ import re
 from sqlalchemy.orm import selectinload
 from sqlalchemy.sql.expression import func
 from ..tasks.rename import sanitize_filename
+READING_STATUS_OPTIONS = {'unread', 'in_progress', 'finished'}
+SORTABLE_COLUMNS = {
+    'add_date': lambda: File.add_date,
+    'file_path': lambda: func.lower(File.file_path),
+    'file_size': lambda: func.coalesce(File.file_size, 0),
+    'total_pages': lambda: func.coalesce(File.total_pages, 0),
+    'last_read_date': lambda: File.last_read_date,
+    'last_read_page': lambda: func.coalesce(File.last_read_page, 0),
+    'reading_status': lambda: File.reading_status,
+}
 
 def natural_sort_key(s):
     """
@@ -21,21 +31,40 @@ def natural_sort_key(s):
 
 def file_to_dict(file_obj, is_liked=False):
     """Converts a File object to a dictionary."""
+    display_name = os.path.basename(file_obj.file_path) if file_obj.file_path else ''
+    parent_folder = ''
+    if file_obj.file_path:
+        parent_folder = os.path.basename(os.path.dirname(file_obj.file_path)) if os.path.dirname(file_obj.file_path) else ''
+
+    total_pages = file_obj.total_pages or 0
+    last_read_page = file_obj.last_read_page or 0
+    progress_percent = None
+    if total_pages <= 0:
+        progress_percent = 0
+    elif total_pages == 1:
+        progress_percent = 100 if last_read_page >= 0 else 0
+    else:
+        progress_percent = max(0, min(100, round((last_read_page / (total_pages - 1)) * 100)))
+
     data = {
         'id': file_obj.id,
         'file_path': file_obj.file_path,
+        'display_name': display_name,
+        'folder_name': parent_folder,
         'file_hash': file_obj.file_hash,
         'file_size': file_obj.file_size,
-        'add_date': file_obj.add_date.isoformat(),
+        'add_date': file_obj.add_date.isoformat() if file_obj.add_date else None,
         'total_pages': file_obj.total_pages,
         'spread_pages': file_obj.spread_pages,
         'last_read_page': file_obj.last_read_page,
         'last_read_date': file_obj.last_read_date.isoformat() if file_obj.last_read_date else None,
         'reading_status': file_obj.reading_status,
+        'progress_percent': progress_percent,
         'is_missing': file_obj.is_missing,
         'integrity_status': file_obj.integrity_status,
         'cover_url': f'/api/v1/covers/{file_obj.file_hash}.webp',
-        'tags': [{'id': t.id, 'name': t.name} for t in file_obj.tags]
+        'tags': [{'id': t.id, 'name': t.name, 'type_id': t.type_id} for t in file_obj.tags],
+        'tag_ids': [t.id for t in file_obj.tags]
     }
     # If is_liked is passed as True, we trust it.
     # Otherwise, we check the relationship. This is useful for lists of likes.
@@ -44,6 +73,8 @@ def file_to_dict(file_obj, is_liked=False):
     else:
         # The relationship will be named 'like_item' after the model change
         data['is_liked'] = file_obj.like_item is not None
+    if file_obj.like_item:
+        data['liked_at'] = file_obj.like_item.added_at.isoformat() if file_obj.like_item.added_at else None
     return data
 
 def get_image_from_archive(file_path, page_num):
@@ -94,6 +125,34 @@ def get_image_from_archive(file_path, page_num):
         # Log the exception here
         return None, None
     return None, None
+
+
+def parse_int_list(raw_value):
+    """Parse a comma separated list of integers."""
+    if not raw_value:
+        return []
+    result = []
+    for item in raw_value.split(','):
+        item = item.strip()
+        if not item:
+            continue
+        try:
+            result.append(int(item))
+        except ValueError:
+            raise ValueError(f'Invalid integer value "{item}"')
+    return result
+
+
+def parse_bool(raw_value):
+    """Parse a boolean-like string; returns True/False or None if indeterminate."""
+    if raw_value is None:
+        return None
+    value = raw_value.strip().lower()
+    if value in {'1', 'true', 'yes', 'y', 'on', 'only'}:
+        return True
+    if value in {'0', 'false', 'no', 'n', 'off'}:
+        return False
+    return None
 
 def get_page_details_from_archive(file_path, page_num):
     """
@@ -149,13 +208,46 @@ def get_files():
     """
     Get a paginated list of files with optional sorting and filtering.
     """
-    page = request.args.get('page', 1, type=int)
+    page = max(1, request.args.get('page', 1, type=int))
     per_page = request.args.get('per_page', 20, type=int)
-    sort_by = request.args.get('sort_by', 'add_date')
-    sort_order = request.args.get('sort_order', 'desc')
-    is_missing_str = request.args.get('is_missing')
-    tag_ids_str = request.args.get('tags')
-    keyword = request.args.get('keyword')
+    per_page = max(1, min(per_page, 200))
+    sort_by = (request.args.get('sort_by') or 'add_date').lower()
+    sort_order = (request.args.get('sort_order') or 'desc').lower()
+    keyword = request.args.get('keyword', '').strip()
+    is_missing_param = request.args.get('is_missing')
+    include_missing_param = request.args.get('include_missing')
+    tag_ids_param = request.args.get('tags')
+    exclude_tag_ids_param = request.args.get('exclude_tags')
+    tag_mode = (request.args.get('tag_mode') or 'any').lower()
+    status_param = request.args.get('statuses') or request.args.get('status')
+    liked_param = request.args.get('liked')
+    min_pages = request.args.get('min_pages', type=int)
+    max_pages = request.args.get('max_pages', type=int)
+    min_size = request.args.get('min_size', type=int)
+    max_size = request.args.get('max_size', type=int)
+
+    try:
+        tag_ids = parse_int_list(tag_ids_param)
+        exclude_tag_ids = parse_int_list(exclude_tag_ids_param)
+    except ValueError as err:
+        return jsonify({'error': str(err)}), 400
+
+    if tag_mode not in {'any', 'all'}:
+        return jsonify({'error': 'tag_mode must be either "any" or "all".'}), 400
+
+    statuses = []
+    if status_param:
+        statuses = [
+            status.strip().lower()
+            for status in status_param.split(',')
+            if status.strip()
+        ]
+        invalid_statuses = [status for status in statuses if status not in READING_STATUS_OPTIONS]
+        if invalid_statuses:
+            return jsonify({'error': f'Invalid status value(s): {invalid_statuses}'}), 400
+
+    liked_flag = parse_bool(liked_param)
+    include_missing_flag = parse_bool(include_missing_param)
 
     # Basic query
     query = File.query.options(
@@ -165,37 +257,66 @@ def get_files():
 
     # Filtering
     if keyword:
-        # Use ilike for case-insensitive search on the file path
-        query = query.filter(File.file_path.ilike(f'%{keyword}%'))
+        for token in keyword.split():
+            token_like = f'%{token}%'
+            query = query.filter(File.file_path.ilike(token_like))
 
-    if tag_ids_str:
-        try:
-            tag_ids = [int(tid) for tid in tag_ids_str.split(',') if tid]
-            if tag_ids:
-                # Use a simple JOIN and IN to filter for files that have ANY of the selected tags (OR condition)
-                query = query.join(File.tags).filter(Tag.id.in_(tag_ids))
-        except ValueError:
-            return jsonify({'error': 'Invalid tag IDs provided'}), 400
+    if tag_ids:
+        if tag_mode == 'all':
+            for tid in tag_ids:
+                query = query.filter(File.tags.any(Tag.id == tid))
+        else:
+            query = query.filter(File.tags.any(Tag.id.in_(tag_ids)))
 
-    if is_missing_str is not None:
-        is_missing = is_missing_str.lower() in ['true', '1', 'yes']
-        query = query.filter(File.is_missing == is_missing)
+    if exclude_tag_ids:
+        for tid in exclude_tag_ids:
+            query = query.filter(~File.tags.any(Tag.id == tid))
+
+    if statuses:
+        query = query.filter(File.reading_status.in_(statuses))
+
+    if liked_flag is True:
+        query = query.filter(File.like_item.has())
+    elif liked_flag is False:
+        query = query.filter(~File.like_item.has())
+
+    if min_pages is not None:
+        query = query.filter(func.coalesce(File.total_pages, 0) >= min_pages)
+    if max_pages is not None:
+        query = query.filter(func.coalesce(File.total_pages, 0) <= max_pages)
+
+    if min_size is not None:
+        query = query.filter(func.coalesce(File.file_size, 0) >= min_size)
+    if max_size is not None:
+        query = query.filter(func.coalesce(File.file_size, 0) <= max_size)
+
+    if is_missing_param is not None:
+        is_missing_flag = parse_bool(is_missing_param)
+        if is_missing_flag is None:
+            return jsonify({'error': 'is_missing must be a boolean.'}), 400
+        query = query.filter(File.is_missing == is_missing_flag)
     else:
-        # Default to not showing missing files unless explicitly requested
-        query = query.filter(File.is_missing == False)
+        # Default to not showing missing files unless explicitly requested or include_missing is true
+        if include_missing_flag is not True:
+            query = query.filter(File.is_missing.is_(False))
 
     # Sorting
-    if hasattr(File, sort_by):
-        column = getattr(File, sort_by)
-        if sort_order == 'desc':
-            query = query.order_by(column.desc())
+    if sort_by == 'random':
+        query = query.order_by(func.random())
+    else:
+        sort_factory = SORTABLE_COLUMNS.get(sort_by)
+        if sort_factory is None:
+            return jsonify({'error': f'Unsupported sort_by value "{sort_by}".'}), 400
+        sort_column = sort_factory()
+        if sort_order == 'asc':
+            query = query.order_by(sort_column.asc(), File.id.asc())
         else:
-            query = query.order_by(column.asc())
+            query = query.order_by(sort_column.desc(), File.id.desc())
 
     # Pagination
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     files = pagination.items
-    
+
     return jsonify({
         'files': [file_to_dict(f) for f in files],
         'pagination': {
@@ -203,6 +324,23 @@ def get_files():
             'per_page': pagination.per_page,
             'total_pages': pagination.pages,
             'total_items': pagination.total
+        },
+        'sort': {
+            'by': sort_by,
+            'order': sort_order
+        },
+        'filters': {
+            'keyword': keyword,
+            'tag_ids': tag_ids,
+            'exclude_tag_ids': exclude_tag_ids,
+            'statuses': statuses,
+            'liked': liked_flag,
+            'min_pages': min_pages,
+            'max_pages': max_pages,
+            'min_size': min_size,
+            'max_size': max_size,
+            'tag_mode': tag_mode,
+            'include_missing': include_missing_flag
         }
     })
 
@@ -323,6 +461,49 @@ def update_reading_progress(id):
     db.session.commit()
     return jsonify({'message': 'Progress updated successfully', 'status': file_record.reading_status})
 
+
+@api.route('/files/<int:id>/status', methods=['POST'])
+def update_reading_status(id):
+    """Manually updates the reading status for a file."""
+    file_record = db.session.get(File, id)
+    if not file_record:
+        return jsonify({'error': 'File not found'}), 404
+
+    data = request.get_json() or {}
+    status = data.get('status')
+    if not status:
+        return jsonify({'error': 'Missing status value'}), 400
+
+    status = status.lower()
+    if status not in READING_STATUS_OPTIONS:
+        return jsonify({'error': f'Invalid status value "{status}".'}), 400
+
+    requested_page = data.get('page')
+    new_page = None
+    if isinstance(requested_page, int):
+        new_page = max(0, requested_page)
+        if file_record.total_pages:
+            new_page = min(new_page, max(0, file_record.total_pages - 1))
+
+    if status == 'unread':
+        file_record.last_read_page = 0
+        file_record.last_read_date = None
+    elif status == 'finished':
+        if file_record.total_pages:
+            file_record.last_read_page = max(0, file_record.total_pages - 1)
+        elif new_page is not None:
+            file_record.last_read_page = new_page
+        file_record.last_read_date = db.func.now()
+    else:  # in_progress
+        if new_page is not None:
+            file_record.last_read_page = new_page
+        file_record.last_read_date = db.func.now()
+
+    file_record.reading_status = status
+    db.session.commit()
+
+    return jsonify(file_to_dict(file_record))
+
 @api.route('/files/<int:id>/page/<int:page_num>', methods=['GET'])
 def get_file_page(id, page_num):
     """
@@ -367,4 +548,83 @@ def get_file_page_details(id, page_num):
             'page_filesize': page_filesize,
         })
     else:
-        return jsonify({'error': 'Failed to extract page details from archive'}), 500 
+        return jsonify({'error': 'Failed to extract page details from archive'}), 500
+
+
+@api.route('/files/stats', methods=['GET'])
+def get_file_library_stats():
+    """
+    Returns aggregate statistics for the manga library along with handy highlights.
+    """
+    base_filter = File.is_missing.is_(False)
+
+    total_items = db.session.query(func.count(File.id)).filter(base_filter).scalar() or 0
+
+    status_rows = (
+        db.session.query(File.reading_status, func.count(File.id))
+        .filter(base_filter)
+        .group_by(File.reading_status)
+        .all()
+    )
+    status_counts = {status: 0 for status in READING_STATUS_OPTIONS}
+    for row_status, row_count in status_rows:
+        status_counts[row_status or 'unread'] = row_count
+
+    liked_count = db.session.query(func.count(File.id)).filter(base_filter, File.like_item.has()).scalar() or 0
+
+    total_page_sum = db.session.query(func.coalesce(func.sum(File.total_pages), 0)).filter(base_filter).scalar() or 0
+    total_size_sum = db.session.query(func.coalesce(func.sum(File.file_size), 0)).filter(base_filter).scalar() or 0
+    average_page_count = float(total_page_sum) / total_items if total_items else 0
+
+    # Highlights
+    highlight_query = File.query.options(
+        selectinload(File.tags),
+        selectinload(File.like_item)
+    ).filter(base_filter)
+
+    recently_added = highlight_query.order_by(File.add_date.desc()).limit(6).all()
+    recently_read = (
+        highlight_query.filter(File.last_read_date.isnot(None))
+        .order_by(File.last_read_date.desc())
+        .limit(6)
+        .all()
+    )
+    largest_files = highlight_query.order_by(func.coalesce(File.file_size, 0).desc()).limit(6).all()
+
+    top_tags = (
+        db.session.query(
+            Tag.id,
+            Tag.name,
+            func.count(File.id).label('usage_count')
+        )
+        .join(Tag.files)
+        .filter(base_filter)
+        .group_by(Tag.id, Tag.name)
+        .order_by(func.count(File.id).desc(), Tag.name.asc())
+        .limit(12)
+        .all()
+    )
+
+    return jsonify({
+        'totals': {
+            'items': total_items,
+            'pages': total_page_sum,
+            'file_size_bytes': total_size_sum,
+            'liked_items': liked_count,
+            'average_pages': round(average_page_count, 2)
+        },
+        'status_counts': status_counts,
+        'highlights': {
+            'recently_added': [file_to_dict(f) for f in recently_added],
+            'recently_read': [file_to_dict(f) for f in recently_read],
+            'largest_files': [file_to_dict(f) for f in largest_files]
+        },
+        'top_tags': [
+            {
+                'id': tag_id,
+                'name': tag_name,
+                'usage_count': usage_count
+            }
+            for tag_id, tag_name, usage_count in top_tags
+        ]
+    })

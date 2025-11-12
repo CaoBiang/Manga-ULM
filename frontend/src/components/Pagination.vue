@@ -1,21 +1,11 @@
 <template>
-  <div class="flex justify-center items-center space-x-2">
-    <button
-      @click="changePage(currentPage - 1)"
-      :disabled="currentPage <= 1"
-      class="px-3 py-1 rounded-md bg-gray-200 hover:bg-gray-300 disabled:opacity-50"
-    >
-      {{ $t('prev') }}
-    </button>
-    <span>{{ currentPage }} / {{ totalPages }}</span>
-    <button
-      @click="changePage(currentPage + 1)"
-      :disabled="currentPage >= totalPages"
-      class="px-3 py-1 rounded-md bg-gray-200 hover:bg-gray-300 disabled:opacity-50"
-    >
-      {{ $t('next') }}
-    </button>
-  </div>
+  <a-pagination
+    simple
+    :current="currentPage"
+    :total="totalPages"
+    :page-size="1"
+    @change="changePage"
+  />
 </template>
 
 <script setup>

@@ -6,8 +6,9 @@ import MangaCard from './MangaCard.vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { useI18n } from 'vue-i18n'
+import { message } from 'ant-design-vue'
 
-const { t } = useI18n();
+const { t } = useI18n()
 const router = useRouter()
 const libraryStore = useLibraryStore()
 const { 
@@ -27,7 +28,7 @@ const handleScan = () => {
   if (libraryPath.value) {
     libraryStore.startScan(libraryPath.value)
   } else {
-    alert(t('pleaseFillLibraryPath'))
+    message.warning(t('pleaseFillLibraryPath'))
   }
 }
 
@@ -35,13 +36,13 @@ const pickRandomManga = async () => {
   try {
     const response = await axios.get('/api/v1/files/random');
     if (response.data) {
-      router.push({ name: 'reader', params: { id: response.data.id } });
+      router.push({ name: 'reader', params: { id: response.data.id } })
     } else {
-      alert(t('noMangaToPick'))
+      message.info(t('noMangaToPick'))
     }
   } catch (error) {
-    console.error('Failed to pick random manga:', error);
-    alert(t('failedToPickRandomManga'))
+    console.error('Failed to pick random manga:', error)
+    message.error(t('failedToPickRandomManga'))
   }
 }
 
@@ -59,34 +60,33 @@ const handleFileSelection = (fileId, isSelected) => {
 }
 
 const startBatchRename = async () => {
-  const template = localStorage.getItem('mangaFilenameTemplate');
+  const template = localStorage.getItem('mangaFilenameTemplate')
   if (!template) {
-    alert(t('pleaseSaveFilenameTemplate'));
-    return;
+    message.warning(t('pleaseSaveFilenameTemplate'))
+    return
   }
   if (selectedFilesForRename.value.size === 0) {
-    alert(t('pleaseSelectFileToRename'));
-    return;
+    message.warning(t('pleaseSelectFileToRename'))
+    return
   }
   if (!libraryPath.value) {
-    // A root path is needed to construct the new paths.
-    alert(t('pleaseSpecifyLibraryRoot'));
-    return;
+    message.warning(t('pleaseSpecifyLibraryRoot'))
+    return
   }
 
   try {
-    const file_ids = Array.from(selectedFilesForRename.value);
+    const file_ids = Array.from(selectedFilesForRename.value)
     await axios.post('/api/v1/rename/batch', {
       file_ids,
       template,
       root_path: libraryPath.value
-    });
-    alert(t('batchRenameTaskStarted'));
-    toggleRenameMode();
-    libraryStore.fetchFiles(); // Refresh library
+    })
+    message.success(t('batchRenameTaskStarted'))
+    toggleRenameMode()
+    libraryStore.fetchFiles()
   } catch (error) {
-    console.error('Failed to start batch rename:', error);
-    alert(t('failedToStartBatchRename'));
+    console.error('Failed to start batch rename:', error)
+    message.error(t('failedToStartBatchRename'))
   }
 }
 
@@ -104,104 +104,109 @@ onMounted(() => {
 </script>
 
 <template>
-  <div>
-    <!-- Scanner Section -->
-    <div class="p-6 bg-white rounded-lg shadow mb-6">
-      <h2 class="text-xl font-semibold text-gray-700 mb-4">{{ $t('libraryManagement') }}</h2>
-      <div class="mb-4">
-        <label for="library-path" class="block text-sm font-medium text-gray-600 mb-1">{{ $t('libraryPath') }}</label>
-        <div class="flex">
-          <input 
-            id="library-path"
-            type="text" 
-            v-model="libraryPath" 
-            :placeholder="t('libraryPathPlaceholder')"
-            class="flex-grow p-2 border rounded-l-md focus:ring-monet-blue focus:border-monet-blue"
-          />
-          <button 
-            @click="handleScan" 
-            :disabled="scanStatus === 'scanning'"
-            class="btn btn-primary rounded-l-none"
-          >
-            {{ scanStatus === 'scanning' ? t('scanning') : t('startScan') }}
-          </button>
-        </div>
-      </div>
-      <div v-if="scanStatus !== 'idle'" class="mt-4">
-        <h3 class="font-semibold text-gray-700">{{ $t('scanProgress') }}</h3>
-        <div class="mt-2">
-          <div class="bg-monet-grey rounded-full h-4">
-            <div 
-              class="bg-monet-blue h-4 rounded-full transition-all duration-300 ease-in-out" 
-              :style="{ width: scanProgress + '%' }"
-            ></div>
+  <a-space direction="vertical" size="large" class="w-full">
+    <a-card :title="$t('libraryManagement')" class="shadow-sm">
+      <a-form layout="vertical">
+        <a-form-item :label="$t('libraryPath')">
+          <div class="flex gap-3">
+            <a-input
+              v-model:value="libraryPath"
+              :placeholder="t('libraryPathPlaceholder')"
+              class="flex-1"
+            />
+            <a-button
+              type="primary"
+              :loading="scanStatus === 'scanning'"
+              @click="handleScan"
+            >
+              {{ scanStatus === 'scanning' ? t('scanning') : t('startScan') }}
+            </a-button>
           </div>
-          <p class="text-sm text-gray-600 mt-1 text-center">{{ scanProgress.toFixed(2) }}%</p>
-        </div>
-        <p v-if="currentScanFile" class="text-sm text-gray-500 mt-2">
-          <strong>{{ $t('status') }}:</strong> {{ scanStatus }} | <strong>{{ $t('processing') }}:</strong> <span class="truncate">{{ currentScanFile }}</span>
-        </p>
-        <p v-if="scanStatus === 'finished'" class="text-green-600 font-semibold">{{ $t('scanCompletedSuccessfully') }}</p>
-        <p v-if="scanStatus === 'error'" class="text-red-600 font-semibold">{{ $t('scanErrorOccurred') }}</p>
-      </div>
-    </div>
+        </a-form-item>
+      </a-form>
 
-    <!-- Quick Actions -->
-    <div class="p-6 bg-white rounded-lg shadow mb-6">
-      <h2 class="text-xl font-semibold text-gray-700 mb-4">{{ $t('quickActions') }}</h2>
-      <div class="flex space-x-2">
-        <button @click="pickRandomManga" class="btn btn-primary">
+      <div v-if="scanStatus !== 'idle'" class="mt-4 space-y-2">
+        <a-progress :percent="Number(scanProgress.toFixed(2))" status="active" />
+        <a-typography-text type="secondary" v-if="currentScanFile">
+          <strong>{{ $t('processing') }}:</strong> {{ currentScanFile }}
+        </a-typography-text>
+        <a-typography-text type="secondary">
+          <strong>{{ $t('status') }}:</strong> {{ scanStatus }}
+        </a-typography-text>
+        <a-alert
+          v-if="scanStatus === 'finished'"
+          type="success"
+          show-icon
+          :message="$t('scanCompletedSuccessfully')"
+        />
+        <a-alert
+          v-else-if="scanStatus === 'error'"
+          type="error"
+          show-icon
+          :message="$t('scanErrorOccurred')"
+        />
+      </div>
+    </a-card>
+
+    <a-card :title="$t('quickActions')" class="shadow-sm">
+      <a-space wrap>
+        <a-button type="primary" @click="pickRandomManga">
           {{ $t('pickRandomManga') }}
-        </button>
-        <button @click="toggleRenameMode" class="btn btn-secondary">
+        </a-button>
+        <a-button @click="toggleRenameMode">
           {{ isRenameMode ? t('cancelRename') : t('batchRename') }}
-        </button>
-        <button v-if="isRenameMode" @click="startBatchRename" class="btn btn-secondary">
+        </a-button>
+        <a-button
+          v-if="isRenameMode"
+          type="dashed"
+          @click="startBatchRename"
+        >
           {{ t('applyTemplateToFiles', { count: selectedFilesForRename.size }) }}
-        </button>
-      </div>
-    </div>
+        </a-button>
+      </a-space>
+    </a-card>
 
-    <!-- Gallery Section -->
-    <div class="p-6 bg-white rounded-lg shadow">
-      <h2 class="text-xl font-semibold text-gray-700 mb-4">{{ $t('myMangaLibrary') }}</h2>
-      
+    <a-card :title="$t('myMangaLibrary')" class="shadow-sm">
+      <a-alert
+        v-if="libraryStatus === 'error'"
+        type="error"
+        show-icon
+        :message="$t('failedToLoadLibrary')"
+        class="mb-4"
+      />
 
-      <div v-if="libraryStatus === 'error'" class="text-center text-red-500">
-        <p>{{ $t('failedToLoadLibrary') }}</p>
-      </div>
-      
-      <div v-else-if="files.length > 0">
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+      <template v-else>
+        <div v-if="files.length" class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           <div v-for="manga in files" :key="manga.id" class="relative">
             <MangaCard :manga="manga" />
-            <input 
-              v-if="isRenameMode" 
-              type="checkbox"
-              @change="e => handleFileSelection(manga.id, e.target.checked)"
-              class="absolute top-2 left-2 h-5 w-5 z-20"
+            <a-checkbox
+              v-if="isRenameMode"
+              class="absolute top-3 left-3 z-20 bg-white/80 px-2 py-1 rounded"
+              :checked="selectedFilesForRename.has(manga.id)"
+              @change="handleFileSelection(manga.id, $event.target.checked)"
             />
           </div>
         </div>
 
-        <!-- Pagination Controls -->
-        <div class="mt-6 flex justify-center items-center space-x-2">
-          <button @click="changePage(pagination.page - 1)" :disabled="pagination.page === 1" class="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-monet-blue hover:text-white disabled:opacity-50">
-            &laquo; {{ $t('prev') }}
-          </button>
-          <span class="text-sm text-gray-700">
-            {{ $t('pageIndicator', { currentPage: pagination.page, totalPages: pagination.total_pages }) }}
-          </span>
-          <button @click="changePage(pagination.page + 1)" :disabled="pagination.page === pagination.total_pages" class="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-monet-blue hover:text-white disabled:opacity-50">
-            {{ $t('next') }} &raquo;
-          </button>
-        </div>
-      </div>
+        <a-pagination
+          v-if="files.length"
+          class="mt-6 text-center"
+          :current="pagination.page"
+          :total="pagination.total_pages"
+          :page-size="1"
+          show-less-items
+          @change="changePage"
+        />
 
-      <div v-else class="text-center text-gray-500">
-        <p>{{ $t('libraryEmpty') }}</p>
-        <p>{{ $t('useScanToPopulate') }}</p>
-      </div>
-    </div>
-  </div>
+        <a-empty v-else :description="$t('libraryEmpty')">
+          <template #description>
+            <div class="text-center">
+              <p>{{ $t('libraryEmpty') }}</p>
+              <p>{{ $t('useScanToPopulate') }}</p>
+            </div>
+          </template>
+        </a-empty>
+      </template>
+    </a-card>
+  </a-space>
 </template> 

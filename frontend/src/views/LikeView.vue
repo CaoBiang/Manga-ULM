@@ -1,48 +1,43 @@
 <script setup>
-import { ref, onMounted } from 'vue';
-import { useI18n } from 'vue-i18n';
-import axios from 'axios';
-import MangaCard from '../components/MangaCard.vue';
+import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
+import axios from 'axios'
+import { message } from 'ant-design-vue'
+import MangaCard from '../components/MangaCard.vue'
 
-const likedItems = ref([]);
-const isLoading = ref(true);
-const { t } = useI18n();
+const likedItems = ref([])
+const isLoading = ref(true)
+const { t } = useI18n()
 
 const fetchLikes = async () => {
-  isLoading.value = true;
+  isLoading.value = true
   try {
-    const response = await axios.get('/api/v1/likes');
-    // Ensure every item from the likes list is marked as liked for the card component
-    likedItems.value = response.data.map(item => ({ ...item, is_liked: true }));
+    const response = await axios.get('/api/v1/likes')
+    likedItems.value = response.data.map(item => ({ ...item, is_liked: true }))
   } catch (error) {
-    console.error('Failed to fetch liked items:', error);
-    // Note: Using a more specific i18n key might be better in the future
-    alert(t('loadingWishlist')); // This key was updated to "Loading Likes..."
+    console.error('Failed to fetch liked items:', error)
+    message.error(t('loadingWishlist'))
   } finally {
-    isLoading.value = false;
+    isLoading.value = false
   }
-};
+}
 
-onMounted(fetchLikes);
+onMounted(fetchLikes)
 </script>
 
 <template>
-  <div class="p-6 bg-white rounded-lg shadow">
-    <h2 class="text-xl font-semibold text-gray-700 mb-4">{{ $t('myWishlist') }}</h2>
-    
-    
-    <div v-if="likedItems.length > 0">
-      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-        <MangaCard 
-          v-for="manga in likedItems" 
-          :key="manga.id" 
+  <a-card :title="$t('myWishlist')" class="shadow-sm">
+    <a-spin v-if="isLoading" class="w-full flex justify-center py-10" />
+    <template v-else>
+      <div v-if="likedItems.length" class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+        <MangaCard
+          v-for="manga in likedItems"
+          :key="manga.id"
           :manga="manga"
+          :hide-wishlist-button="true"
         />
       </div>
-    </div>
-
-    <div v-else class="text-center text-gray-500">
-      <p>{{ $t('wishlistEmpty') }}</p>
-    </div>
-  </div>
-</template> 
+      <a-empty v-else :description="$t('wishlistEmpty')" class="py-12" />
+    </template>
+  </a-card>
+</template>

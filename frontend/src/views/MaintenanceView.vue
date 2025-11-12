@@ -1,114 +1,147 @@
-<template>
-  <div class="space-y-8">
-    <BackupManager />
-
-    <!-- Duplicate Finder -->
-    <div class="p-6 bg-white rounded-lg shadow">
-      <h2 class="text-xl font-semibold text-gray-700 mb-4">{{ $t('duplicateFinder') }}</h2>
-      <button @click="findDuplicates" :disabled="isLoadingDuplicates" class="btn btn-primary">
-        {{ isLoadingDuplicates ? $t('scanning') : $t('findDuplicates') }}
-      </button>
-      <div v-if="duplicates.length > 0" class="mt-4 space-y-4">
-        <div v-for="(group, index) in duplicates" :key="index" class="p-4 border rounded-md bg-gray-50">
-          <h3 class="font-bold text-gray-800 mb-2">第 {{ index + 1 }} 组 (哈希: <span class="font-mono text-sm">{{ group[0].file_hash.substring(0, 12) }}...</span>)</h3>
-          <ul>
-            <li v-for="file in group" :key="file.id" class="text-sm text-gray-600 truncate">{{ file.file_path }}</li>
-          </ul>
-        </div>
-      </div>
-      <p v-else-if="!isLoadingDuplicates && duplicates.length === 0" class="mt-4 text-gray-500">{{ $t('noDuplicatesFound') }}</p>
-    </div>
-
-    <!-- Missing Files Cleanup -->
-    <div class="p-6 bg-white rounded-lg shadow">
-        <h2 class="text-xl font-semibold text-gray-700 mb-4">{{ $t('missingFileCleanup') }}</h2>
-        <div class="flex space-x-2">
-            <button @click="findMissingFiles" :disabled="isLoadingMissing" class="btn btn-primary">
-                {{ isLoadingMissing ? $t('scanning') : $t('findMissingFiles') }}
-            </button>
-            <button v-if="missingFiles.length > 0" @click="cleanupSelectedMissingFiles" class="btn btn-danger">
-                {{ $t('deleteSelectedRecords') }}
-            </button>
-        </div>
-        <div v-if="missingFiles.length > 0" class="mt-4 border rounded-md">
-            <ul class="divide-y">
-                <li v-for="file in missingFiles" :key="file.id" class="p-2 flex items-center space-x-3">
-                    <input type="checkbox" :value="file.id" @change="e => { if(e.target.checked) selectedMissingFiles.add(file.id); else selectedMissingFiles.delete(file.id); }" class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" />
-                    <span class="text-sm text-gray-600 truncate">{{ file.file_path }}</span>
-                </li>
-            </ul>
-        </div>
-        <p v-else-if="!isLoadingMissing && missingFiles.length === 0" class="mt-4 text-gray-500">{{ $t('noMissingFilesFound') }}</p>
-    </div>
-
-  </div>
-</template>
-
 <script setup>
-import { ref } from 'vue';
-import { useI18n } from 'vue-i18n';
-import axios from 'axios';
-import BackupManager from '../components/BackupManager.vue';
+import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+import axios from 'axios'
+import { Modal, message } from 'ant-design-vue'
+import BackupManager from '../components/BackupManager.vue'
 
-// State for Duplicates
-const duplicates = ref([]);
-const isLoadingDuplicates = ref(false);
+const duplicates = ref([])
+const isLoadingDuplicates = ref(false)
 
-// State for Missing Files
-const missingFiles = ref([]);
-const isLoadingMissing = ref(false);
-const selectedMissingFiles = ref(new Set());
+const missingFiles = ref([])
+const isLoadingMissing = ref(false)
+const selectedMissingFiles = ref(new Set())
 
-const { t } = useI18n();
+const { t } = useI18n()
 
 const findDuplicates = async () => {
-  isLoadingDuplicates.value = true;
-  duplicates.value = [];
+  isLoadingDuplicates.value = true
+  duplicates.value = []
   try {
-    const response = await axios.get('/api/v1/maintenance/duplicates');
-    duplicates.value = response.data;
+    const response = await axios.get('/api/v1/maintenance/duplicates')
+    duplicates.value = response.data
   } catch (error) {
-    console.error("查找重复文件出错：", error);
-    alert('查找重复文件出错。');
+    console.error('Failed to find duplicates:', error)
+    message.error(t('errorLoadingData', { error: t('duplicateFinder') }))
   } finally {
-    isLoadingDuplicates.value = false;
+    isLoadingDuplicates.value = false
   }
-};
+}
 
 const findMissingFiles = async () => {
-    isLoadingMissing.value = true;
-    missingFiles.value = [];
-    try {
-        // We reuse the /api/v1/files endpoint with a filter
-        const response = await axios.get('/api/v1/files', { params: { is_missing: true, per_page: 9999 } });
-        missingFiles.value = response.data.files;
-    } catch (error) {
-        console.error("查找丢失文件出错：", error);
-        alert('查找丢失文件出错。');
-    } finally {
-        isLoadingMissing.value = false;
-    }
+  isLoadingMissing.value = true
+  missingFiles.value = []
+  try {
+    const response = await axios.get('/api/v1/files', {
+      params: { is_missing: true, per_page: 9999 }
+    })
+    missingFiles.value = response.data.files
+  } catch (error) {
+    console.error('Failed to find missing files:', error)
+    message.error(t('errorLoadingData', { error: t('missingFileCleanup') }))
+  } finally {
+    isLoadingMissing.value = false
+  }
 }
 
-const cleanupSelectedMissingFiles = async () => {
-    if (selectedMissingFiles.value.size === 0) {
-        alert("请选择要删除的文件。");
-        return;
-    }
-    if (!confirm(`确定要删除${selectedMissingFiles.value.size}条丢失文件记录吗？此操作不可撤销。`)) {
-        return;
-    }
+const cleanupSelectedMissingFiles = () => {
+  if (selectedMissingFiles.value.size === 0) {
+    message.warning(t('pleaseSelectFileToRename'))
+    return
+  }
 
-    try {
-        const ids = Array.from(selectedMissingFiles.value);
-        const response = await axios.post('/api/v1/maintenance/cleanup-missing', { ids });
-        alert(response.data.message);
-        selectedMissingFiles.value.clear();
-        findMissingFiles(); // Refresh the list
-    } catch(error) {
-        console.error("清理丢失文件出错：", error);
-        alert('清理丢失文件出错。');
+  Modal.confirm({
+    title: t('deleteSelectedRecords'),
+    content: `${t('deleteSelectedRecords')} (${selectedMissingFiles.value.size})`,
+    okType: 'danger',
+    async onOk() {
+      try {
+        const ids = Array.from(selectedMissingFiles.value)
+        const response = await axios.post('/api/v1/maintenance/cleanup-missing', { ids })
+        message.success(response.data.message)
+        selectedMissingFiles.value.clear()
+        findMissingFiles()
+      } catch (error) {
+        console.error('Failed to cleanup missing files:', error)
+        message.error(t('error'))
+      }
     }
+  })
 }
+</script>
 
-</script> 
+<template>
+  <a-space direction="vertical" size="large" class="w-full">
+    <BackupManager />
+
+    <a-card :title="$t('duplicateFinder')" class="shadow-sm">
+      <a-button type="primary" :loading="isLoadingDuplicates" @click="findDuplicates">
+        {{ isLoadingDuplicates ? $t('scanning') : $t('findDuplicates') }}
+      </a-button>
+      <a-list
+        v-if="duplicates.length"
+        class="mt-4"
+        :data-source="duplicates"
+        bordered
+      >
+        <template #renderItem="{ item, index }">
+          <a-list-item :key="index">
+            <a-card type="inner" :title="`${$t('duplicateFinder')} #${index + 1}`">
+              <a-list :data-source="item" :renderItem="file => null" size="small">
+                <template #renderItem="{ item: file }">
+                  <a-list-item>
+                    <a-typography-text code class="truncate block">
+                      {{ file.file_path }}
+                    </a-typography-text>
+                  </a-list-item>
+                </template>
+              </a-list>
+            </a-card>
+          </a-list-item>
+        </template>
+      </a-list>
+      <a-empty v-else-if="!isLoadingDuplicates" class="mt-4" :description="$t('noDuplicatesFound')" />
+    </a-card>
+
+    <a-card :title="$t('missingFileCleanup')" class="shadow-sm">
+      <a-space wrap class="mb-4">
+        <a-button type="primary" :loading="isLoadingMissing" @click="findMissingFiles">
+          {{ isLoadingMissing ? $t('scanning') : $t('findMissingFiles') }}
+        </a-button>
+        <a-button
+          v-if="missingFiles.length"
+          danger
+          @click="cleanupSelectedMissingFiles"
+        >
+          {{ $t('deleteSelectedRecords') }}
+        </a-button>
+      </a-space>
+
+      <a-list
+        v-if="missingFiles.length"
+        bordered
+        :data-source="missingFiles"
+        :locale="{ emptyText: null }"
+      >
+        <template #renderItem="{ item }">
+          <a-list-item>
+            <a-checkbox
+              :checked="selectedMissingFiles.has(item.id)"
+              @change="event => {
+                if (event.target.checked) {
+                  selectedMissingFiles.add(item.id)
+                } else {
+                  selectedMissingFiles.delete(item.id)
+                }
+              }"
+            >
+              <span class="text-sm">{{ item.file_path }}</span>
+            </a-checkbox>
+          </a-list-item>
+        </template>
+      </a-list>
+
+      <a-empty v-else-if="!isLoadingMissing" :description="$t('noMissingFilesFound')" />
+    </a-card>
+  </a-space>
+</template>

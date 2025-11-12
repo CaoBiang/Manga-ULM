@@ -19,6 +19,9 @@ This project was bootstrapped based on a detailed design document. It currently 
 *   **Core Library Scanning**: The backend can scan a specified directory, hash files, extract metadata, and store it in the database.
 *   **Interactive Frontend**: The UI can trigger the library scan and display real-time progress.
 *   **Placeholder UI/API**: Basic structure for advanced features like the manga reader, tagging system, data maintenance, and settings are in place.
+*   **Advanced Library Navigation**: Rich filtering (tags, reading status, likes), natural keyword search, AND/OR tag modes, and nine sorting options power both grid and list presentations for large collections.
+*   **At-a-glance Insights**: A library overview dashboard surfaces key metrics (totals, size, top tags) and highlight reels (recently added/read, largest files) powered by the new `/api/v1/files/stats` endpoint.
+*   **In-place Reading Controls**: Cards now expose progress bars, status cycling, quick status buttons, and instant like toggles that sync through new backend APIs.
 
 ## Getting Started
 
@@ -104,7 +107,15 @@ You need to run the backend and frontend servers in two separate terminals.
     # Terminal 3: Run the Vite dev server
     npm run dev
     ```
-    The application will be accessible at `http://127.0.0.1:5173` (or another port if 5173 is busy).
+The application will be accessible at `http://127.0.0.1:5173` (or another port if 5173 is busy).
+
+## Library API Enhancements
+
+Key endpoints powering the new library experience:
+
+* **`GET /api/v1/files`** – Supports keyword search, tag filters with `tag_mode=any|all`, multi-status filtering (`statuses=unread,finished`), like filtering (`liked=true|false`), page/size ranges, and expanded sort options such as `sort_by=last_read_date` or `sort_by=file_size`.
+* **`GET /api/v1/files/stats`** – Returns totals, status breakdowns, top tags, and highlight lists that drive the dashboard tiles in the frontend.
+* **`POST /api/v1/files/<id>/status`** – Quickly set `unread`, `in_progress`, or `finished` states (optionally with a `page` payload) to keep progress in sync without opening the reader.
 
 ## Production Deployment
 
@@ -132,8 +143,8 @@ For a production environment, it's recommended to use a robust web server like N
 
 This project is now at a stage where individual features can be built out. The next steps would be to replace the placeholder components and API endpoints with full functionality, following the specifications in the design document. Key areas include:
 
-*   **Gallery View**: Displaying the scanned manga with covers and metadata.
-*   **Manga Reader**: Implementing the image streaming and reading experience.
-*   **Tagging System**: Building the UI and API for creating, editing, and applying tags.
-*   **Data Maintenance**: Adding logic to the maintenance tools.
-*   **Settings**: Implementing the configuration options.
+*   **Metadata Enrichment**: Pull series/author data from external sources and surface it alongside the existing tags.
+*   **Smart Collections**: Allow users to save filter presets (e.g., “Unread Romance”) and surface them in navigation.
+*   **Reading Experience Refinements**: Extend the reader with per-device preferences, preloading strategies, and offline caching.
+*   **Automated Maintenance**: Expose scheduling for rescans, integrity checks, and stale file audits directly from the UI.
+*   **Multi-user Support**: Add authentication and per-user progress so households can share a single library safely.

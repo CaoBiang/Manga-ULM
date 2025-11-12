@@ -279,10 +279,8 @@ def start_scan_task(directory_path, max_workers=12, task_db_id=None):
                             # This needs to be after add/commit so that file_record has an ID
                             db.session.flush()
 
-                            # Handle tags
+                            # Handle tags (append-only, do not clear manual assignments)
                             if result.get('tag_names'):
-                                # Clear existing tags before adding new ones from filename
-                                file_record.tags.clear()
                                 for tag_name in result['tag_names']:
                                     tag = Tag.query.filter(Tag.name.ilike(tag_name)).first()
                                     if tag and tag not in file_record.tags:

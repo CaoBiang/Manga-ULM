@@ -1,123 +1,111 @@
 <template>
-  <div class="space-y-4">
-    <!-- 任务管理器标题 -->
-    <div class="flex justify-between items-center">
-      <h3 class="text-lg font-semibold text-gray-800">{{ $t('taskManager') }}</h3>
-      <button 
-        @click="refreshTasks"
-        class="btn btn-primary btn-sm"
-        :disabled="isLoading"
-      >
+  <a-card :body-style="{ padding: '20px' }" class="shadow-sm">
+    <div class="flex items-center justify-between mb-4">
+      <a-typography-title :level="4" class="!mb-0">{{ $t('taskManager') }}</a-typography-title>
+      <a-button type="primary" size="small" :loading="isLoading" @click="refreshTasks">
         {{ $t('refresh') }}
-      </button>
+      </a-button>
     </div>
 
-    <!-- 加载状态 -->
+    <a-empty
+      v-if="activeTasks.length === 0"
+      :description="$t('noActiveTasksDescription')"
+    >
+      <template #description>
+        <div class="text-center">
+          <p class="font-medium text-gray-700">{{ $t('noActiveTasks') }}</p>
+          <p class="text-sm text-gray-500">{{ $t('noActiveTasksDescription') }}</p>
+        </div>
+      </template>
+    </a-empty>
 
-    <!-- 无活跃任务 -->
-    <div v-if="activeTasks.length === 0" class="text-center py-8">
-      <div class="text-gray-400">
-        <svg class="mx-auto h-12 w-12 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-        </svg>
-        <p class="text-lg font-medium">{{ $t('noActiveTasks') }}</p>
-        <p class="text-sm">{{ $t('noActiveTasksDescription') }}</p>
-      </div>
-    </div>
-
-    <!-- 活跃任务列表 -->
-    <div v-else class="space-y-3">
-      <div 
-        v-for="task in activeTasks" 
+    <a-space v-else direction="vertical" size="middle" class="w-full">
+      <a-card
+        v-for="task in activeTasks"
         :key="task.id"
-        class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+        size="small"
+        :title="task.name"
+        :bordered="true"
       >
-        <!-- 任务头部 -->
-        <div class="flex justify-between items-start mb-3">
-          <div class="flex-1">
-            <h4 class="font-medium text-gray-900">{{ task.name }}</h4>
-            <div class="flex items-center space-x-2 mt-1">
-              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
-                    :class="getStatusClass(task.status)">
-                {{ getStatusText(task.status) }}
-              </span>
-              <span class="text-xs text-gray-500">{{ getTaskTypeText(task.task_type) }}</span>
-              <span v-if="task.created_at" class="text-xs text-gray-500">
-                {{ formatTime(task.created_at) }}
-              </span>
+        <template #extra>
+          <a-space size="small" align="center">
+            <a-tag :color="getStatusMeta(task.status).tagColor">
+              {{ getStatusText(task.status) }}
+            </a-tag>
+            <a-typography-text type="secondary">{{ getTaskTypeText(task.task_type) }}</a-typography-text>
+            <a-typography-text type="secondary" v-if="task.created_at">
+              {{ formatTime(task.created_at) }}
+            </a-typography-text>
+            <a-button
+              v-if="task.is_active"
+              danger
+              size="small"
+              :loading="isCancelling === task.id"
+              @click="cancelTask(task.id)"
+            >
+              {{ isCancelling === task.id ? $t('cancelling') : $t('cancel') }}
+            </a-button>
+          </a-space>
+        </template>
+
+        <a-space direction="vertical" size="small" class="w-full">
+          <div v-if="task.progress !== null">
+            <div class="flex justify-between text-sm text-gray-500 mb-1">
+              <span>{{ $t('progress') }}</span>
+              <span>{{ Math.round(task.progress) }}%</span>
             </div>
+            <a-progress
+              :percent="Math.round(task.progress)"
+              :status="getStatusMeta(task.status).progressStatus"
+              :stroke-color="getStatusMeta(task.status).strokeColor"
+              :show-info="false"
+            />
           </div>
-          
-          <!-- 取消按钮 -->
-          <button 
-            v-if="task.is_active"
-            @click="cancelTask(task.id)"
-            class="btn btn-danger btn-sm"
-            :disabled="isCancelling === task.id"
+
+          <a-descriptions
+            v-if="task.total_files > 0"
+            size="small"
+            :column="1"
+            class="bg-gray-50 rounded-md p-2"
           >
-            {{ isCancelling === task.id ? $t('cancelling') : $t('cancel') }}
-          </button>
-        </div>
+            <a-descriptions-item :label="$t('filesProcessed')">
+              {{ task.processed_files || 0 }} / {{ task.total_files }}
+            </a-descriptions-item>
+          </a-descriptions>
 
-        <!-- 进度条 -->
-        <div v-if="task.progress !== null" class="mb-3">
-          <div class="flex justify-between items-center mb-1">
-            <span class="text-sm text-gray-600">{{ $t('progress') }}</span>
-            <span class="text-sm text-gray-600">{{ Math.round(task.progress) }}%</span>
-          </div>
-          <div class="w-full bg-gray-200 rounded-full h-2">
-            <div 
-              class="h-2 rounded-full transition-all duration-300"
-              :class="getProgressClass(task.status)"
-              :style="{ width: task.progress + '%' }"
-            ></div>
-          </div>
-        </div>
-
-        <!-- 文件处理信息 -->
-        <div v-if="task.total_files > 0" class="mb-3">
-          <div class="flex justify-between items-center text-sm text-gray-600">
-            <span>{{ $t('filesProcessed') }}</span>
-            <span>{{ task.processed_files || 0 }} / {{ task.total_files }}</span>
-          </div>
-        </div>
-
-        <!-- 当前处理文件 -->
-        <div v-if="task.current_file" class="mb-3">
-          <p class="text-sm text-gray-600 mb-1">{{ $t('currentFile') }}</p>
-          <p class="text-sm text-gray-800 bg-gray-50 p-2 rounded border font-mono break-all">
+          <a-typography-paragraph v-if="task.current_file" code class="!mb-0">
             {{ task.current_file }}
-          </p>
-        </div>
+          </a-typography-paragraph>
 
-        <!-- 目标路径 -->
-        <div v-if="task.target_path" class="mb-3">
-          <p class="text-sm text-gray-600 mb-1">{{ $t('targetPath') }}</p>
-          <p class="text-sm text-gray-800 bg-gray-50 p-2 rounded border break-all">
-            {{ task.target_path }}
-          </p>
-        </div>
+          <a-typography-paragraph v-if="task.target_path" class="!mb-0 text-gray-600">
+            <strong>{{ $t('targetPath') }}:</strong> {{ task.target_path }}
+          </a-typography-paragraph>
 
-        <!-- 错误信息 -->
-        <div v-if="task.error_message" class="mt-3 p-3 bg-red-50 border border-red-200 rounded-md">
-          <p class="text-sm text-red-800">
-            <strong>{{ $t('error') }}:</strong> {{ task.error_message }}
-          </p>
-        </div>
+          <a-alert
+            v-if="task.error_message"
+            type="error"
+            show-icon
+            :message="$t('error')"
+            :description="task.error_message"
+          />
 
-        <!-- 任务时长 -->
-        <div v-if="task.duration > 0" class="mt-3 text-xs text-gray-500">
-          {{ $t('duration') }}: {{ formatDuration(task.duration) }}
-        </div>
-      </div>
-    </div>
+          <a-typography-text v-if="task.duration > 0" type="secondary">
+            {{ $t('duration') }}: {{ formatDuration(task.duration) }}
+          </a-typography-text>
+        </a-space>
+      </a-card>
+    </a-space>
 
-    <!-- 错误消息 -->
-    <div v-if="errorMessage" class="bg-red-50 border border-red-200 rounded-md p-3">
-      <p class="text-sm text-red-800">{{ errorMessage }}</p>
-    </div>
-  </div>
+    <a-alert
+      v-if="errorMessage"
+      class="mt-4"
+      type="error"
+      show-icon
+      :message="errorMessage"
+    />
+  </a-card>
 </template>
+
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
@@ -172,43 +160,24 @@ async function cancelTask(taskId) {
   }
 }
 
-// 获取状态样式类
-function getStatusClass(status) {
+function getStatusMeta(status) {
   switch (status) {
     case 'pending':
-      return 'bg-yellow-100 text-yellow-800'
+      return { tagColor: 'gold', progressStatus: 'active', strokeColor: '#faad14' }
     case 'running':
-      return 'bg-blue-100 text-blue-800'
+      return { tagColor: 'blue', progressStatus: 'active', strokeColor: '#1677ff' }
     case 'completed':
-      return 'bg-green-100 text-green-800'
+      return { tagColor: 'green', progressStatus: 'success', strokeColor: '#52c41a' }
     case 'failed':
-      return 'bg-red-100 text-red-800'
+      return { tagColor: 'red', progressStatus: 'exception', strokeColor: '#ff4d4f' }
     case 'cancelled':
-      return 'bg-gray-100 text-gray-800'
+      return { tagColor: 'default', progressStatus: 'normal', strokeColor: '#bfbfbf' }
     default:
-      return 'bg-gray-100 text-gray-800'
+      return { tagColor: 'blue', progressStatus: 'normal', strokeColor: '#1677ff' }
   }
 }
 
-// 获取进度条样式类
-function getProgressClass(status) {
-  switch (status) {
-    case 'pending':
-      return 'bg-yellow-500'
-    case 'running':
-      return 'bg-blue-500'
-    case 'completed':
-      return 'bg-green-500'
-    case 'failed':
-      return 'bg-red-500'
-    case 'cancelled':
-      return 'bg-gray-500'
-    default:
-      return 'bg-blue-500'
-  }
-}
-
-// 获取状态文本
+// 获取状态文?
 function getStatusText(status) {
   switch (status) {
     case 'pending':
@@ -244,13 +213,13 @@ function getTaskTypeText(taskType) {
   }
 }
 
-// 格式化时间
+// 格式化时?
 function formatTime(timestamp) {
   if (!timestamp) return ''
   return new Date(timestamp).toLocaleString()
 }
 
-// 格式化时长
+// 格式化时?
 function formatDuration(seconds) {
   if (seconds < 60) {
     return `${Math.round(seconds)}s`
@@ -265,7 +234,7 @@ function formatDuration(seconds) {
 
 // 监听WebSocket事件
 libraryStore.socket.on('task_progress', (data) => {
-  // 更新对应任务的状态
+  // 更新对应任务的状?
   const task = activeTasks.value.find(t => t.id === data.task_id)
   if (task) {
     task.progress = data.progress
@@ -275,18 +244,18 @@ libraryStore.socket.on('task_progress', (data) => {
 })
 
 libraryStore.socket.on('task_complete', (data) => {
-  // 任务完成，刷新任务列表
+  // 任务完成，刷新任务列?
   fetchActiveTasks()
 })
 
 libraryStore.socket.on('task_error', (data) => {
-  // 任务出错，刷新任务列表
+  // 任务出错，刷新任务列?
   fetchActiveTasks()
 })
 
 onMounted(() => {
   fetchActiveTasks()
-  // 每30秒自动刷新一次
+  // ?0秒自动刷新一?
   refreshInterval = setInterval(fetchActiveTasks, 30000)
 })
 

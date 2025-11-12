@@ -21,8 +21,17 @@ const router = createRouter({
     },
     {
       path: '/settings',
-      name: 'settings',
-      component: () => import('../views/SettingsView.vue')
+      redirect: { name: 'settings-library' }
+    },
+    {
+      path: '/settings/library-paths',
+      name: 'settings-library',
+      component: () => import('../views/SettingsLibraryView.vue')
+    },
+    {
+      path: '/settings/tag-management',
+      name: 'settings-tags',
+      component: () => import('../views/SettingsTagManagementView.vue')
     },
     {
       path: '/maintenance',
