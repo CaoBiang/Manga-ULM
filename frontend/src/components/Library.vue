@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useLibraryStore } from '@/store/library'
 import { storeToRefs } from 'pinia'
 import MangaCard from './MangaCard.vue'
@@ -15,6 +15,7 @@ const {
   scanProgress, 
   scanStatus, 
   currentScanFile,
+  currentScanMessageKey,
   files,
   pagination,
   libraryStatus
@@ -101,6 +102,25 @@ onMounted(() => {
     libraryStore.fetchFiles()
   }
 })
+
+const currentScanDisplay = computed(() =>
+  currentScanFile.value || (currentScanMessageKey.value ? t(currentScanMessageKey.value) : '')
+)
+
+const scanStatusLabel = computed(() => {
+  switch (scanStatus.value) {
+    case 'scanning':
+      return t('scanning')
+    case 'pending':
+      return t('scanPending')
+    case 'finished':
+      return t('scanFinished')
+    case 'error':
+      return t('scanError')
+    default:
+      return t('idle')
+  }
+})
 </script>
 
 <template>
@@ -127,11 +147,11 @@ onMounted(() => {
 
       <div v-if="scanStatus !== 'idle'" class="mt-4 space-y-2">
         <a-progress :percent="Number(scanProgress.toFixed(2))" status="active" />
-        <a-typography-text type="secondary" v-if="currentScanFile">
-          <strong>{{ $t('processing') }}:</strong> {{ currentScanFile }}
+        <a-typography-text type="secondary" v-if="currentScanDisplay">
+          <strong>{{ $t('processing') }}:</strong> {{ currentScanDisplay }}
         </a-typography-text>
         <a-typography-text type="secondary">
-          <strong>{{ $t('status') }}:</strong> {{ scanStatus }}
+          <strong>{{ $t('status') }}:</strong> {{ scanStatusLabel }}
         </a-typography-text>
         <a-alert
           v-if="scanStatus === 'finished'"

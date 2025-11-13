@@ -17,7 +17,8 @@ const router = createRouter({
       path: '/reader/:id',
       name: 'reader',
       component: () => import('../views/ReaderView.vue'),
-      props: true
+      props: true,
+      meta: { fullScreen: true }
     },
     {
       path: '/settings',

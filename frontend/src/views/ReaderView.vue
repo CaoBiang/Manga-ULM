@@ -190,6 +190,14 @@ const fileInfo = ref({
 });
 const imageRef = ref(null);
 
+const sizeUnits = computed(() => [
+  t('sizeUnitB'),
+  t('sizeUnitKB'),
+  t('sizeUnitMB'),
+  t('sizeUnitGB'),
+  t('sizeUnitTB')
+])
+
 // --- Paging/Splitting Logic ---
 const isPagingEnabled = ref(false);
 const isCurrentImageWide = ref(false);
@@ -477,13 +485,14 @@ const fetchFileInfo = async () => {
 };
 
 const formatBytes = (bytes, decimals = 2) => {
-  if (bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const dm = decimals < 0 ? 0 : decimals;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
-};
+  if (bytes === 0) return `0 ${sizeUnits.value[0]}`
+  const k = 1024
+  const dm = decimals < 0 ? 0 : decimals
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  const value = parseFloat((bytes / Math.pow(k, i)).toFixed(dm))
+  const unit = sizeUnits.value[i] || sizeUnits.value[sizeUnits.value.length - 1]
+  return `${value} ${unit}`
+}
 
 const expandToolbar = () => {
   isToolbarExpanded.value = true;

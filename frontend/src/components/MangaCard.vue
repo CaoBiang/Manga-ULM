@@ -5,6 +5,22 @@ import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 
+const sizeUnits = computed(() => [
+  t('sizeUnitB'),
+  t('sizeUnitKB'),
+  t('sizeUnitMB'),
+  t('sizeUnitGB'),
+  t('sizeUnitTB')
+])
+
+const fallbackCover = computed(
+  () => `https://via.placeholder.com/300x400.png?text=${encodeURIComponent(t('noCoverPlaceholder'))}`
+)
+
+const handleCoverError = (event) => {
+  event.target.src = fallbackCover.value
+}
+
 const emit = defineEmits(['metadata-updated'])
 
 const statusOrder = ['unread', 'in_progress', 'finished']
@@ -82,12 +98,12 @@ const statusButtons = computed(() => statusOrder.map(value => ({
 
 const formatBytes = (bytes) => {
   if (!bytes) {
-    return '0 B'
+    return `0 ${sizeUnits.value[0]}`
   }
-  const units = ['B', 'KB', 'MB', 'GB', 'TB']
-  const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1)
+  const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), sizeUnits.value.length - 1)
   const size = bytes / Math.pow(1024, exponent)
-  return `${size.toFixed(size >= 10 ? 0 : 1)} ${units[exponent]}`
+  const unit = sizeUnits.value[exponent] || sizeUnits.value[sizeUnits.value.length - 1]
+  return `${size.toFixed(size >= 10 ? 0 : 1)} ${unit}`
 }
 
 const formatDateTime = (isoString) => {
@@ -217,7 +233,7 @@ const toggleLike = async (event) => {
         :src="manga.cover_url"
         :alt="displayName"
         class="w-full h-full object-cover"
-        @error.once="e => e.target.src = 'https://via.placeholder.com/300x400.png?text=No+Cover'"
+        @error.once="handleCoverError"
         loading="lazy"
       />
     </div>
@@ -274,7 +290,7 @@ const toggleLike = async (event) => {
         :src="manga.cover_url"
         :alt="displayName"
         class="w-full h-full object-cover"
-        @error.once="e => e.target.src = 'https://via.placeholder.com/300x400.png?text=No+Cover'"
+        @error.once="handleCoverError"
         loading="lazy"
       />
       <button

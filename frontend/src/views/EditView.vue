@@ -98,11 +98,13 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import axios from 'axios'
 import TagSelector from '@/components/TagSelector.vue'
 
 const route = useRoute()
 const router = useRouter()
+const { t } = useI18n()
 const file = ref(null)
 const allTags = ref([])
 const bookmarks = ref([])
@@ -137,7 +139,7 @@ const toggleTag = (tag) => {
 const addBookmark = async () => {
     bookmarkError.value = null
     if (!newBookmark.value.page || newBookmark.value.page < 1) {
-        bookmarkError.value = "Page number must be a positive number, starting from 1.";
+        bookmarkError.value = t('bookmarkPagePositiveNumber')
         return;
     }
 
@@ -152,7 +154,7 @@ const addBookmark = async () => {
         newBookmark.value.page = null;
         newBookmark.value.note = '';
     } catch (err) {
-        bookmarkError.value = err.response?.data?.error || 'Failed to add bookmark.';
+        bookmarkError.value = err.response?.data?.error || t('failedToAddBookmark');
     }
 }
 
@@ -162,7 +164,7 @@ const deleteBookmark = async (bookmarkId) => {
         await axios.delete(`/api/v1/bookmarks/${bookmarkId}`);
         bookmarks.value = bookmarks.value.filter(b => b.id !== bookmarkId);
     } catch (err) {
-        bookmarkError.value = err.response?.data?.error || 'Failed to delete bookmark.';
+        bookmarkError.value = err.response?.data?.error || t('failedToDeleteBookmark');
     }
 }
 
@@ -181,7 +183,7 @@ const handleSave = async () => {
      setTimeout(() => saveStatus.value = 'idle', 3000) // Reset after 3s
   } catch (err) {
     saveStatus.value = 'error'
-    saveError.value = err.response?.data?.error || 'An unexpected error occurred.'
+    saveError.value = err.response?.data?.error || t('unexpectedSaveError')
   } finally {
     isSaving.value = false
   }
@@ -214,7 +216,7 @@ const handleRename = async () => {
     setTimeout(() => renameStatus.value = 'idle', 3000)
   } catch (err) {
     renameStatus.value = 'error'
-    renameError.value = err.response?.data?.error || 'An unexpected error occurred during rename.'
+    renameError.value = err.response?.data?.error || t('unexpectedRenameError')
   } finally {
     isRenaming.value = false
   }

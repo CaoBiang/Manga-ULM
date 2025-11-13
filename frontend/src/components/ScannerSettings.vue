@@ -18,9 +18,9 @@
           :status="progressStatus"
         />
 
-        <a-descriptions v-if="libraryStore.currentScanFile" size="small" :column="1">
+        <a-descriptions v-if="currentScanDisplay" size="small" :column="1">
           <a-descriptions-item :label="$t('currentFile')">
-            <a-typography-text code>{{ libraryStore.currentScanFile }}</a-typography-text>
+            <a-typography-text code>{{ currentScanDisplay }}</a-typography-text>
           </a-descriptions-item>
         </a-descriptions>
 
@@ -51,8 +51,8 @@
                       {{ $t('cancel') }}
                     </a-button>
                   </div>
-                  <a-typography-text v-if="item.current_file || libraryStore.currentScanFile" code>
-                    {{ item.current_file || libraryStore.currentScanFile }}
+                  <a-typography-text v-if="item.current_file || currentScanDisplay" code>
+                    {{ item.current_file || currentScanDisplay }}
                   </a-typography-text>
                 </div>
               </a-list-item>
@@ -83,13 +83,13 @@
         class="max-h-56 overflow-y-auto"
       >
         <template #renderItem="{ item }">
-          <a-list-item>
-            <a-list-item-meta :description="formatTime(item.timestamp)">
-              <template #title>
-                <a-typography-text type="danger">{{ item.message }}</a-typography-text>
-              </template>
-            </a-list-item-meta>
-          </a-list-item>
+            <a-list-item>
+              <a-list-item-meta :description="formatTime(item.timestamp)">
+                <template #title>
+                  <a-typography-text type="danger">{{ getScanErrorMessage(item) }}</a-typography-text>
+                </template>
+              </a-list-item-meta>
+            </a-list-item>
         </template>
       </a-list>
     </a-card>
@@ -186,6 +186,10 @@ import { message, Modal } from 'ant-design-vue'
 const { t } = useI18n()
 const libraryStore = useLibraryStore()
 
+const currentScanDisplay = computed(
+  () => libraryStore.currentScanFile || (libraryStore.currentScanMessageKey ? t(libraryStore.currentScanMessageKey) : '')
+)
+
 const libraryPaths = ref([])
 const newPath = ref('')
 const maxWorkers = ref(12)
@@ -215,6 +219,10 @@ const progressStatus = computed(() => {
 
 function formatTime(timestamp) {
   return new Date(timestamp).toLocaleString()
+}
+
+function getScanErrorMessage(error) {
+  return error.message || (error.messageKey ? t(error.messageKey) : '')
 }
 
 function showStatus(msg, error = false) {

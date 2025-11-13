@@ -37,7 +37,7 @@ const pageTitle = computed(() => {
 
 const breadcrumbItems = computed(() => {
   const crumbs = [
-    { key: 'home', label: 'Manga ULM', path: '/' }
+    { key: 'home', label: t('appName'), path: '/' }
   ]
   if (route.name && route.name !== 'home') {
     crumbs.push({ key: route.name, label: pageTitle.value })

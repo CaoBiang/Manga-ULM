@@ -222,13 +222,15 @@ function formatTime(timestamp) {
 // 格式化时?
 function formatDuration(seconds) {
   if (seconds < 60) {
-    return `${Math.round(seconds)}s`
+    return `${Math.round(seconds)}${t('secondsShort')}`
   } else if (seconds < 3600) {
-    return `${Math.round(seconds / 60)}m ${Math.round(seconds % 60)}s`
+    const minutes = Math.floor(seconds / 60)
+    const secs = Math.round(seconds % 60)
+    return `${minutes}${t('minutesShort')} ${secs}${t('secondsShort')}`
   } else {
     const hours = Math.floor(seconds / 3600)
     const minutes = Math.floor((seconds % 3600) / 60)
-    return `${hours}h ${minutes}m`
+    return `${hours}${t('hoursShort')} ${minutes}${t('minutesShort')}`
   }
 }
 

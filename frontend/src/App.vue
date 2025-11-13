@@ -97,6 +97,8 @@ function findNavItem(key, withParent = false, items = navItems.value, parentKey 
   return null
 }
 
+const isFullScreenRoute = computed(() => route.meta?.fullScreen)
+
 const theme = computed(() => ({
   token: {
     colorPrimary: '#1677ff',
@@ -123,7 +125,15 @@ const theme = computed(() => ({
 
 <template>
   <a-config-provider :theme="theme">
-    <a-layout class="min-h-screen bg-gray-50">
+    <div v-if="isFullScreenRoute" class="min-h-screen bg-black">
+      <router-view v-slot="{ Component, route }">
+        <keep-alive>
+          <component :is="Component" :key="route.name" v-if="route.meta.keepAlive" />
+        </keep-alive>
+        <component :is="Component" :key="route.name" v-if="!route.meta.keepAlive" />
+      </router-view>
+    </div>
+    <a-layout v-else class="min-h-screen bg-gray-50">
       <a-layout-sider
         v-model:collapsed="collapsed"
         collapsible
@@ -135,7 +145,7 @@ const theme = computed(() => ({
       >
         <RouterLink to="/" class="app-logo">
           <span class="logo-mark">M</span>
-          <span v-if="!collapsed" class="logo-text">Manga ULM</span>
+          <span v-if="!collapsed" class="logo-text">{{ t('appName') }}</span>
         </RouterLink>
         <a-menu
           mode="inline"

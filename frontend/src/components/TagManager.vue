@@ -152,7 +152,10 @@ const closeModal = () => { showModal.value = false; editingTag.value = null }
 const addAlias = () => {
   const a = (tagForm.value.newAlias || '').trim()
   if (!a) return
-  if (tagForm.value.aliases.includes(a)) { message.warning('Alias already exists'); return }
+  if (tagForm.value.aliases.includes(a)) {
+    message.warning(t('aliasAlreadyExists'))
+    return
+  }
   tagForm.value.aliases.push(a)
   tagForm.value.newAlias = ''
 }
@@ -354,7 +357,10 @@ const executeMerge = async () => { if (!mergeSourceTag.value || !mergeTarget.val
           <a-list v-if="previewData.examples && previewData.examples.length" :data-source="previewData.examples" size="small" bordered>
             <template #renderItem="{ item }">
               <a-list-item>
-                <div class="flex flex-col"><span><strong>OLD:</strong> {{ item.old }}</span><span><strong>NEW:</strong> {{ item.new }}</span></div>
+                <div class="flex flex-col">
+                  <span><strong>{{ $t('previewOldLabel') }}:</strong> {{ item.old }}</span>
+                  <span><strong>{{ $t('previewNewLabel') }}:</strong> {{ item.new }}</span>
+                </div>
               </a-list-item>
             </template>
           </a-list>

@@ -8,10 +8,19 @@ export const useLibraryStore = defineStore('library', () => {
   const scanProgress = ref(0)
   const scanStatus = ref('idle') // idle, scanning, finished, error
   const currentScanFile = ref('')
+  const currentScanMessageKey = ref(null)
   const taskId = ref(null)
   const dbTaskId = ref(null)
   const activeTasks = ref([])
   const scanErrors = ref([])
+
+  const pushScanError = ({ message = null, messageKey = null }) => {
+    scanErrors.value.push({
+      message,
+      messageKey,
+      timestamp: new Date().toISOString()
+    })
+  }
 
   // State for library display
   const files = ref([])
@@ -42,7 +51,8 @@ export const useLibraryStore = defineStore('library', () => {
 
   socket.on('scan_progress', (data) => {
     scanProgress.value = data.progress
-    currentScanFile.value = data.current_file
+    currentScanFile.value = data.current_file || ''
+    currentScanMessageKey.value = null
     scanStatus.value = 'scanning'
     
     // 更新对应的任务状态
@@ -59,7 +69,8 @@ export const useLibraryStore = defineStore('library', () => {
   socket.on('scan_complete', (data) => {
     scanProgress.value = 100
     scanStatus.value = 'finished'
-    currentScanFile.value = '扫描完成'
+    currentScanFile.value = ''
+    currentScanMessageKey.value = 'scanCompleteMessage'
     console.log('Scan complete:', data.message)
     
     // 更新任务状态
@@ -84,10 +95,7 @@ export const useLibraryStore = defineStore('library', () => {
   
   socket.on('scan_error', (data) => {
     scanStatus.value = 'error'
-    scanErrors.value.push({
-      message: data.error,
-      timestamp: new Date().toISOString()
-    })
+    pushScanError({ message: data.error })
     console.error('Scan error:', data.error)
     
     // 更新任务状态
@@ -115,13 +123,16 @@ export const useLibraryStore = defineStore('library', () => {
       if (activeScanTask) {
         scanStatus.value = activeScanTask.status === 'running' ? 'scanning' : 'pending'
         scanProgress.value = activeScanTask.progress || 0
-        currentScanFile.value = activeScanTask.current_file || '准备扫描...'
+        const hasFile = !!activeScanTask.current_file
+        currentScanFile.value = hasFile ? activeScanTask.current_file : ''
+        currentScanMessageKey.value = hasFile ? null : 'preparingScanMessage'
         dbTaskId.value = activeScanTask.id
         taskId.value = activeScanTask.task_id
       } else {
         scanStatus.value = 'idle'
         scanProgress.value = 0
         currentScanFile.value = ''
+        currentScanMessageKey.value = null
         dbTaskId.value = null
         taskId.value = null
       }
@@ -159,7 +170,8 @@ export const useLibraryStore = defineStore('library', () => {
       
       scanStatus.value = 'scanning'
       scanProgress.value = 0
-      currentScanFile.value = 'Initializing scan...'
+      currentScanFile.value = ''
+      currentScanMessageKey.value = 'initializingScanMessage'
       
       const response = await axios.post('/api/v1/library/scan', { path })
       taskId.value = response.data.task_id
@@ -177,9 +189,9 @@ export const useLibraryStore = defineStore('library', () => {
     } catch (error) {
       console.error('Failed to start scan:', error)
       scanStatus.value = 'error'
-      scanErrors.value.push({
-        message: error.response?.data?.error || 'Failed to start scan',
-        timestamp: new Date().toISOString()
+      pushScanError({
+        message: error.response?.data?.error || null,
+        messageKey: error.response?.data?.error ? null : 'failedToStartScan'
       })
       throw error
     }
@@ -192,7 +204,8 @@ export const useLibraryStore = defineStore('library', () => {
       
       scanStatus.value = 'scanning'
       scanProgress.value = 0
-      currentScanFile.value = 'Starting scan for all libraries...'
+      currentScanFile.value = ''
+      currentScanMessageKey.value = 'startingScanAllMessage'
       
       const response = await axios.post('/api/v1/library/scan_all')
       
@@ -212,9 +225,9 @@ export const useLibraryStore = defineStore('library', () => {
     } catch (error) {
       console.error('Failed to start scan all:', error)
       scanStatus.value = 'error'
-      scanErrors.value.push({
-        message: error.response?.data?.error || 'Failed to start scan all',
-        timestamp: new Date().toISOString()
+      pushScanError({
+        message: error.response?.data?.error || null,
+        messageKey: error.response?.data?.error ? null : 'failedToStartScanAll'
       })
       throw error
     }
@@ -249,6 +262,7 @@ export const useLibraryStore = defineStore('library', () => {
     scanStatus.value = 'idle'
     scanProgress.value = 0
     currentScanFile.value = ''
+    currentScanMessageKey.value = null
     taskId.value = null
     dbTaskId.value = null
   }
@@ -283,6 +297,7 @@ export const useLibraryStore = defineStore('library', () => {
     scanProgress,
     scanStatus,
     currentScanFile,
+    currentScanMessageKey,
     taskId,
     dbTaskId,
     activeTasks,

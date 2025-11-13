@@ -132,14 +132,22 @@ const isStatusButtonActive = (status) => {
   return selectedStatuses.value.includes(status)
 }
 
+const sizeUnits = computed(() => [
+  t('sizeUnitB'),
+  t('sizeUnitKB'),
+  t('sizeUnitMB'),
+  t('sizeUnitGB'),
+  t('sizeUnitTB')
+])
+
 const formatBytes = (bytes) => {
   if (!bytes) {
-    return '0 B'
+    return `0 ${sizeUnits.value[0]}`
   }
-  const units = ['B', 'KB', 'MB', 'GB', 'TB']
-  const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1)
+  const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), sizeUnits.value.length - 1)
   const size = bytes / Math.pow(1024, exponent)
-  return `${size.toFixed(size >= 10 ? 0 : 1)} ${units[exponent]}`
+  const unit = sizeUnits.value[exponent] || sizeUnits.value[sizeUnits.value.length - 1]
+  return `${size.toFixed(size >= 10 ? 0 : 1)} ${unit}`
 }
 
 const formatDateTime = (isoString) => {
