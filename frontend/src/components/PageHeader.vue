@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
@@ -7,6 +8,7 @@ import {
   MenuUnfoldOutlined,
   ReloadOutlined
 } from '@ant-design/icons-vue'
+import { useLibraryPreferencesStore } from '@/store/preferences'
 
 const props = defineProps({
   collapsed: {
@@ -23,12 +25,16 @@ const { t } = useI18n()
 
 const titleKeyMap = {
   home: 'home',
+  library: 'library',
   likes: 'wishlist',
   settings: 'settings',
   maintenance: 'maintenance',
   reader: 'reader',
   edit: 'editFileDetails'
 }
+
+const libraryPreferencesStore = useLibraryPreferencesStore()
+const { viewMode } = storeToRefs(libraryPreferencesStore)
 
 const pageTitle = computed(() => {
   const key = titleKeyMap[route.name] || 'home'
@@ -47,6 +53,17 @@ const breadcrumbItems = computed(() => {
 
 const refreshPage = () => {
   router.go(0)
+}
+
+const viewToggleOptions = computed(() => [
+  { label: t('viewGrid'), value: 'grid' },
+  { label: t('viewList'), value: 'list' }
+])
+
+const showViewToggle = computed(() => route.name === 'library')
+
+const handleViewModeChange = (mode) => {
+  libraryPreferencesStore.setViewMode(mode)
 }
 </script>
 
@@ -80,13 +97,26 @@ const refreshPage = () => {
       </div>
     </div>
 
-    <a-space :size="12">
-      <a-tooltip :title="t('refresh')">
-        <a-button type="text" shape="circle" @click="refreshPage">
-          <ReloadOutlined />
-        </a-button>
-      </a-tooltip>
-    </a-space>
+    <div class="page-header__right">
+      <div v-if="showViewToggle" class="page-header__view-toggle">
+        <span class="page-header__view-label">
+          {{ t('viewModeLabel') }}
+        </span>
+        <a-segmented
+          :value="viewMode"
+          :options="viewToggleOptions"
+          size="small"
+          @change="handleViewModeChange"
+        />
+      </div>
+      <a-space :size="12">
+        <a-tooltip :title="t('refresh')">
+          <a-button type="text" shape="circle" @click="refreshPage">
+            <ReloadOutlined />
+          </a-button>
+        </a-tooltip>
+      </a-space>
+    </div>
   </a-layout-header>
 </template>
 
@@ -108,5 +138,30 @@ const refreshPage = () => {
   display: flex;
   align-items: center;
   gap: 16px;
+}
+
+.page-header__right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.page-header__view-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.page-header__view-label {
+  display: none;
+  font-size: 0.875rem;
+  color: #475467;
+  font-weight: 500;
+}
+
+@media (min-width: 768px) {
+  .page-header__view-label {
+    display: inline-block;
+  }
 }
 </style>

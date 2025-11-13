@@ -9,6 +9,12 @@ const router = createRouter({
       meta: { keepAlive: true }
     },
     {
+      path: '/library',
+      name: 'library',
+      component: () => import('../views/LibraryView.vue'),
+      meta: { keepAlive: true }
+    },
+    {
       path: '/likes',
       name: 'likes',
       component: () => import('../views/LikeView.vue')

@@ -6,7 +6,8 @@ import {
   HomeOutlined,
   HeartOutlined,
   SettingOutlined,
-  ToolOutlined
+  ToolOutlined,
+  BookOutlined
 } from '@ant-design/icons-vue'
 import PageHeader from '@/components/PageHeader.vue'
 
@@ -17,6 +18,7 @@ const collapsed = ref(false)
 
 const navItems = computed(() => [
   { key: 'home', label: t('home'), path: '/', icon: HomeOutlined },
+  { key: 'library', label: t('library'), path: '/library', icon: BookOutlined },
   { key: 'likes', label: t('wishlist'), path: '/likes', icon: HeartOutlined },
   {
     key: 'settings',
