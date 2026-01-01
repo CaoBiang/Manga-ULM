@@ -219,6 +219,7 @@ def get_files():
     tag_ids_param = request.args.get('tags')
     exclude_tag_ids_param = request.args.get('exclude_tags')
     tag_mode = (request.args.get('tag_mode') or 'any').lower()
+    include_descendants_param = request.args.get('include_descendants')
     status_param = request.args.get('statuses') or request.args.get('status')
     liked_param = request.args.get('liked')
     min_pages = request.args.get('min_pages', type=int)
@@ -248,6 +249,7 @@ def get_files():
 
     liked_flag = parse_bool(liked_param)
     include_missing_flag = parse_bool(include_missing_param)
+    include_descendants_flag = parse_bool(include_descendants_param)
 
     # Basic query
     query = File.query.options(
@@ -260,6 +262,32 @@ def get_files():
         for token in keyword.split():
             token_like = f'%{token}%'
             query = query.filter(File.file_path.ilike(token_like))
+
+    # Optionally expand tag filters to include descendants
+    def expand_with_descendants(ids):
+        if not ids:
+            return []
+        # Build parent->children map once
+        pairs = db.session.query(Tag.id, Tag.parent_id).all()
+        children_map = {}
+        for tid, pid in pairs:
+            children_map.setdefault(pid, []).append(tid)
+        out = set()
+        from collections import deque
+        for root in ids:
+            dq = deque([root])
+            while dq:
+                cur = dq.popleft()
+                if cur in out:
+                    continue
+                out.add(cur)
+                for child in children_map.get(cur, []):
+                    dq.append(child)
+        return list(out)
+
+    if include_descendants_flag:
+        tag_ids = expand_with_descendants(tag_ids)
+        exclude_tag_ids = expand_with_descendants(exclude_tag_ids)
 
     if tag_ids:
         if tag_mode == 'all':
@@ -340,7 +368,8 @@ def get_files():
             'min_size': min_size,
             'max_size': max_size,
             'tag_mode': tag_mode,
-            'include_missing': include_missing_flag
+            'include_missing': include_missing_flag,
+            'include_descendants': include_descendants_flag
         }
     })
 
@@ -460,6 +489,76 @@ def update_reading_progress(id):
         
     db.session.commit()
     return jsonify({'message': 'Progress updated successfully', 'status': file_record.reading_status})
+
+
+@api.route('/files/bulk-tags', methods=['POST'])
+def bulk_update_file_tags():
+    """Bulk add/remove/set tags for multiple files.
+    Body:
+      - file_ids: [int, ...] (required)
+      - set_tag_ids: [int, ...] (optional; if provided, overrides add/remove)
+      - add_tag_ids: [int, ...] (optional)
+      - remove_tag_ids: [int, ...] (optional)
+    """
+    payload = request.get_json() or {}
+    file_ids = payload.get('file_ids') or []
+    if not isinstance(file_ids, list) or not all(isinstance(x, int) for x in file_ids) or not file_ids:
+        return jsonify({'error': 'file_ids must be a non-empty list of integers'}), 400
+
+    set_ids = payload.get('set_tag_ids')
+    add_ids = payload.get('add_tag_ids') or []
+    remove_ids = payload.get('remove_tag_ids') or []
+
+    # Validate IDs
+    for name, ids in [('set_tag_ids', set_ids), ('add_tag_ids', add_ids), ('remove_tag_ids', remove_ids)]:
+        if ids is None:
+            continue
+        if not isinstance(ids, list) or not all(isinstance(x, int) for x in ids):
+            return jsonify({'error': f'{name} must be a list of integers'}), 400
+
+    # Fetch files
+    files = File.query.filter(File.id.in_(file_ids)).all()
+    if len(files) != len(set(file_ids)):
+        found_ids = {f.id for f in files}
+        missing = [fid for fid in file_ids if fid not in found_ids]
+        return jsonify({'error': f'Invalid file IDs: {missing}'}), 400
+
+    # Determine tag set to apply
+    updated = 0
+    if set_ids is not None:
+        # Replace tags for each file
+        tags = Tag.query.filter(Tag.id.in_(set_ids)).all() if set_ids else []
+        if len(tags) != len(set(set_ids)):
+            found = {t.id for t in tags}
+            invalid = [tid for tid in set_ids if tid not in found]
+            return jsonify({'error': f'Invalid tag IDs in set_tag_ids: {invalid}'}), 400
+        for f in files:
+            f.tags = tags
+            updated += 1
+    else:
+        add_tags = Tag.query.filter(Tag.id.in_(add_ids)).all() if add_ids else []
+        if add_ids and len(add_tags) != len(set(add_ids)):
+            found = {t.id for t in add_tags}
+            invalid = [tid for tid in add_ids if tid not in found]
+            return jsonify({'error': f'Invalid tag IDs in add_tag_ids: {invalid}'}), 400
+        remove_tags = Tag.query.filter(Tag.id.in_(remove_ids)).all() if remove_ids else []
+        if remove_ids and len(remove_tags) != len(set(remove_ids)):
+            found = {t.id for t in remove_tags}
+            invalid = [tid for tid in remove_ids if tid not in found]
+            return jsonify({'error': f'Invalid tag IDs in remove_tag_ids: {invalid}'}), 400
+        add_by_id = {t.id: t for t in add_tags}
+        remove_ids_set = {t.id for t in remove_tags}
+        for f in files:
+            # Add
+            for tid, t in add_by_id.items():
+                if tid not in [et.id for et in f.tags]:
+                    f.tags.append(t)
+            # Remove
+            f.tags = [t for t in f.tags if t.id not in remove_ids_set]
+            updated += 1
+
+    db.session.commit()
+    return jsonify({'updated_files': updated})
 
 
 @api.route('/files/<int:id>/status', methods=['POST'])

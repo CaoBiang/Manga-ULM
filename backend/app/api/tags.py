@@ -7,6 +7,25 @@ from ..tasks.rename import tag_file_change_task, tag_split_task
 from sqlalchemy import func, or_
 
 
+def _normalize_color(color_value):
+    """Normalize color to a safe representation.
+    Accepts hex like '#RRGGBB' or named presets: red, orange, yellow, green, blue, purple, gray.
+    Returns cleaned value or None.
+    """
+    if not color_value:
+        return None
+    val = str(color_value).strip()
+    presets = {'red', 'orange', 'yellow', 'green', 'blue', 'purple', 'gray'}
+    if val.lower() in presets:
+        return val.lower()
+    # hex format
+    if val.startswith('#'):
+        hexpart = val[1:]
+        if len(hexpart) == 6 and all(c in '0123456789abcdefABCDEF' for c in hexpart):
+            return '#' + hexpart.lower()
+    return None
+
+
 def _usage_counts_for(tag_ids):
     if not tag_ids:
         return {}
@@ -31,6 +50,137 @@ def _children_counts_for(tag_ids):
     return {parent_id: count for parent_id, count in rows}
 
 
+@api.route('/tags/suggest-related', methods=['GET'])
+def suggest_related_tags():
+    """Suggest related tags based on co-occurrence.
+    Query params:
+      - tag_ids: comma-separated ints (required)
+      - mode: 'any' or 'all' (default 'any')
+      - limit: int (default 20)
+    """
+    raw = request.args.get('tag_ids')
+    if not raw:
+        return jsonify({'error': 'tag_ids is required'}), 400
+    try:
+        selected = [int(x.strip()) for x in raw.split(',') if x.strip()]
+    except ValueError:
+        return jsonify({'error': 'tag_ids must be integers'}), 400
+    if not selected:
+        return jsonify({'error': 'tag_ids must not be empty'}), 400
+    mode = (request.args.get('mode') or 'any').lower()
+    limit = request.args.get('limit', 20, type=int)
+
+    # Find candidate files
+    from ..models import FileTagMap
+    subq = None
+    if mode == 'all':
+        # files that contain all selected tags
+        # group by file_id and ensure count of distinct selected tags equals len(selected)
+        subq = (
+            db.session.query(FileTagMap.file_id)
+            .filter(FileTagMap.tag_id.in_(selected))
+            .group_by(FileTagMap.file_id)
+            .having(func.count(func.distinct(FileTagMap.tag_id)) == len(selected))
+            .subquery()
+        )
+    else:
+        # any of selected
+        subq = (
+            db.session.query(FileTagMap.file_id)
+            .filter(FileTagMap.tag_id.in_(selected))
+            .distinct()
+            .subquery()
+        )
+
+    rows = (
+        db.session.query(Tag.id, Tag.name, Tag.type_id, func.count(func.distinct(FileTagMap.file_id)).label('c'))
+        .join(FileTagMap, FileTagMap.tag_id == Tag.id)
+        .filter(FileTagMap.file_id.in_(db.session.query(subq.c.file_id)))
+        .filter(~Tag.id.in_(selected))
+        .group_by(Tag.id, Tag.name, Tag.type_id)
+        .order_by(func.count(func.distinct(FileTagMap.file_id)).desc(), Tag.name.asc())
+        .limit(limit)
+        .all()
+    )
+
+    # usage counts map for output
+    ids = [rid for rid, _, _, _ in rows]
+    usage_counts = _usage_counts_for(ids)
+    # fetch colors/favorites in one go
+    props = {t.id: (t.color, bool(t.is_favorite)) for t in Tag.query.filter(Tag.id.in_(ids)).all()}
+    results = [
+        {
+            'id': rid,
+            'name': rname,
+            'type_id': rtype,
+            'color': props.get(rid, (None, False))[0],
+            'is_favorite': props.get(rid, (None, False))[1],
+            'co_occurrence': int(rcount),
+            'usage_count': int(usage_counts.get(rid, 0) or 0)
+        }
+        for (rid, rname, rtype, rcount) in rows
+    ]
+    return jsonify(results)
+
+
+@api.route('/tags/tree', methods=['GET'])
+def get_tag_tree():
+    """Return a hierarchical tree of tags grouped by tag type.
+    Each node includes usage_count and children_count for quick display.
+    """
+    # SQLite lacks NULLS LAST; emulate with coalesce
+    types = TagType.query.order_by(func.coalesce(TagType.sort_order, 999999).asc(), TagType.name.asc()).all()
+    all_tags = Tag.query.order_by(Tag.name.asc()).all()
+    tag_ids = [t.id for t in all_tags]
+    usage_counts = _usage_counts_for(tag_ids)
+    children_counts = _children_counts_for(tag_ids)
+
+    # Build per-type adjacency
+    by_type = {}
+    for t in all_tags:
+        by_type.setdefault(t.type_id, []).append(t)
+
+    def make_node(tag):
+        return {
+            'id': tag.id,
+            'name': tag.name,
+            'description': tag.description,
+            'type_id': tag.type_id,
+            'parent_id': tag.parent_id,
+            'color': tag.color,
+            'is_favorite': bool(tag.is_favorite),
+            'aliases': [a.alias_name for a in tag.aliases],
+            'usage_count': int(usage_counts.get(tag.id, 0) or 0),
+            'children_count': int(children_counts.get(tag.id, 0) or 0),
+            'children': []
+        }
+
+    result = []
+    for tt in types:
+        tags_of_type = by_type.get(tt.id, [])
+        # index by id
+        nodes = {t.id: make_node(t) for t in tags_of_type}
+        roots = []
+        for t in tags_of_type:
+            node = nodes[t.id]
+            if t.parent_id and t.parent_id in nodes:
+                nodes[t.parent_id]['children'].append(node)
+            else:
+                roots.append(node)
+        # sort children by name at each level
+        stack = roots[:]
+        while stack:
+            n = stack.pop()
+            n['children'].sort(key=lambda x: x['name'].lower())
+            stack.extend(n['children'])
+        result.append({
+            'type': {'id': tt.id, 'name': tt.name, 'sort_order': tt.sort_order},
+            'roots': roots
+        })
+
+    return jsonify(result)
+
+
 def tag_to_dict(tag, usage_counts=None, children_counts=None):
     usage_map = usage_counts if usage_counts is not None else _usage_counts_for([tag.id])
     children_map = children_counts if children_counts is not None else _children_counts_for([tag.id])
@@ -40,6 +190,8 @@ def tag_to_dict(tag, usage_counts=None, children_counts=None):
         'description': tag.description,
         'type_id': tag.type_id,
         'parent_id': tag.parent_id,
+        'color': tag.color,
+        'is_favorite': bool(tag.is_favorite),
         'aliases': [a.alias_name for a in tag.aliases],
         'usage_count': int(usage_map.get(tag.id, 0) or 0),
         'children_count': int(children_map.get(tag.id, 0) or 0)
@@ -69,11 +221,19 @@ def get_tags():
         query = query.filter(Tag.parent_id == parent_id)
 
     q = request.args.get('q', type=str)
+    favorite = request.args.get('favorite')
     if q:
         # left join aliases and filter by either
         query = query.outerjoin(TagAlias, TagAlias.tag_id == Tag.id).filter(
             or_(Tag.name.ilike(f"%{q}%"), TagAlias.alias_name.ilike(f"%{q}%"))
         ).distinct()
+    fav_flag = None
+    if favorite is not None:
+        fav_flag = True if str(favorite).strip().lower() in {'1','true','yes','on'} else (
+            False if str(favorite).strip().lower() in {'0','false','no','off'} else None
+        )
+        if fav_flag is not None:
+            query = query.filter(Tag.is_favorite.is_(fav_flag))
 
     sort = (request.args.get('sort') or 'name').lower()
     order = (request.args.get('order') or 'asc').lower()
@@ -134,6 +294,8 @@ def suggest_tags():
             'id': t.id,
             'name': t.name,
             'type_id': t.type_id,
+            'color': t.color,
+            'is_favorite': bool(t.is_favorite),
             'usage_count': int(usage_counts.get(t.id, 0) or 0)
         }
         for t in tag_list
@@ -157,7 +319,9 @@ def create_tag():
         name=name,
         type_id=data['type_id'],
         parent_id=data.get('parent_id'),
-        description=data.get('description')
+        description=data.get('description'),
+        color=_normalize_color(data.get('color')) if data.get('color') else None,
+        is_favorite=bool(data.get('is_favorite')) if data.get('is_favorite') is not None else False,
     )
     db.session.add(tag)
     db.session.flush()  # 获取tag的ID
@@ -214,6 +378,10 @@ def update_tag(id):
     tag.type_id = data.get('type_id', tag.type_id)
     tag.parent_id = data.get('parent_id', tag.parent_id)
     tag.description = data.get('description', tag.description)
+    if 'color' in data:
+        tag.color = _normalize_color(data.get('color'))
+    if 'is_favorite' in data:
+        tag.is_favorite = bool(data.get('is_favorite'))
     
     # Atomically update aliases
     if 'aliases' in data and isinstance(data['aliases'], list):
@@ -319,6 +487,18 @@ def delete_tag_alias(alias_id):
     db.session.delete(alias)
     db.session.commit()
     return '', 204
+
+@api.route('/tags/<int:id>/favorite', methods=['PUT'])
+def set_tag_favorite(id):
+    tag = db.session.get(Tag, id)
+    if not tag:
+        return jsonify({'error': 'Tag not found'}), 404
+    data = request.get_json() or {}
+    if 'is_favorite' not in data:
+        return jsonify({'error': 'is_favorite is required'}), 400
+    tag.is_favorite = bool(data.get('is_favorite'))
+    db.session.commit()
+    return jsonify({'id': tag.id, 'is_favorite': bool(tag.is_favorite)})
 
 # Apply/Remove tags from files
 @api.route('/files/<int:file_id>/tags/<int:tag_id>', methods=['POST'])

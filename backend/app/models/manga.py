@@ -32,6 +32,9 @@ class Tag(db.Model):
     type_id = db.Column(db.Integer, db.ForeignKey('tag_types.id'))
     parent_id = db.Column(db.Integer, db.ForeignKey('tags.id'), nullable=True)
     description = db.Column(db.Text)
+    # Optional visual and UX enhancements
+    color = db.Column(db.Text)  # e.g., '#FF0000' or preset names like 'red'
+    is_favorite = db.Column(db.Boolean, nullable=False, default=False, index=True)
 
     files = db.relationship('File', secondary='file_tag_map', back_populates='tags')
     aliases = db.relationship('TagAlias', backref='tag', lazy='dynamic')

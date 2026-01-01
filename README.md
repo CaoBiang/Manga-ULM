@@ -117,6 +117,30 @@ Key endpoints powering the new library experience:
 * **`GET /api/v1/files/stats`** – Returns totals, status breakdowns, top tags, and highlight lists that drive the dashboard tiles in the frontend.
 * **`POST /api/v1/files/<id>/status`** – Quickly set `unread`, `in_progress`, or `finished` states (optionally with a `page` payload) to keep progress in sync without opening the reader.
 
+## Tagging Upgrades
+
+- Visual tags with color and favorites
+  - `Tag` now has `color` (hex or preset name: red/orange/yellow/green/blue/purple/gray) and `is_favorite`.
+  - Both fields are exposed in tag APIs and persisted. Existing databases are upgraded automatically at startup (SQLite `ALTER TABLE`).
+
+- Richer tag APIs
+  - `GET /api/v1/tags?favorite=true|false` filters by favorites.
+  - `GET /api/v1/tags/suggest` includes `color`, `is_favorite`, and `usage_count`.
+  - `PUT /api/v1/tags/<id>` accepts `color` and `is_favorite` to update.
+  - `PUT /api/v1/tags/<id>/favorite` toggles favorite quickly.
+  - `GET /api/v1/tags/tree` returns a hierarchical tree grouped by tag type, each node including `usage_count` and `children_count`.
+  - `GET /api/v1/tags/suggest-related?tag_ids=1,2&mode=any|all&limit=20` suggests co-occurring tags for quick tagging.
+
+- Faster workflows on files
+  - `POST /api/v1/files/bulk-tags` bulk add/remove or set tags across many files.
+  - `GET /api/v1/files` adds `include_descendants=true|false` to expand `tags`/`exclude_tags` to include all child tags, honoring `tag_mode=any|all`.
+
+### Examples
+
+- Fetch only favorite character tags: `GET /api/v1/tags?type_id=<character_type_id>&favorite=true`
+- Show files with "Series: Naruto" including all sub-arcs: `GET /api/v1/files?tags=<naruto_tag_id>&include_descendants=true&tag_mode=all`
+- Suggest tags commonly paired with "Shounen": `GET /api/v1/tags/suggest-related?tag_ids=<shounen_id>&mode=any&limit=10`
+
 ## Production Deployment
 
 For a production environment, it's recommended to use a robust web server like Nginx to serve the frontend and proxy requests to the backend. The `start.bat` script is configured to use `gunicorn` for a more performant backend server.
