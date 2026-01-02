@@ -731,14 +731,19 @@ const handleToolbarShellClick = () => {
   }
 }
 
+const isBottomExpandClick = ({ xRatio, yRatio }) => {
+  if (!Number.isFinite(xRatio) || !Number.isFinite(yRatio)) {
+    return false
+  }
+
+  const isBottom = yRatio >= 0.78
+  const isSafeX = xRatio >= 0.2 && xRatio <= 0.8
+  return isBottom && isSafeX
+}
+
 const handleCanvasClick = e => {
   const canvas = e.currentTarget
   if (!canvas || typeof canvas.getBoundingClientRect !== 'function') {
-    collapseToolbar()
-    return
-  }
-
-  if (!readerToolbarCenterClickToggleEnabled.value) {
     collapseToolbar()
     return
   }
@@ -751,6 +756,17 @@ const handleCanvasClick = e => {
 
   const xRatio = (e.clientX - rect.left) / rect.width
   const yRatio = (e.clientY - rect.top) / rect.height
+
+  if (isBottomExpandClick({ xRatio, yRatio })) {
+    expandToolbar()
+    return
+  }
+
+  if (!readerToolbarCenterClickToggleEnabled.value) {
+    collapseToolbar()
+    return
+  }
+
   const isCenterClick = xRatio >= 0.3 && xRatio <= 0.7 && yRatio >= 0.2 && yRatio <= 0.8
 
   if (isCenterClick) {
@@ -896,7 +912,7 @@ onUnmounted(() => {
   backdrop-filter: var(--reader-ui-control-backdrop-filter, blur(10px));
   -webkit-backdrop-filter: var(--reader-ui-control-backdrop-filter, blur(10px));
   border-radius: 16px;
-  padding: 8px 14px;
+  padding: 4px 12px;
   color: #fff;
   box-shadow: var(--reader-toolbar-shell-shadow, 0 10px 30px rgba(0, 0, 0, 0.45));
   width: fit-content;
@@ -965,6 +981,8 @@ onUnmounted(() => {
 
 .reader-view__toolbar-page-indicator-text {
   color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  line-height: 1.2;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
   user-select: none;
@@ -992,6 +1010,7 @@ onUnmounted(() => {
   width: 0;
   min-width: 0;
   max-width: 0;
+  max-height: 0;
   opacity: 0;
   overflow: hidden;
   background: transparent;
@@ -1001,6 +1020,7 @@ onUnmounted(() => {
 
   transition:
     max-width var(--reader-toolbar-anim-ms) cubic-bezier(0.22, 1, 0.36, 1),
+    max-height var(--reader-toolbar-anim-ms) cubic-bezier(0.22, 1, 0.36, 1),
     opacity var(--reader-toolbar-anim-fast-ms) ease,
     transform var(--reader-toolbar-anim-ms) cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -1008,6 +1028,7 @@ onUnmounted(() => {
 .reader-view__toolbar-shell.is-expanded .reader-view__toolbar-actions-wrap {
   width: auto;
   max-width: 420px;
+  max-height: 96px;
   opacity: 1;
   pointer-events: auto;
   overflow: visible;
