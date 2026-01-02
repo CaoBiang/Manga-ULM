@@ -34,6 +34,32 @@
         </div>
       </a-form-item>
 
+      <a-form-item :label="$t('readerToolbarAnimationMs')">
+        <a-input-number
+          v-model:value="formToolbarAnimationMs"
+          :min="120"
+          :max="600"
+          :step="10"
+          style="max-width: 240px"
+        />
+        <div class="mt-1 text-xs text-gray-500">
+          {{ $t('readerToolbarAnimationMsHelp') }}
+        </div>
+      </a-form-item>
+
+      <a-form-item :label="$t('readerToolbarBackgroundOpacity')">
+        <a-input-number
+          v-model:value="formToolbarBackgroundOpacity"
+          :min="0.4"
+          :max="0.9"
+          :step="0.02"
+          style="max-width: 240px"
+        />
+        <div class="mt-1 text-xs text-gray-500">
+          {{ $t('readerToolbarBackgroundOpacityHelp') }}
+        </div>
+      </a-form-item>
+
       <a-space>
         <a-button type="primary" :loading="saving" @click="save">
           {{ $t('save') }}
@@ -59,6 +85,8 @@ const saving = ref(false)
 const formPreloadAhead = ref(appSettingsStore.readerPreloadAhead)
 const formSplitDefaultEnabled = ref(appSettingsStore.readerSplitDefaultEnabled)
 const formWideRatioThreshold = ref(appSettingsStore.readerWideRatioThreshold)
+const formToolbarAnimationMs = ref(appSettingsStore.readerToolbarAnimationMs)
+const formToolbarBackgroundOpacity = ref(appSettingsStore.readerToolbarBackgroundOpacity)
 
 watch(
   () => appSettingsStore.readerPreloadAhead,
@@ -78,6 +106,18 @@ watch(
     formWideRatioThreshold.value = value
   }
 )
+watch(
+  () => appSettingsStore.readerToolbarAnimationMs,
+  value => {
+    formToolbarAnimationMs.value = value
+  }
+)
+watch(
+  () => appSettingsStore.readerToolbarBackgroundOpacity,
+  value => {
+    formToolbarBackgroundOpacity.value = value
+  }
+)
 
 const save = async () => {
   saving.value = true
@@ -85,7 +125,9 @@ const save = async () => {
     await Promise.all([
       appSettingsStore.setReaderPreloadAhead(formPreloadAhead.value),
       appSettingsStore.setReaderSplitDefaultEnabled(formSplitDefaultEnabled.value),
-      appSettingsStore.setReaderWideRatioThreshold(formWideRatioThreshold.value)
+      appSettingsStore.setReaderWideRatioThreshold(formWideRatioThreshold.value),
+      appSettingsStore.setReaderToolbarAnimationMs(formToolbarAnimationMs.value),
+      appSettingsStore.setReaderToolbarBackgroundOpacity(formToolbarBackgroundOpacity.value)
     ])
     message.success(t('settingsSavedSuccessfully'))
   } catch (error) {
@@ -102,7 +144,9 @@ const resetToDefault = async () => {
     await Promise.all([
       appSettingsStore.setReaderPreloadAhead(2),
       appSettingsStore.setReaderSplitDefaultEnabled(false),
-      appSettingsStore.setReaderWideRatioThreshold(1.0)
+      appSettingsStore.setReaderWideRatioThreshold(1.0),
+      appSettingsStore.setReaderToolbarAnimationMs(240),
+      appSettingsStore.setReaderToolbarBackgroundOpacity(0.72)
     ])
     message.success(t('settingsSavedSuccessfully'))
   } catch (error) {
@@ -113,4 +157,3 @@ const resetToDefault = async () => {
   }
 }
 </script>
-

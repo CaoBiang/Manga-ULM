@@ -10,6 +10,8 @@ const SETTINGS_KEYS = Object.freeze({
   readerPreloadAhead: 'ui.reader.preload_ahead',
   readerSplitDefaultEnabled: 'ui.reader.split_view.default_enabled',
   readerWideRatioThreshold: 'ui.reader.wide_ratio_threshold',
+  readerToolbarAnimationMs: 'ui.reader.toolbar.animation_ms',
+  readerToolbarBackgroundOpacity: 'ui.reader.toolbar.background_opacity',
   renameFilenameTemplate: 'rename.filename_template'
 })
 
@@ -67,6 +69,8 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
   const readerPreloadAhead = ref(2)
   const readerSplitDefaultEnabled = ref(false)
   const readerWideRatioThreshold = ref(1.0)
+  const readerToolbarAnimationMs = ref(240)
+  const readerToolbarBackgroundOpacity = ref(0.72)
   const renameFilenameTemplate = ref('')
 
   const saveSetting = async (key, value) => {
@@ -128,6 +132,12 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
 
       const wideRatio = clampFloat(settings[SETTINGS_KEYS.readerWideRatioThreshold], { min: 1.0, max: 5.0 })
       readerWideRatioThreshold.value = wideRatio ?? 1.0
+
+      const toolbarAnimMs = clampInt(settings[SETTINGS_KEYS.readerToolbarAnimationMs], { min: 120, max: 600 })
+      readerToolbarAnimationMs.value = toolbarAnimMs ?? 240
+
+      const toolbarBgOpacity = clampFloat(settings[SETTINGS_KEYS.readerToolbarBackgroundOpacity], { min: 0.4, max: 0.9 })
+      readerToolbarBackgroundOpacity.value = toolbarBgOpacity ?? 0.72
 
       renameFilenameTemplate.value = String(settings[SETTINGS_KEYS.renameFilenameTemplate] ?? '')
 
@@ -196,6 +206,24 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
     await saveSetting(SETTINGS_KEYS.readerWideRatioThreshold, String(normalized))
   }
 
+  const setReaderToolbarAnimationMs = async (value) => {
+    const normalized = clampInt(value, { min: 120, max: 600 })
+    if (normalized === null) {
+      return
+    }
+    readerToolbarAnimationMs.value = normalized
+    await saveSetting(SETTINGS_KEYS.readerToolbarAnimationMs, String(normalized))
+  }
+
+  const setReaderToolbarBackgroundOpacity = async (value) => {
+    const normalized = clampFloat(value, { min: 0.4, max: 0.9 })
+    if (normalized === null) {
+      return
+    }
+    readerToolbarBackgroundOpacity.value = normalized
+    await saveSetting(SETTINGS_KEYS.readerToolbarBackgroundOpacity, String(normalized))
+  }
+
   const setRenameFilenameTemplate = async (value) => {
     renameFilenameTemplate.value = String(value ?? '')
     await saveSetting(SETTINGS_KEYS.renameFilenameTemplate, renameFilenameTemplate.value)
@@ -215,6 +243,8 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
     readerPreloadAhead,
     readerSplitDefaultEnabled,
     readerWideRatioThreshold,
+    readerToolbarAnimationMs,
+    readerToolbarBackgroundOpacity,
     renameFilenameTemplate,
     ensureLoaded,
     setLanguage,
@@ -224,9 +254,10 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
     setReaderPreloadAhead,
     setReaderSplitDefaultEnabled,
     setReaderWideRatioThreshold,
+    setReaderToolbarAnimationMs,
+    setReaderToolbarBackgroundOpacity,
     setRenameFilenameTemplate,
     saveSetting,
     resetSetting
   }
 })
-

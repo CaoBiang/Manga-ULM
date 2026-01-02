@@ -33,6 +33,8 @@ DEFAULT_SETTINGS: Dict[str, str] = {
     'ui.reader.preload_ahead': '2',
     'ui.reader.split_view.default_enabled': '0',
     'ui.reader.wide_ratio_threshold': '1.0',
+    'ui.reader.toolbar.animation_ms': '240',
+    'ui.reader.toolbar.background_opacity': '0.72',
     # 重命名
     'rename.filename_template': '',
     # 图书馆：网格列数（按断点）
@@ -196,4 +198,3 @@ def get_scan_settings() -> ScanSettings:
             ),
         )
     return settings
-

@@ -32,34 +32,32 @@
     </div>
 
     <div class="reader-view__toolbar" @click.stop>
-      <transition name="toolbar">
-        <div
-          v-if="!isToolbarExpanded"
-          class="reader-view__toolbar-collapsed"
-          @click="expandToolbar"
-        >
-          <a-typography-text strong class="reader-view__toolbar-progress">
-            {{ currentPage + 1 }} / {{ totalPages }}
-          </a-typography-text>
+      <div
+        class="reader-view__toolbar-shell"
+        :class="{ 'is-expanded': isToolbarExpanded }"
+        :style="toolbarStyleVars"
+        @click="handleToolbarShellClick"
+      >
+        <div class="reader-view__toolbar-slider-row" :aria-hidden="!isToolbarExpanded">
+          <a-slider
+            v-model:value="currentPage"
+            :min="0"
+            :max="totalPages > 0 ? totalPages - 1 : 0"
+            :tooltip-open="false"
+            :disabled="!isToolbarExpanded"
+            @afterChange="jumpToPage"
+          />
         </div>
-        <a-card
-          v-else
-          class="reader-view__toolbar-card"
-          :bodyStyle="{ padding: '12px', background: 'rgba(0,0,0,0.75)' }"
-          :bordered="false"
-        >
-          <div class="reader-view__toolbar-top">
-            <a-slider
-              v-model:value="currentPage"
-              :min="0"
-              :max="totalPages > 0 ? totalPages - 1 : 0"
-              :tooltip-open="false"
-              @afterChange="jumpToPage"
-            />
-            <a-typography-text strong class="reader-view__page-indicator">
+
+        <div class="reader-view__toolbar-controls-row">
+          <span ref="pageIndicatorRef" class="reader-view__toolbar-page-indicator">
+            <a-typography-text strong class="reader-view__toolbar-page-indicator-text">
               {{ currentPage + 1 }} / {{ totalPages }}
             </a-typography-text>
-            <a-space>
+          </span>
+
+          <div class="reader-view__toolbar-actions-wrap" :aria-hidden="!isToolbarExpanded">
+            <a-space align="center">
               <a-tooltip :title="$t('toggleSplitView')">
                 <a-button
                   shape="circle"
@@ -98,82 +96,82 @@
               </a-tooltip>
             </a-space>
           </div>
+        </div>
 
-          <transition name="fade">
-            <div v-if="activePanel" class="reader-view__panel">
-              <div v-if="activePanel === 'addBookmark'" class="reader-view__panel-section">
-                <a-typography-text type="secondary">
-                  {{ $t('addBookmarkPrompt', { page: currentPage + 1 }) }}
-                </a-typography-text>
-                <a-input
-                  ref="bookmarkNameInputRef"
-                  v-model:value="newBookmarkName"
-                  :placeholder="$t('bookmarkNamePlaceholder')"
-                  @pressEnter="saveNewBookmark"
-                  class="reader-view__bookmark-input"
-                />
-                <a-space align="center" class="reader-view__panel-actions">
-                  <a-button @click="activePanel = ''">{{ $t('cancel') }}</a-button>
-                  <a-button type="primary" @click="saveNewBookmark">{{ $t('save') }}</a-button>
-                </a-space>
-              </div>
-              <div v-else-if="activePanel === 'bookmarks'" class="reader-view__panel-section">
-                <a-list
-                  :data-source="bookmarks"
-                  size="small"
-                  bordered
-                  :locale="{ emptyText: $t('noBookmarks') }"
-                >
-                  <template #renderItem="{ item }">
-                    <a-list-item class="reader-view__bookmark-item">
-                      <div
-                        class="reader-view__bookmark-info"
-                        @click="jumpToBookmark(item.page_number)"
-                      >
-                        <strong>{{ $t('page') }} {{ item.page_number + 1 }}</strong>
-                        <span v-if="item.note" class="reader-view__bookmark-note">{{ item.note }}</span>
-                      </div>
-                      <a-button type="link" danger size="small" @click.stop="deleteBookmark(item.id)">
-                        {{ $t('remove') }}
-                      </a-button>
-                    </a-list-item>
-                  </template>
-                </a-list>
-              </div>
-              <div v-else-if="activePanel === 'fileInfo'" class="reader-view__panel-section">
-                <a-spin :spinning="fileInfo.loading">
-                  <a-result
-                    v-if="fileInfo.error"
-                    status="warning"
-                    :title="$t('failedToLoadFileInfo')"
-                    :sub-title="fileInfo.error"
-                  >
-                    <template #extra>
-                      <a-button type="primary" size="small" @click="fetchFileInfo">
-                        {{ $t('retry') }}
-                      </a-button>
-                    </template>
-                  </a-result>
-                  <a-descriptions v-else-if="fileInfo.data" size="small" :column="1" bordered>
-                    <a-descriptions-item :label="$t('mangaFile')">
-                      <div>{{ fileInfo.data.manga_filename }}</div>
-                      <a-typography-text type="secondary">
-                        {{ formatBytes(fileInfo.data.manga_filesize) }}
-                      </a-typography-text>
-                    </a-descriptions-item>
-                    <a-descriptions-item :label="$t('currentPageFile')">
-                      <div>{{ fileInfo.data.page_filename }}</div>
-                      <a-typography-text type="secondary">
-                        {{ formatBytes(fileInfo.data.page_filesize) }}
-                      </a-typography-text>
-                    </a-descriptions-item>
-                  </a-descriptions>
-                </a-spin>
-              </div>
+        <transition name="panel">
+          <div v-if="activePanel" class="reader-view__panel">
+            <div v-if="activePanel === 'addBookmark'" class="reader-view__panel-section">
+              <a-typography-text type="secondary">
+                {{ $t('addBookmarkPrompt', { page: currentPage + 1 }) }}
+              </a-typography-text>
+              <a-input
+                ref="bookmarkNameInputRef"
+                v-model:value="newBookmarkName"
+                :placeholder="$t('bookmarkNamePlaceholder')"
+                @pressEnter="saveNewBookmark"
+                class="reader-view__bookmark-input"
+              />
+              <a-space align="center" class="reader-view__panel-actions">
+                <a-button @click="activePanel = ''">{{ $t('cancel') }}</a-button>
+                <a-button type="primary" @click="saveNewBookmark">{{ $t('save') }}</a-button>
+              </a-space>
             </div>
-          </transition>
-        </a-card>
+            <div v-else-if="activePanel === 'bookmarks'" class="reader-view__panel-section">
+              <a-list
+                :data-source="bookmarks"
+                size="small"
+                bordered
+                :locale="{ emptyText: $t('noBookmarks') }"
+              >
+                <template #renderItem="{ item }">
+                  <a-list-item class="reader-view__bookmark-item">
+                    <div
+                      class="reader-view__bookmark-info"
+                      @click="jumpToBookmark(item.page_number)"
+                    >
+                      <strong>{{ $t('page') }} {{ item.page_number + 1 }}</strong>
+                      <span v-if="item.note" class="reader-view__bookmark-note">{{ item.note }}</span>
+                    </div>
+                    <a-button type="link" danger size="small" @click.stop="deleteBookmark(item.id)">
+                      {{ $t('remove') }}
+                    </a-button>
+                  </a-list-item>
+                </template>
+              </a-list>
+            </div>
+            <div v-else-if="activePanel === 'fileInfo'" class="reader-view__panel-section">
+              <a-spin :spinning="fileInfo.loading">
+                <a-result
+                  v-if="fileInfo.error"
+                  status="warning"
+                  :title="$t('failedToLoadFileInfo')"
+                  :sub-title="fileInfo.error"
+                >
+                  <template #extra>
+                    <a-button type="primary" size="small" @click="fetchFileInfo">
+                      {{ $t('retry') }}
+                    </a-button>
+                  </template>
+                </a-result>
+                <a-descriptions v-else-if="fileInfo.data" size="small" :column="1" bordered>
+                  <a-descriptions-item :label="$t('mangaFile')">
+                    <div>{{ fileInfo.data.manga_filename }}</div>
+                    <a-typography-text type="secondary">
+                      {{ formatBytes(fileInfo.data.manga_filesize) }}
+                    </a-typography-text>
+                  </a-descriptions-item>
+                  <a-descriptions-item :label="$t('currentPageFile')">
+                    <div>{{ fileInfo.data.page_filename }}</div>
+                    <a-typography-text type="secondary">
+                      {{ formatBytes(fileInfo.data.page_filesize) }}
+                    </a-typography-text>
+                  </a-descriptions-item>
+                </a-descriptions>
+              </a-spin>
+          </div>
+        </div>
       </transition>
+      </div>
     </div>
   </div>
 </template>
@@ -198,7 +196,13 @@ const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const appSettingsStore = useAppSettingsStore()
-const { readerPreloadAhead, readerSplitDefaultEnabled, readerWideRatioThreshold } = storeToRefs(appSettingsStore)
+const {
+  readerPreloadAhead,
+  readerSplitDefaultEnabled,
+  readerWideRatioThreshold,
+  readerToolbarAnimationMs,
+  readerToolbarBackgroundOpacity
+} = storeToRefs(appSettingsStore)
 
 const fileId = route.params.id
 const currentPage = ref(0)
@@ -211,6 +215,7 @@ const bookmarks = ref([])
 const newBookmarkName = ref('')
 const bookmarkNameInputRef = ref(null)
 const activePanel = ref('')
+const pageIndicatorRef = ref(null)
 const fileInfo = ref({
   loading: false,
   error: null,
@@ -225,6 +230,32 @@ const sizeUnits = computed(() => [
   t('sizeUnitGB'),
   t('sizeUnitTB')
 ])
+
+const normalizeToolbarAnimationMs = computed(() => {
+  const parsed = Number.parseInt(String(readerToolbarAnimationMs.value ?? 240), 10)
+  if (Number.isNaN(parsed)) {
+    return 240
+  }
+  return Math.min(600, Math.max(120, parsed))
+})
+
+const normalizeToolbarBackgroundOpacity = computed(() => {
+  const parsed = Number.parseFloat(String(readerToolbarBackgroundOpacity.value ?? 0.72))
+  if (Number.isNaN(parsed)) {
+    return 0.72
+  }
+  return Math.min(0.9, Math.max(0.4, parsed))
+})
+
+const toolbarStyleVars = computed(() => {
+  const ms = normalizeToolbarAnimationMs.value
+  return {
+    '--reader-toolbar-bg': `rgba(0, 0, 0, ${normalizeToolbarBackgroundOpacity.value})`,
+    '--reader-toolbar-anim-ms': `${ms}ms`,
+    '--reader-toolbar-anim-fast-ms': `${Math.round(ms * 0.65)}ms`,
+    '--reader-toolbar-anim-delay-ms': `${Math.round(ms * 0.18)}ms`
+  }
+})
 
 const isPagingEnabled = ref(!!readerSplitDefaultEnabled.value)
 const isCurrentImageWide = ref(false)
@@ -316,7 +347,7 @@ const updateProgress = async () => {
   try {
     await axios.post(`/api/v1/files/${fileId}/progress`, { page: currentPage.value })
   } catch (err) {
-    console.error('Failed to save progress:', err)
+    console.error('保存阅读进度失败：', err)
   }
 }
 
@@ -334,12 +365,12 @@ const fetchMangaDetails = async () => {
     try {
       spreadPages.value = JSON.parse(fileData.spread_pages || '[]')
     } catch (err) {
-      console.error('Failed to parse spread_pages', err)
+      console.error('解析 spread_pages 失败：', err)
       spreadPages.value = []
     }
     preloadImages()
   } catch (err) {
-    console.error('Failed to fetch manga details:', err)
+    console.error('获取漫画详情失败：', err)
     error.value = t('failedToLoadMangaDetails')
   } finally {
     isLoading.value = false
@@ -351,16 +382,14 @@ const fetchBookmarks = async () => {
     const response = await axios.get(`/api/v1/files/${fileId}/bookmarks`)
     bookmarks.value = response.data
   } catch (err) {
-    console.error('Failed to fetch bookmarks:', err)
+    console.error('获取书签失败：', err)
     bookmarks.value = []
     message.error(t('failedToFetchBookmarks'))
   }
 }
 
-const handleBookmarkButtonClick = () => {
-  if (!isToolbarExpanded.value) {
-    isToolbarExpanded.value = true
-  }
+const handleBookmarkButtonClick = async () => {
+  await setToolbarExpanded(true)
   newBookmarkName.value = ''
   activePanel.value = 'addBookmark'
   nextTick(() => {
@@ -382,7 +411,7 @@ const saveNewBookmark = async () => {
     fetchBookmarks()
     message.success(t('bookmarkSaved'))
   } catch (err) {
-    console.error('Error saving bookmark:', err)
+    console.error('保存书签失败：', err)
     message.error(t('failedToSaveBookmark'))
   }
 }
@@ -392,7 +421,7 @@ const deleteBookmark = async bookmarkId => {
     await axios.delete(`/api/v1/bookmarks/${bookmarkId}`)
     fetchBookmarks()
   } catch (err) {
-    console.error('Failed to delete bookmark:', err)
+    console.error('删除书签失败：', err)
     message.error(t('failedToDeleteBookmark'))
   }
 }
@@ -450,10 +479,8 @@ const handleKeydown = e => {
   }
 }
 
-const togglePanel = panel => {
-  if (!isToolbarExpanded.value) {
-    isToolbarExpanded.value = true
-  }
+const togglePanel = async panel => {
+  await setToolbarExpanded(true)
   if (activePanel.value === panel) {
     activePanel.value = ''
     return
@@ -476,7 +503,7 @@ const fetchFileInfo = async () => {
     const response = await axios.get(`/api/v1/files/${fileId}/page/${currentPage.value}/details`)
     fileInfo.value.data = response.data
   } catch (err) {
-    console.error('Failed to fetch file info:', err)
+    console.error('获取文件信息失败：', err)
     fileInfo.value.error = t('failedToLoadFileInfo')
   } finally {
     fileInfo.value.loading = false
@@ -495,13 +522,58 @@ const formatBytes = (bytes, decimals = 2) => {
   return `${value} ${unit}`
 }
 
-const expandToolbar = () => {
-  isToolbarExpanded.value = true
+let pageIndicatorFlipAnimation = null
+
+const setToolbarExpanded = async expanded => {
+  if (isToolbarExpanded.value === expanded) {
+    if (!expanded && activePanel.value) {
+      activePanel.value = ''
+    }
+    return
+  }
+
+  const indicatorEl = pageIndicatorRef.value
+  const canAnimate =
+    indicatorEl &&
+    typeof indicatorEl.getBoundingClientRect === 'function' &&
+    typeof indicatorEl.animate === 'function'
+
+  const firstRect = canAnimate ? indicatorEl.getBoundingClientRect() : null
+
+  if (!expanded) {
+    activePanel.value = ''
+  }
+  isToolbarExpanded.value = expanded
+
+  if (!canAnimate) {
+    return
+  }
+
+  await nextTick()
+  const lastRect = indicatorEl.getBoundingClientRect()
+  const dx = firstRect.left - lastRect.left
+  const dy = firstRect.top - lastRect.top
+
+  if (pageIndicatorFlipAnimation) {
+    pageIndicatorFlipAnimation.cancel()
+  }
+  pageIndicatorFlipAnimation = indicatorEl.animate(
+    [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'translate(0, 0)' }],
+    {
+      duration: normalizeToolbarAnimationMs.value,
+      easing: 'cubic-bezier(0.22, 1, 0.36, 1)'
+    }
+  )
 }
 
-const collapseToolbar = () => {
-  activePanel.value = ''
-  isToolbarExpanded.value = false
+const expandToolbar = () => setToolbarExpanded(true)
+
+const collapseToolbar = () => setToolbarExpanded(false)
+
+const handleToolbarShellClick = () => {
+  if (!isToolbarExpanded.value) {
+    expandToolbar()
+  }
 }
 
 onMounted(() => {
@@ -601,37 +673,144 @@ onUnmounted(() => {
   width: min(900px, 90%);
 }
 
-.reader-view__toolbar-collapsed {
-  background: rgba(0, 0, 0, 0.65);
-  border-radius: 999px;
-  padding: 6px 16px;
+.reader-view__toolbar-shell {
+  --reader-toolbar-bg: rgba(0, 0, 0, 0.72);
+  --reader-toolbar-anim-ms: 240ms;
+  --reader-toolbar-anim-fast-ms: 160ms;
+  --reader-toolbar-anim-delay-ms: 40ms;
+
+  background: var(--reader-toolbar-bg);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 8px 14px;
+  color: #fff;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+
+  transition:
+    padding var(--reader-toolbar-anim-ms) cubic-bezier(0.22, 1, 0.36, 1),
+    background var(--reader-toolbar-anim-fast-ms) ease,
+    border-color var(--reader-toolbar-anim-fast-ms) ease;
+}
+
+.reader-view__toolbar-shell.is-expanded {
+  padding: 12px;
+}
+
+.reader-view__toolbar-slider-row {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transform: translateY(2px) scaleX(0.92);
+  transform-origin: center;
+
+  transition:
+    max-height var(--reader-toolbar-anim-ms) cubic-bezier(0.22, 1, 0.36, 1),
+    opacity var(--reader-toolbar-anim-fast-ms) ease,
+    transform var(--reader-toolbar-anim-ms) cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.reader-view__toolbar-shell.is-expanded .reader-view__toolbar-slider-row {
+  max-height: 48px;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0) scaleX(1);
+}
+
+.reader-view__toolbar-shell :deep(.ant-slider-rail) {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.reader-view__toolbar-shell :deep(.ant-slider-track) {
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.reader-view__toolbar-shell :deep(.ant-slider-handle) {
+  border-color: rgba(255, 255, 255, 0.7);
+}
+
+.reader-view__toolbar-page-indicator {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
 }
 
-.reader-view__toolbar-progress {
+.reader-view__toolbar-page-indicator-text {
   color: rgba(255, 255, 255, 0.9);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
   user-select: none;
 }
 
-.reader-view__toolbar-card {
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
-  color: #fff;
-}
-
-.reader-view__toolbar-top {
+.reader-view__toolbar-controls-row {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 0;
+  cursor: pointer;
+
+  transition: margin-top var(--reader-toolbar-anim-ms) cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.reader-view__page-indicator {
-  color: #fff;
+.reader-view__toolbar-shell.is-expanded .reader-view__toolbar-controls-row {
+  margin-top: 10px;
+  cursor: default;
+}
+
+.reader-view__toolbar-actions-wrap {
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transform: translateX(6px) scale(0.96);
+  transform-origin: left center;
+
+  transition:
+    max-width var(--reader-toolbar-anim-ms) cubic-bezier(0.22, 1, 0.36, 1),
+    opacity var(--reader-toolbar-anim-fast-ms) ease,
+    transform var(--reader-toolbar-anim-ms) cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.reader-view__toolbar-shell.is-expanded .reader-view__toolbar-actions-wrap {
+  max-width: 420px;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0) scale(1);
+  transition-delay: var(--reader-toolbar-anim-delay-ms);
+}
+
+.reader-view__toolbar-shell :deep(.ant-btn-circle.ant-btn-icon-only) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.reader-view__toolbar-shell :deep(.ant-btn-circle.ant-btn-icon-only > span) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.reader-view__toolbar-shell :deep(.ant-btn-circle .ant-btn-icon) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.reader-view__toolbar-shell :deep(.ant-btn-circle .anticon) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.reader-view__toolbar-shell :deep(.ant-btn-circle .anticon svg) {
+  display: block;
 }
 
 .reader-view__panel {
@@ -674,24 +853,26 @@ onUnmounted(() => {
   font-size: 0.85rem;
 }
 
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.15s ease-in-out;
+.panel-enter-active,
+.panel-leave-active {
+  overflow: hidden;
+  transition:
+    max-height var(--reader-toolbar-anim-ms) cubic-bezier(0.22, 1, 0.36, 1),
+    opacity var(--reader-toolbar-anim-fast-ms) ease,
+    transform var(--reader-toolbar-anim-ms) cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.fade-enter-from,
-.fade-leave-to {
+.panel-enter-from,
+.panel-leave-to {
+  max-height: 0;
   opacity: 0;
+  transform: translateY(6px);
 }
 
-.toolbar-enter-active,
-.toolbar-leave-active {
-  transition: all 0.2s ease-out;
-}
-
-.toolbar-enter-from,
-.toolbar-leave-to {
-  transform: translateY(100%);
-  opacity: 0;
+.panel-enter-to,
+.panel-leave-from {
+  max-height: 520px;
+  opacity: 1;
+  transform: translateY(0);
 }
 </style>

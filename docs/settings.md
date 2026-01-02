@@ -42,6 +42,8 @@ flowchart TD
     - `ui.reader.preload_ahead`：阅读器预加载后续页数（整数）
     - `ui.reader.split_view.default_enabled`：阅读器默认开启分栏（`0/1`）
     - `ui.reader.wide_ratio_threshold`：宽图判定阈值（宽/高，浮点数）
+    - `ui.reader.toolbar.animation_ms`：阅读器底部工具条展开/收起动画时长（毫秒，整数）
+    - `ui.reader.toolbar.background_opacity`：阅读器底部工具条背景透明度（0.4-0.9，浮点数）
     - `rename.filename_template`：批量重命名模板（字符串）
     - `scan.max_workers`：扫描并发进程数（整数）
     - `scan.spread.ratio`：跨页判定比例（浮点数）
