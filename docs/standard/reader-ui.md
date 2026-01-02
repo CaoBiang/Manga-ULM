@@ -31,6 +31,16 @@
 - 回车提交：监听 `@pressEnter`。
 - 需要聚焦时：通过组件 `ref` 调用 `focus()`。
 
+### ReaderToolbar（进度控件容器）
+
+- 路径：`frontend/src/views/ReaderView.vue`
+- 用途：阅读器底部进度控件（页码/总页数 + 展开后的滑块）所在容器。
+
+约定：
+
+- 进度控件容器的“毛玻璃底”应与“返回按钮”的毛玻璃底一致：底色、阴影统一复用 `--reader-toolbar-control-*` 与 `--reader-ui-control-backdrop-filter`，避免出现两套磨砂视觉。
+- 进度控件容器仅在“收起态”允许悬浮变暗（用于提示可点击展开）；“展开态”不应因为鼠标悬浮而变暗，避免产生错误的可交互暗示。
+
 ## 样式变量（由阅读器页面注入）
 
 阅读器页面应在根节点注入以下 CSS 变量，供控件统一取值：
@@ -47,6 +57,7 @@ flowchart TD
   "阅读器页面（ReaderView）" --> "注入 CSS 变量"
   "注入 CSS 变量" --> "ReaderButton"
   "注入 CSS 变量" --> "ReaderInput"
+  "注入 CSS 变量" --> "ReaderToolbar（进度控件容器）"
 ```
 
 ## 对应设置项

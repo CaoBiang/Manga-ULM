@@ -152,6 +152,20 @@ const handleClick = event => {
   display: block;
 }
 
+.reader-button__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.reader-button__icon :deep(.anticon) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
 .reader-button--sm {
   height: 30px;
   padding: 0 10px;

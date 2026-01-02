@@ -554,7 +554,7 @@ const saveNewBookmark = async () => {
   }
   try {
     await axios.post(`/api/v1/files/${fileId}/bookmarks`, {
-      page: currentPage.value,
+      page_number: currentPage.value,
       note: newBookmarkName.value || null
     })
     newBookmarkName.value = ''
@@ -563,7 +563,8 @@ const saveNewBookmark = async () => {
     message.success(t('bookmarkSaved'))
   } catch (err) {
     console.error('保存书签失败：', err)
-    message.error(t('failedToSaveBookmark'))
+    const serverError = err?.response?.data?.error
+    message.error(serverError || t('failedToSaveBookmark'))
   }
 }
 
@@ -876,14 +877,25 @@ onUnmounted(() => {
   --reader-toolbar-anim-fast-ms: 160ms;
   --reader-toolbar-anim-delay-ms: 40ms;
 
-  background: var(--reader-toolbar-bg);
+  --reader-toolbar-shell-bg: var(--reader-toolbar-control-bg, var(--reader-toolbar-bg));
+  --reader-toolbar-shell-bg-hover: var(
+    --reader-toolbar-control-bg-hover,
+    var(--reader-toolbar-bg-hover, var(--reader-toolbar-shell-bg))
+  );
+  --reader-toolbar-shell-bg-active: var(
+    --reader-toolbar-control-bg-active,
+    var(--reader-toolbar-bg-active, var(--reader-toolbar-shell-bg))
+  );
+  --reader-toolbar-shell-shadow: var(--reader-toolbar-control-shadow, var(--reader-toolbar-shadow));
+
+  background: var(--reader-toolbar-shell-bg);
   border: 1px solid var(--reader-toolbar-border, rgba(255, 255, 255, 0.12));
   backdrop-filter: var(--reader-ui-control-backdrop-filter, blur(10px));
   -webkit-backdrop-filter: var(--reader-ui-control-backdrop-filter, blur(10px));
   border-radius: 16px;
   padding: 8px 14px;
   color: #fff;
-  box-shadow: var(--reader-toolbar-shadow, 0 10px 30px rgba(0, 0, 0, 0.45));
+  box-shadow: var(--reader-toolbar-shell-shadow, 0 10px 30px rgba(0, 0, 0, 0.45));
   width: fit-content;
   max-width: min(900px, 90vw);
 
@@ -894,13 +906,13 @@ onUnmounted(() => {
     box-shadow var(--reader-toolbar-anim-fast-ms) ease;
 }
 
-.reader-view__toolbar-shell:hover {
-  background: var(--reader-toolbar-bg-hover, var(--reader-toolbar-bg));
+.reader-view__toolbar-shell:not(.is-expanded):hover {
+  background: var(--reader-toolbar-shell-bg-hover);
   border-color: var(--reader-toolbar-border-hover, var(--reader-toolbar-border));
 }
 
-.reader-view__toolbar-shell:active {
-  background: var(--reader-toolbar-bg-active, var(--reader-toolbar-bg));
+.reader-view__toolbar-shell:not(.is-expanded):active {
+  background: var(--reader-toolbar-shell-bg-active);
 }
 
 .reader-view__toolbar-shell.is-expanded {

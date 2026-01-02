@@ -16,7 +16,7 @@ def bookmark_to_dict(bookmark):
 def get_bookmarks(file_id):
     file = db.session.get(File, file_id)
     if not file:
-        return jsonify({'error': 'File not found'}), 404
+        return jsonify({'error': '文件不存在'}), 404
     
     bookmarks = file.bookmarks.order_by(Bookmark.page_number.asc()).all()
     return jsonify([bookmark_to_dict(b) for b in bookmarks])
@@ -25,18 +25,18 @@ def get_bookmarks(file_id):
 def add_bookmark(file_id):
     file = db.session.get(File, file_id)
     if not file:
-        return jsonify({'error': 'File not found'}), 404
+        return jsonify({'error': '文件不存在'}), 404
 
     data = request.get_json()
     if not data or 'page_number' not in data:
-        return jsonify({'error': 'page_number is required'}), 400
+        return jsonify({'error': '需要提供页码（page_number）'}), 400
 
     page_number = data['page_number']
     
     # Check if bookmark for this page already exists
     existing_bookmark = file.bookmarks.filter_by(page_number=page_number).first()
     if existing_bookmark:
-        return jsonify({'error': 'Bookmark for this page already exists'}), 409 # 409 Conflict
+        return jsonify({'error': '该页已存在书签'}), 409
 
     bookmark = Bookmark(
         file_id=file_id,
@@ -51,7 +51,7 @@ def add_bookmark(file_id):
 def delete_bookmark(bookmark_id):
     bookmark = db.session.get(Bookmark, bookmark_id)
     if not bookmark:
-        return jsonify({'error': 'Bookmark not found'}), 404
+        return jsonify({'error': '书签不存在'}), 404
     
     db.session.delete(bookmark)
     db.session.commit()
