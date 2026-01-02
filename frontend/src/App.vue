@@ -46,6 +46,11 @@ const navItems = computed(() => [
         path: '/settings/reader'
       },
       {
+        key: 'settings-reader-interaction',
+        label: t('readerInteractionSettings'),
+        path: '/settings/reader-interaction'
+      },
+      {
         key: 'settings-tags',
         label: t('tagManagement'),
         path: '/settings/tag-management'

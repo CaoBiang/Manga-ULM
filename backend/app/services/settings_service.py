@@ -36,6 +36,8 @@ DEFAULT_SETTINGS: Dict[str, str] = {
     'ui.reader.toolbar.animation_ms': '240',
     'ui.reader.toolbar.background_opacity': '0.72',
     'ui.reader.toolbar.center_click_toggle_enabled': '1',
+    # 阅读：点击区域（左/中/右）
+    'ui.reader.tap_zones': '{"version":1,"boundaries":{"left":0.3,"right":0.7},"actions":{"left":"prev_page","middle":"toggle_toolbar","right":"next_page"}}',
     # 重命名
     'rename.filename_template': '',
     # 图书馆：网格列数（按断点）

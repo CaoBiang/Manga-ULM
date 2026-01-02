@@ -13,6 +13,7 @@ const SETTINGS_KEYS = Object.freeze({
   readerToolbarAnimationMs: 'ui.reader.toolbar.animation_ms',
   readerToolbarBackgroundOpacity: 'ui.reader.toolbar.background_opacity',
   readerToolbarCenterClickToggleEnabled: 'ui.reader.toolbar.center_click_toggle_enabled',
+  readerTapZones: 'ui.reader.tap_zones',
   readerUiBlurEnabled: 'ui.reader.ui.blur_enabled',
   readerUiBlurRadiusPx: 'ui.reader.ui.blur_radius_px',
   readerUiControlBgOpacity: 'ui.reader.ui.control_bg_opacity',
@@ -21,6 +22,42 @@ const SETTINGS_KEYS = Object.freeze({
 })
 
 const MIGRATION_FLAG_KEY = 'manga-ulm.settings_migrated.v1'
+
+export const DEFAULT_READER_TAP_ZONES = Object.freeze({
+  version: 1,
+  boundaries: Object.freeze({
+    left: 0.3,
+    right: 0.7
+  }),
+  actions: Object.freeze({
+    left: 'prev_page',
+    middle: 'toggle_toolbar',
+    right: 'next_page'
+  })
+})
+
+const READER_TAP_ZONE_ACTIONS = Object.freeze([
+  'none',
+  'prev_page',
+  'next_page',
+  'toggle_toolbar',
+  'expand_toolbar',
+  'collapse_toolbar'
+])
+
+const safeParseJson = (rawValue, fallback) => {
+  if (rawValue === null || rawValue === undefined || rawValue === '') {
+    return fallback
+  }
+  if (typeof rawValue === 'object') {
+    return rawValue
+  }
+  try {
+    return JSON.parse(String(rawValue))
+  } catch (_error) {
+    return fallback
+  }
+}
 
 const clampInt = (value, { min = 1, max = 999999 } = {}) => {
   const parsed = Number.parseInt(String(value), 10)
@@ -62,6 +99,49 @@ const normalizeViewMode = (value) => {
   return raw === 'list' ? 'list' : 'grid'
 }
 
+const normalizeReaderTapZones = (rawConfig) => {
+  const fallback = DEFAULT_READER_TAP_ZONES
+  if (!rawConfig || typeof rawConfig !== 'object') {
+    return fallback
+  }
+
+  const boundariesRaw = rawConfig.boundaries
+  const actionsRaw = rawConfig.actions
+  if (!boundariesRaw || typeof boundariesRaw !== 'object' || !actionsRaw || typeof actionsRaw !== 'object') {
+    return fallback
+  }
+
+  const minZoneWidth = 0.08
+  const leftBoundary = clampFloat(boundariesRaw.left, { min: minZoneWidth, max: 1 - minZoneWidth })
+  const rightBoundary = clampFloat(boundariesRaw.right, { min: minZoneWidth, max: 1 - minZoneWidth })
+  if (leftBoundary === null || rightBoundary === null || leftBoundary >= rightBoundary) {
+    return fallback
+  }
+
+  if (leftBoundary < minZoneWidth || 1 - rightBoundary < minZoneWidth || rightBoundary - leftBoundary < minZoneWidth) {
+    return fallback
+  }
+
+  const allowedActions = new Set(READER_TAP_ZONE_ACTIONS)
+  const normalizeAction = (value, fallbackValue) => {
+    const raw = String(value || '').trim().toLowerCase()
+    return allowedActions.has(raw) ? raw : fallbackValue
+  }
+
+  return {
+    version: 1,
+    boundaries: {
+      left: leftBoundary,
+      right: rightBoundary
+    },
+    actions: {
+      left: normalizeAction(actionsRaw.left, fallback.actions.left),
+      middle: normalizeAction(actionsRaw.middle, fallback.actions.middle),
+      right: normalizeAction(actionsRaw.right, fallback.actions.right)
+    }
+  }
+}
+
 export const useAppSettingsStore = defineStore('appSettings', () => {
   const loaded = ref(false)
   const loading = ref(false)
@@ -77,6 +157,7 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
   const readerToolbarAnimationMs = ref(240)
   const readerToolbarBackgroundOpacity = ref(0.28)
   const readerToolbarCenterClickToggleEnabled = ref(true)
+  const readerTapZones = ref({ ...DEFAULT_READER_TAP_ZONES })
   const readerUiBlurEnabled = ref(true)
   const readerUiBlurRadiusPx = ref(12)
   const readerUiControlBgOpacity = ref(0.46)
@@ -151,6 +232,9 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
 
       const centerClickToggle = normalizeBool(settings[SETTINGS_KEYS.readerToolbarCenterClickToggleEnabled])
       readerToolbarCenterClickToggleEnabled.value = centerClickToggle ?? true
+
+      const rawTapZones = safeParseJson(settings[SETTINGS_KEYS.readerTapZones], DEFAULT_READER_TAP_ZONES)
+      readerTapZones.value = normalizeReaderTapZones(rawTapZones)
 
       const uiBlurEnabled = normalizeBool(settings[SETTINGS_KEYS.readerUiBlurEnabled])
       readerUiBlurEnabled.value = uiBlurEnabled ?? true
@@ -258,6 +342,12 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
     await saveSetting(SETTINGS_KEYS.readerToolbarCenterClickToggleEnabled, normalized ? '1' : '0')
   }
 
+  const setReaderTapZones = async (value) => {
+    const normalized = normalizeReaderTapZones(value)
+    readerTapZones.value = normalized
+    await saveSetting(SETTINGS_KEYS.readerTapZones, JSON.stringify(normalized))
+  }
+
   const setReaderUiBlurEnabled = async (value) => {
     const normalized = normalizeBool(value)
     if (normalized === null) {
@@ -316,6 +406,7 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
     readerToolbarAnimationMs,
     readerToolbarBackgroundOpacity,
     readerToolbarCenterClickToggleEnabled,
+    readerTapZones,
     readerUiBlurEnabled,
     readerUiBlurRadiusPx,
     readerUiControlBgOpacity,
@@ -332,6 +423,7 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
     setReaderToolbarAnimationMs,
     setReaderToolbarBackgroundOpacity,
     setReaderToolbarCenterClickToggleEnabled,
+    setReaderTapZones,
     setReaderUiBlurEnabled,
     setReaderUiBlurRadiusPx,
     setReaderUiControlBgOpacity,

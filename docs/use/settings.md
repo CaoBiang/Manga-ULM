@@ -30,6 +30,23 @@ flowchart TD
 - Key：`ui.reader.ui.blur_enabled`
 - Value：`0`
 
+## 阅读器交互（新增）
+
+阅读器支持“点击区域”配置，用于控制点击画面左/中/右区域时执行的动作，并可调整每个区域的响应范围。
+
+- 设置页面：`/settings/reader-interaction`
+- 对应 Key：`ui.reader.tap_zones`
+
+Value 为 JSON 字符串，示例（默认）：
+
+- `{"version":1,"boundaries":{"left":0.3,"right":0.7},"actions":{"left":"prev_page","middle":"toggle_toolbar","right":"next_page"}}`
+
+字段说明：
+
+- `boundaries.left`：左侧区域宽度（0–1）。
+- `boundaries.right`：右侧区域起点（0–1）。
+- `actions.left/middle/right`：区域动作（如 `prev_page`、`next_page`、`toggle_toolbar`、`expand_toolbar`、`collapse_toolbar`、`none`）。
+
 ## 常见问题
 
 - “重置”做了什么：删除数据库中的覆盖项，回退到后端默认值。

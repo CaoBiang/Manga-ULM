@@ -8,8 +8,9 @@
 
 ## 操作说明
 
-- 翻页：点击画面左/右侧区域，分别上一页/下一页。
-- 工具条：点击画面下方（底部区域）可快速展开详细模式；点击画面偏中心区域可在“简易/详细”模式之间切换（可在设置中关闭）。
+- 翻页/工具条：由“点击区域”决定（默认：左侧上一页 / 中间切换进度工具条 / 右侧下一页）。
+- 可视化配置：在阅读器工具条“展开模式”下，点击“点击区域”按钮进入配置界面；也可在“设置” -> “阅读器交互”中配置。
+- 调整范围：在配置界面拖动两条分割线，即可改变左/中/右区域大小。
 - 书签：在工具条中打开“新增书签”，输入备注后回车或点击保存。
 - 文件信息：在工具条中打开“文件信息”，失败时可点击重试。
 
@@ -28,11 +29,17 @@ flowchart TD
 进入“设置” -> “阅读器设置”（`/settings/reader`）可调整：
 
 - 预加载后续页数、默认分栏、宽图判定阈值。
-- 工具条动画时长、工具条背景透明度、中心点击切换工具条。
+- 工具条动画时长、工具条背景透明度。
 - 阅读器控件外观：磨砂模糊、模糊半径、控件背景/边框透明度。
+
+进入“设置” -> “阅读器交互”（`/settings/reader-interaction`）可调整：
+
+- 点击区域用途：左/中/右分别执行上一页、下一页、切换/展开/收起进度工具条等。
+- 点击区域范围：拖动分割线调整每个区域宽度。
 
 ## 相关实现
 
 - 阅读器页面：`frontend/src/views/ReaderView.vue`
 - 阅读器表格：`frontend/src/components/reader/ReaderTable.vue`
 - 阅读器控件：`frontend/src/components/reader/ui/ReaderButton.vue`、`frontend/src/components/reader/ui/ReaderInput.vue`
+- 点击区域：`frontend/src/components/reader/tapZones/ReaderTapZonesLayer.vue`、`frontend/src/components/reader/tapZones/ReaderTapZonesConfigurator.vue`

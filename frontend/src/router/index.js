@@ -52,6 +52,11 @@ const router = createRouter({
       component: () => import('../views/SettingsReaderView.vue')
     },
     {
+      path: '/settings/reader-interaction',
+      name: 'settings-reader-interaction',
+      component: () => import('../views/SettingsReaderInteractionView.vue')
+    },
+    {
       path: '/settings/tag-management',
       name: 'settings-tags',
       component: () => import('../views/SettingsTagManagementView.vue')

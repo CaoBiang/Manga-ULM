@@ -60,13 +60,6 @@
         </div>
       </a-form-item>
 
-      <a-form-item :label="$t('readerToolbarCenterClickToggleEnabled')">
-        <a-switch v-model:checked="formToolbarCenterClickToggleEnabled" />
-        <div class="mt-1 text-xs text-gray-500">
-          {{ $t('readerToolbarCenterClickToggleEnabledHelp') }}
-        </div>
-      </a-form-item>
-
       <a-divider />
 
       <a-typography-title :level="5" class="!mb-0">
@@ -146,7 +139,6 @@ const formSplitDefaultEnabled = ref(appSettingsStore.readerSplitDefaultEnabled)
 const formWideRatioThreshold = ref(appSettingsStore.readerWideRatioThreshold)
 const formToolbarAnimationMs = ref(appSettingsStore.readerToolbarAnimationMs)
 const formToolbarBackgroundOpacity = ref(appSettingsStore.readerToolbarBackgroundOpacity)
-const formToolbarCenterClickToggleEnabled = ref(appSettingsStore.readerToolbarCenterClickToggleEnabled)
 const formReaderUiBlurEnabled = ref(appSettingsStore.readerUiBlurEnabled)
 const formReaderUiBlurRadiusPx = ref(appSettingsStore.readerUiBlurRadiusPx)
 const formReaderUiControlBgOpacity = ref(appSettingsStore.readerUiControlBgOpacity)
@@ -180,12 +172,6 @@ watch(
   () => appSettingsStore.readerToolbarBackgroundOpacity,
   value => {
     formToolbarBackgroundOpacity.value = value
-  }
-)
-watch(
-  () => appSettingsStore.readerToolbarCenterClickToggleEnabled,
-  value => {
-    formToolbarCenterClickToggleEnabled.value = value
   }
 )
 
@@ -223,7 +209,6 @@ const save = async () => {
       appSettingsStore.setReaderWideRatioThreshold(formWideRatioThreshold.value),
       appSettingsStore.setReaderToolbarAnimationMs(formToolbarAnimationMs.value),
       appSettingsStore.setReaderToolbarBackgroundOpacity(formToolbarBackgroundOpacity.value),
-      appSettingsStore.setReaderToolbarCenterClickToggleEnabled(formToolbarCenterClickToggleEnabled.value),
       appSettingsStore.setReaderUiBlurEnabled(formReaderUiBlurEnabled.value),
       appSettingsStore.setReaderUiBlurRadiusPx(formReaderUiBlurRadiusPx.value),
       appSettingsStore.setReaderUiControlBgOpacity(formReaderUiControlBgOpacity.value),
@@ -247,7 +232,6 @@ const resetToDefault = async () => {
       appSettingsStore.setReaderWideRatioThreshold(1.0),
       appSettingsStore.setReaderToolbarAnimationMs(240),
       appSettingsStore.setReaderToolbarBackgroundOpacity(0.72),
-      appSettingsStore.setReaderToolbarCenterClickToggleEnabled(true),
       appSettingsStore.setReaderUiBlurEnabled(true),
       appSettingsStore.setReaderUiBlurRadiusPx(12),
       appSettingsStore.setReaderUiControlBgOpacity(0.46),

@@ -67,3 +67,33 @@ flowchart TD
 - `ui.reader.ui.blur_radius_px`
 - `ui.reader.ui.control_bg_opacity`
 - `ui.reader.ui.control_border_opacity`
+
+## 点击区域（Tap Zones）
+
+### ReaderTapZonesLayer
+
+- 路径：`frontend/src/components/reader/tapZones/ReaderTapZonesLayer.vue`
+- 用途：覆盖在阅读器画面之上，将点击位置映射为左/中/右区域，并向上抛出动作事件。
+
+约定：
+
+- 不在组件内直接操作“翻页/展开工具条”等业务逻辑，而是由 `ReaderView` 统一处理（便于后续扩展更多动作）。
+- 组件仅负责“命中区域计算”与“事件分发”，避免耦合设置存储。
+
+### ReaderTapZonesConfigurator
+
+- 路径：`frontend/src/components/reader/tapZones/ReaderTapZonesConfigurator.vue`
+- 用途：可视化配置点击区域的动作与范围（拖动分割线），并保存到设置中。
+
+样式约定：
+
+- 复用 `--reader-ui-control-*` 与 `--reader-ui-control-backdrop-filter`，保持“灰黑白 + 半透明 + 磨砂”的一致性。
+
+```mermaid
+flowchart TD
+  "阅读器页面（ReaderView）" --> "ReaderTapZonesLayer"
+  "ReaderTapZonesLayer" --> "触发动作（上一页/下一页/展开收起工具条）"
+  "工具条展开态" --> "点击区域配置按钮"
+  "点击区域配置按钮" --> "ReaderTapZonesConfigurator"
+  "ReaderTapZonesConfigurator" --> "写入设置 ui.reader.tap_zones"
+```

@@ -24,7 +24,7 @@
       <a-spin size="large" :tip="$t('loading')" />
     </div>
 
-    <div v-else class="reader-view__canvas" @click="handleCanvasClick">
+    <div v-else class="reader-view__canvas">
       <img
         ref="imageRef"
         :src="imageUrl"
@@ -33,8 +33,11 @@
         :style="imageStyles"
         @load="onImageLoad"
       />
-      <div class="reader-view__nav reader-view__nav--left" @click.stop="prevPage"></div>
-      <div class="reader-view__nav reader-view__nav--right" @click.stop="nextPage"></div>
+      <ReaderTapZonesLayer
+        :config="readerTapZones"
+        :disabled="isTapZonesConfiguratorOpen"
+        @trigger="handleTapZoneTrigger"
+      />
     </div>
 
     <div class="reader-view__toolbar" @click.stop>
@@ -106,6 +109,16 @@
                   @click.stop="togglePanel('fileInfo')"
                 >
                   <InfoCircleOutlined />
+                </ReaderButton>
+              </a-tooltip>
+              <a-tooltip :title="$t('readerTapZonesConfigTitle')">
+                <ReaderButton
+                  shape="circle"
+                  class="reader-view__toolbar-action reader-view__glass-control"
+                  :aria-label="$t('readerTapZonesConfigTitle')"
+                  @click.stop="openTapZonesConfigurator"
+                >
+                  <BorderOutlined />
                 </ReaderButton>
               </a-tooltip>
             </div>
@@ -204,6 +217,14 @@
       </transition>
       </div>
     </div>
+
+    <ReaderTapZonesConfigurator
+      v-model="tapZonesDraft"
+      :open="isTapZonesConfiguratorOpen"
+      :saving="tapZonesSaving"
+      @close="closeTapZonesConfigurator"
+      @save="saveTapZonesDraft"
+    />
   </div>
 </template>
 
@@ -219,13 +240,16 @@ import {
   UnorderedListOutlined,
   PlusOutlined,
   InfoCircleOutlined,
-  DeleteOutlined
+  DeleteOutlined,
+  BorderOutlined
 } from '@ant-design/icons-vue'
 import { storeToRefs } from 'pinia'
 import { useAppSettingsStore } from '@/store/appSettings'
 import ReaderTable from '@/components/reader/ReaderTable.vue'
 import ReaderButton from '@/components/reader/ui/ReaderButton.vue'
 import ReaderInput from '@/components/reader/ui/ReaderInput.vue'
+import ReaderTapZonesLayer from '@/components/reader/tapZones/ReaderTapZonesLayer.vue'
+import ReaderTapZonesConfigurator from '@/components/reader/tapZones/ReaderTapZonesConfigurator.vue'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -237,7 +261,7 @@ const {
   readerWideRatioThreshold,
   readerToolbarAnimationMs,
   readerToolbarBackgroundOpacity,
-  readerToolbarCenterClickToggleEnabled,
+  readerTapZones,
   readerUiBlurEnabled,
   readerUiBlurRadiusPx,
   readerUiControlBgOpacity,
@@ -262,6 +286,18 @@ const fileInfo = ref({
   data: null
 })
 const imageRef = ref(null)
+const isTapZonesConfiguratorOpen = ref(false)
+const tapZonesSaving = ref(false)
+const tapZonesDraft = ref(readerTapZones.value)
+
+watch(
+  () => readerTapZones.value,
+  value => {
+    if (!isTapZonesConfiguratorOpen.value) {
+      tapZonesDraft.value = value
+    }
+  }
+)
 
 const bookmarkColumns = computed(() => [
   {
@@ -731,50 +767,52 @@ const handleToolbarShellClick = () => {
   }
 }
 
-const isBottomExpandClick = ({ xRatio, yRatio }) => {
-  if (!Number.isFinite(xRatio) || !Number.isFinite(yRatio)) {
-    return false
-  }
-
-  const isBottom = yRatio >= 0.78
-  const isSafeX = xRatio >= 0.2 && xRatio <= 0.8
-  return isBottom && isSafeX
-}
-
-const handleCanvasClick = e => {
-  const canvas = e.currentTarget
-  if (!canvas || typeof canvas.getBoundingClientRect !== 'function') {
-    collapseToolbar()
+const handleTapZoneTrigger = ({ action }) => {
+  if (isTapZonesConfiguratorOpen.value) {
     return
   }
-
-  const rect = canvas.getBoundingClientRect()
-  if (!rect.width || !rect.height) {
-    collapseToolbar()
+  if (action === 'prev_page') {
+    prevPage()
     return
   }
-
-  const xRatio = (e.clientX - rect.left) / rect.width
-  const yRatio = (e.clientY - rect.top) / rect.height
-
-  if (isBottomExpandClick({ xRatio, yRatio })) {
-    expandToolbar()
+  if (action === 'next_page') {
+    nextPage()
     return
   }
-
-  if (!readerToolbarCenterClickToggleEnabled.value) {
-    collapseToolbar()
-    return
-  }
-
-  const isCenterClick = xRatio >= 0.3 && xRatio <= 0.7 && yRatio >= 0.2 && yRatio <= 0.8
-
-  if (isCenterClick) {
+  if (action === 'toggle_toolbar') {
     setToolbarExpanded(!isToolbarExpanded.value)
     return
   }
+  if (action === 'expand_toolbar') {
+    expandToolbar()
+    return
+  }
+  if (action === 'collapse_toolbar') {
+    collapseToolbar()
+  }
+}
 
-  collapseToolbar()
+const openTapZonesConfigurator = () => {
+  tapZonesDraft.value = JSON.parse(JSON.stringify(readerTapZones.value || {}))
+  isTapZonesConfiguratorOpen.value = true
+}
+
+const closeTapZonesConfigurator = () => {
+  isTapZonesConfiguratorOpen.value = false
+}
+
+const saveTapZonesDraft = async (draft) => {
+  tapZonesSaving.value = true
+  try {
+    await appSettingsStore.setReaderTapZones(draft)
+    message.success(t('settingsSavedSuccessfully'))
+    isTapZonesConfiguratorOpen.value = false
+  } catch (error) {
+    console.error('保存阅读器点击区域配置失败：', error)
+    message.error(t('failedToSaveSettings'))
+  } finally {
+    tapZonesSaving.value = false
+  }
 }
 
 onMounted(() => {
@@ -857,22 +895,6 @@ onUnmounted(() => {
   height: 100%;
   width: auto;
   max-width: none;
-}
-
-.reader-view__nav {
-  position: absolute;
-  top: 0;
-  width: 30%;
-  height: 100%;
-  cursor: pointer;
-}
-
-.reader-view__nav--left {
-  left: 0;
-}
-
-.reader-view__nav--right {
-  right: 0;
 }
 
 .reader-view__toolbar {
