@@ -35,6 +35,7 @@ DEFAULT_SETTINGS: Dict[str, str] = {
     'ui.reader.wide_ratio_threshold': '1.0',
     'ui.reader.toolbar.animation_ms': '240',
     'ui.reader.toolbar.background_opacity': '0.72',
+    'ui.reader.toolbar.center_click_toggle_enabled': '1',
     # 重命名
     'rename.filename_template': '',
     # 图书馆：网格列数（按断点）

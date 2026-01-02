@@ -45,6 +45,7 @@ flowchart TD
     - `ui.reader.wide_ratio_threshold`：宽图判定阈值（宽/高，浮点数）
     - `ui.reader.toolbar.animation_ms`：阅读器底部工具条展开/收起动画时长（毫秒，整数）
     - `ui.reader.toolbar.background_opacity`：阅读器底部工具条背景透明度（0.4-0.9，浮点数）
+    - `ui.reader.toolbar.center_click_toggle_enabled`：是否允许点击画面中部切换工具条简易/详细模式（`0/1`）
     - `rename.filename_template`：批量重命名模板（字符串）
     - `scan.max_workers`：扫描并发进程数（整数）
     - `scan.spread.ratio`：跨页判定比例（浮点数）

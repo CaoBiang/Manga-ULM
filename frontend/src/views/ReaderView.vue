@@ -1,5 +1,5 @@
 <template>
-  <div class="reader-view" :style="toolbarStyleVars" @click="collapseToolbar">
+  <div class="reader-view" :style="toolbarStyleVars">
     <div class="reader-view__top">
       <a-button
         type="text"
@@ -23,7 +23,7 @@
       <a-spin size="large" :tip="$t('loading')" />
     </div>
 
-    <div v-else class="reader-view__canvas" @click="collapseToolbar">
+    <div v-else class="reader-view__canvas" @click="handleCanvasClick">
       <img
         ref="imageRef"
         :src="imageUrl"
@@ -223,7 +223,8 @@ const {
   readerSplitDefaultEnabled,
   readerWideRatioThreshold,
   readerToolbarAnimationMs,
-  readerToolbarBackgroundOpacity
+  readerToolbarBackgroundOpacity,
+  readerToolbarCenterClickToggleEnabled
 } = storeToRefs(appSettingsStore)
 
 const fileId = route.params.id
@@ -647,6 +648,36 @@ const handleToolbarShellClick = () => {
   }
 }
 
+const handleCanvasClick = e => {
+  const canvas = e.currentTarget
+  if (!canvas || typeof canvas.getBoundingClientRect !== 'function') {
+    collapseToolbar()
+    return
+  }
+
+  if (!readerToolbarCenterClickToggleEnabled.value) {
+    collapseToolbar()
+    return
+  }
+
+  const rect = canvas.getBoundingClientRect()
+  if (!rect.width || !rect.height) {
+    collapseToolbar()
+    return
+  }
+
+  const xRatio = (e.clientX - rect.left) / rect.width
+  const yRatio = (e.clientY - rect.top) / rect.height
+  const isCenterClick = xRatio >= 0.3 && xRatio <= 0.7 && yRatio >= 0.2 && yRatio <= 0.8
+
+  if (isCenterClick) {
+    setToolbarExpanded(!isToolbarExpanded.value)
+    return
+  }
+
+  collapseToolbar()
+}
+
 onMounted(() => {
   fetchMangaDetails()
   fetchBookmarks()
@@ -689,12 +720,27 @@ onUnmounted(() => {
   -webkit-backdrop-filter: blur(10px);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
   color: rgba(255, 255, 255, 0.92);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .reader-view__back-button:hover {
   background: rgba(0, 0, 0, 0.82);
   border-color: rgba(255, 255, 255, 0.22);
   color: #fff;
+}
+
+.reader-view__back-button :deep(.ant-btn-icon),
+.reader-view__back-button :deep(.anticon) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.reader-view__back-button :deep(.anticon svg) {
+  display: block;
 }
 
 .reader-view__alert {
@@ -756,7 +802,8 @@ onUnmounted(() => {
   bottom: 32px;
   left: 50%;
   transform: translateX(-50%);
-  width: min(900px, 90%);
+  width: auto;
+  max-width: min(900px, 90%);
 }
 
 .reader-view__toolbar-shell {
@@ -773,6 +820,8 @@ onUnmounted(() => {
   padding: 8px 14px;
   color: #fff;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  width: fit-content;
+  max-width: min(900px, 90vw);
 
   transition:
     padding var(--reader-toolbar-anim-ms) cubic-bezier(0.22, 1, 0.36, 1),
@@ -782,6 +831,7 @@ onUnmounted(() => {
 
 .reader-view__toolbar-shell.is-expanded {
   padding: 12px;
+  width: min(900px, 90vw);
 }
 
 .reader-view__toolbar-slider-row {
@@ -835,7 +885,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 0;
   margin-top: 0;
   cursor: pointer;
 
@@ -844,10 +894,14 @@ onUnmounted(() => {
 
 .reader-view__toolbar-shell.is-expanded .reader-view__toolbar-controls-row {
   margin-top: 10px;
+  gap: 10px;
   cursor: default;
 }
 
 .reader-view__toolbar-actions-wrap {
+  flex: 0 0 auto;
+  width: 0;
+  min-width: 0;
   max-width: 0;
   opacity: 0;
   overflow: hidden;
@@ -862,6 +916,7 @@ onUnmounted(() => {
 }
 
 .reader-view__toolbar-shell.is-expanded .reader-view__toolbar-actions-wrap {
+  width: auto;
   max-width: 420px;
   opacity: 1;
   pointer-events: auto;
@@ -909,6 +964,10 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.reader-view :deep(.ant-typography.ant-typography-secondary) {
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .reader-view__bookmark-input :deep(.ant-input) {

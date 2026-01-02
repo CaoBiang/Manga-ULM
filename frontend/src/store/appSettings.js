@@ -12,6 +12,7 @@ const SETTINGS_KEYS = Object.freeze({
   readerWideRatioThreshold: 'ui.reader.wide_ratio_threshold',
   readerToolbarAnimationMs: 'ui.reader.toolbar.animation_ms',
   readerToolbarBackgroundOpacity: 'ui.reader.toolbar.background_opacity',
+  readerToolbarCenterClickToggleEnabled: 'ui.reader.toolbar.center_click_toggle_enabled',
   renameFilenameTemplate: 'rename.filename_template'
 })
 
@@ -71,6 +72,7 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
   const readerWideRatioThreshold = ref(1.0)
   const readerToolbarAnimationMs = ref(240)
   const readerToolbarBackgroundOpacity = ref(0.72)
+  const readerToolbarCenterClickToggleEnabled = ref(true)
   const renameFilenameTemplate = ref('')
 
   const saveSetting = async (key, value) => {
@@ -138,6 +140,9 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
 
       const toolbarBgOpacity = clampFloat(settings[SETTINGS_KEYS.readerToolbarBackgroundOpacity], { min: 0.4, max: 0.9 })
       readerToolbarBackgroundOpacity.value = toolbarBgOpacity ?? 0.72
+
+      const centerClickToggle = normalizeBool(settings[SETTINGS_KEYS.readerToolbarCenterClickToggleEnabled])
+      readerToolbarCenterClickToggleEnabled.value = centerClickToggle ?? true
 
       renameFilenameTemplate.value = String(settings[SETTINGS_KEYS.renameFilenameTemplate] ?? '')
 
@@ -224,6 +229,15 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
     await saveSetting(SETTINGS_KEYS.readerToolbarBackgroundOpacity, String(normalized))
   }
 
+  const setReaderToolbarCenterClickToggleEnabled = async (value) => {
+    const normalized = normalizeBool(value)
+    if (normalized === null) {
+      return
+    }
+    readerToolbarCenterClickToggleEnabled.value = normalized
+    await saveSetting(SETTINGS_KEYS.readerToolbarCenterClickToggleEnabled, normalized ? '1' : '0')
+  }
+
   const setRenameFilenameTemplate = async (value) => {
     renameFilenameTemplate.value = String(value ?? '')
     await saveSetting(SETTINGS_KEYS.renameFilenameTemplate, renameFilenameTemplate.value)
@@ -245,6 +259,7 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
     readerWideRatioThreshold,
     readerToolbarAnimationMs,
     readerToolbarBackgroundOpacity,
+    readerToolbarCenterClickToggleEnabled,
     renameFilenameTemplate,
     ensureLoaded,
     setLanguage,
@@ -256,6 +271,7 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
     setReaderWideRatioThreshold,
     setReaderToolbarAnimationMs,
     setReaderToolbarBackgroundOpacity,
+    setReaderToolbarCenterClickToggleEnabled,
     setRenameFilenameTemplate,
     saveSetting,
     resetSetting
