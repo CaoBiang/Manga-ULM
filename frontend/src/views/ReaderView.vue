@@ -1,17 +1,18 @@
 <template>
   <div class="reader-view" :style="toolbarStyleVars">
     <div class="reader-view__top">
-      <a-button
-        type="text"
+      <ReaderButton
+        variant="default"
         shape="circle"
-        size="large"
-        class="reader-view__back-button"
+        size="lg"
+        class="reader-view__back-button reader-view__glass-control"
+        :aria-label="$t('back')"
         @click.stop="router.back()"
       >
         <template #icon>
           <ArrowLeftOutlined />
         </template>
-      </a-button>
+      </ReaderButton>
       <a-tag v-if="isCurrentPageSpread" color="purple">
         {{ $t('spread') }}
       </a-tag>
@@ -62,44 +63,52 @@
           </span>
 
           <div class="reader-view__toolbar-actions-wrap" :aria-hidden="!isToolbarExpanded">
-            <a-space align="center">
+            <div class="reader-view__toolbar-actions">
               <a-tooltip :title="$t('toggleSplitView')">
-                <a-button
+                <ReaderButton
                   shape="circle"
-                  :type="isPagingEnabled ? 'primary' : 'default'"
+                  :active="isPagingEnabled"
+                  class="reader-view__toolbar-action reader-view__glass-control"
+                  :aria-label="$t('toggleSplitView')"
                   @click.stop="togglePagingMode"
                 >
                   <ColumnWidthOutlined />
-                </a-button>
+                </ReaderButton>
               </a-tooltip>
               <a-tooltip :title="$t('bookmarks')">
-                <a-button
+                <ReaderButton
                   shape="circle"
-                  :type="activePanel === 'bookmarks' ? 'primary' : 'default'"
+                  :active="activePanel === 'bookmarks'"
+                  class="reader-view__toolbar-action reader-view__glass-control"
+                  :aria-label="$t('bookmarks')"
                   @click.stop="togglePanel('bookmarks')"
                 >
                   <UnorderedListOutlined />
-                </a-button>
+                </ReaderButton>
               </a-tooltip>
               <a-tooltip :title="$t('addBookmark')">
-                <a-button
+                <ReaderButton
                   shape="circle"
-                  :type="activePanel === 'addBookmark' || isCurrentPageBookmarked ? 'primary' : 'default'"
+                  :active="activePanel === 'addBookmark' || isCurrentPageBookmarked"
+                  class="reader-view__toolbar-action reader-view__glass-control"
+                  :aria-label="$t('addBookmark')"
                   @click.stop="handleBookmarkButtonClick"
                 >
                   <PlusOutlined />
-                </a-button>
+                </ReaderButton>
               </a-tooltip>
               <a-tooltip :title="$t('fileInfo')">
-                <a-button
+                <ReaderButton
                   shape="circle"
-                  :type="activePanel === 'fileInfo' ? 'primary' : 'default'"
+                  :active="activePanel === 'fileInfo'"
+                  class="reader-view__toolbar-action reader-view__glass-control"
+                  :aria-label="$t('fileInfo')"
                   @click.stop="togglePanel('fileInfo')"
                 >
                   <InfoCircleOutlined />
-                </a-button>
+                </ReaderButton>
               </a-tooltip>
-            </a-space>
+            </div>
           </div>
         </div>
 
@@ -109,17 +118,21 @@
               <a-typography-text type="secondary">
                 {{ $t('addBookmarkPrompt', { page: currentPage + 1 }) }}
               </a-typography-text>
-              <a-input
+              <ReaderInput
                 ref="bookmarkNameInputRef"
-                v-model:value="newBookmarkName"
+                v-model="newBookmarkName"
                 :placeholder="$t('bookmarkNamePlaceholder')"
                 @pressEnter="saveNewBookmark"
                 class="reader-view__bookmark-input"
               />
-              <a-space align="center" class="reader-view__panel-actions">
-                <a-button @click="activePanel = ''">{{ $t('cancel') }}</a-button>
-                <a-button type="primary" @click="saveNewBookmark">{{ $t('save') }}</a-button>
-              </a-space>
+              <div class="reader-view__panel-actions">
+                <ReaderButton variant="ghost" @click="activePanel = ''">
+                  {{ $t('cancel') }}
+                </ReaderButton>
+                <ReaderButton variant="primary" @click="saveNewBookmark">
+                  {{ $t('save') }}
+                </ReaderButton>
+              </div>
             </div>
             <div v-else-if="activePanel === 'bookmarks'" class="reader-view__panel-section">
               <ReaderTable
@@ -139,15 +152,16 @@
                     </span>
                   </template>
                   <template v-else-if="column.key === 'action'">
-                    <a-button
-                      type="text"
-                      danger
-                      size="small"
+                    <ReaderButton
+                      variant="danger"
+                      shape="circle"
+                      size="sm"
                       class="reader-view__bookmark-delete"
+                      :aria-label="$t('delete')"
                       @click.stop="deleteBookmark(record.id)"
                     >
                       <DeleteOutlined />
-                    </a-button>
+                    </ReaderButton>
                   </template>
                 </template>
               </ReaderTable>
@@ -161,9 +175,9 @@
                   :sub-title="fileInfo.error"
                 >
                   <template #extra>
-                    <a-button type="primary" size="small" @click="fetchFileInfo">
+                    <ReaderButton variant="primary" size="sm" @click="fetchFileInfo">
                       {{ $t('retry') }}
-                    </a-button>
+                    </ReaderButton>
                   </template>
                 </a-result>
                 <ReaderTable
@@ -213,6 +227,8 @@ import {
 import { storeToRefs } from 'pinia'
 import { useAppSettingsStore } from '@/store/appSettings'
 import ReaderTable from '@/components/reader/ReaderTable.vue'
+import ReaderButton from '@/components/reader/ui/ReaderButton.vue'
+import ReaderInput from '@/components/reader/ui/ReaderInput.vue'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -224,7 +240,11 @@ const {
   readerWideRatioThreshold,
   readerToolbarAnimationMs,
   readerToolbarBackgroundOpacity,
-  readerToolbarCenterClickToggleEnabled
+  readerToolbarCenterClickToggleEnabled,
+  readerUiBlurEnabled,
+  readerUiBlurRadiusPx,
+  readerUiControlBgOpacity,
+  readerUiControlBorderOpacity
 } = storeToRefs(appSettingsStore)
 
 const fileId = route.params.id
@@ -312,20 +332,79 @@ const normalizeToolbarAnimationMs = computed(() => {
 })
 
 const normalizeToolbarBackgroundOpacity = computed(() => {
-  const parsed = Number.parseFloat(String(readerToolbarBackgroundOpacity.value ?? 0.72))
+  const parsed = Number.parseFloat(String(readerToolbarBackgroundOpacity.value ?? 0.28))
   if (Number.isNaN(parsed)) {
-    return 0.72
+    return 0.28
   }
-  return Math.min(0.9, Math.max(0.4, parsed))
+  return Math.min(0.8, Math.max(0.08, parsed))
+})
+
+const normalizeReaderUiBlurRadiusPx = computed(() => {
+  const parsed = Number.parseInt(String(readerUiBlurRadiusPx.value ?? 12), 10)
+  if (Number.isNaN(parsed)) {
+    return 12
+  }
+  return Math.min(30, Math.max(0, parsed))
+})
+
+const normalizeReaderUiControlBgOpacity = computed(() => {
+  const parsed = Number.parseFloat(String(readerUiControlBgOpacity.value ?? 0.46))
+  if (Number.isNaN(parsed)) {
+    return 0.46
+  }
+  return Math.min(0.7, Math.max(0.12, parsed))
+})
+
+const normalizeReaderUiControlBorderOpacity = computed(() => {
+  const parsed = Number.parseFloat(String(readerUiControlBorderOpacity.value ?? 0.16))
+  if (Number.isNaN(parsed)) {
+    return 0.16
+  }
+  return Math.min(0.4, Math.max(0.06, parsed))
 })
 
 const toolbarStyleVars = computed(() => {
   const ms = normalizeToolbarAnimationMs.value
+  const bgOpacity = normalizeReaderUiControlBgOpacity.value
+  const borderOpacity = normalizeReaderUiControlBorderOpacity.value
+  const bgHover = Math.min(0.9, bgOpacity + 0.06)
+  const bgActive = Math.min(0.92, bgOpacity + 0.08)
+  const borderHover = Math.min(0.6, borderOpacity + 0.06)
+
+  const toolbarBgOpacity = normalizeToolbarBackgroundOpacity.value
+  const toolbarBgHoverOpacity = Math.min(0.95, toolbarBgOpacity + 0.08)
+  const toolbarBgActiveOpacity = Math.min(0.98, toolbarBgOpacity + 0.12)
+  const toolbarBorderOpacity = Math.min(0.32, borderOpacity + 0.02)
+  const toolbarBorderHoverOpacity = Math.min(0.42, toolbarBorderOpacity + 0.08)
+  const toolbarControlBgOpacity = Math.min(0.32, Math.max(0.1, toolbarBgOpacity - 0.1))
+  const toolbarControlBgHoverOpacity = Math.min(0.4, toolbarControlBgOpacity + 0.08)
+  const toolbarControlBgActiveOpacity = Math.min(0.46, toolbarControlBgOpacity + 0.14)
+
+  const blurEnabled = readerUiBlurEnabled.value ?? true
+  const blurValue = blurEnabled
+    ? `blur(${normalizeReaderUiBlurRadiusPx.value}px) saturate(1.25)`
+    : 'none'
+
   return {
-    '--reader-toolbar-bg': `rgba(0, 0, 0, ${normalizeToolbarBackgroundOpacity.value})`,
+    '--reader-toolbar-bg': `rgba(18, 18, 18, ${toolbarBgOpacity})`,
+    '--reader-toolbar-bg-hover': `rgba(18, 18, 18, ${toolbarBgHoverOpacity})`,
+    '--reader-toolbar-bg-active': `rgba(18, 18, 18, ${toolbarBgActiveOpacity})`,
+    '--reader-toolbar-border': `rgba(255, 255, 255, ${toolbarBorderOpacity})`,
+    '--reader-toolbar-border-hover': `rgba(255, 255, 255, ${toolbarBorderHoverOpacity})`,
+    '--reader-toolbar-shadow': '0 14px 40px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.06)',
+    '--reader-toolbar-control-shadow': '0 10px 26px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.08)',
+    '--reader-toolbar-control-bg': `rgba(18, 18, 18, ${toolbarControlBgOpacity})`,
+    '--reader-toolbar-control-bg-hover': `rgba(18, 18, 18, ${toolbarControlBgHoverOpacity})`,
+    '--reader-toolbar-control-bg-active': `rgba(18, 18, 18, ${toolbarControlBgActiveOpacity})`,
     '--reader-toolbar-anim-ms': `${ms}ms`,
     '--reader-toolbar-anim-fast-ms': `${Math.round(ms * 0.65)}ms`,
-    '--reader-toolbar-anim-delay-ms': `${Math.round(ms * 0.18)}ms`
+    '--reader-toolbar-anim-delay-ms': `${Math.round(ms * 0.18)}ms`,
+    '--reader-ui-control-backdrop-filter': blurValue,
+    '--reader-ui-control-bg': `rgba(18, 18, 18, ${bgOpacity})`,
+    '--reader-ui-control-bg-hover': `rgba(22, 22, 22, ${bgHover})`,
+    '--reader-ui-control-bg-active': `rgba(22, 22, 22, ${bgActive})`,
+    '--reader-ui-control-border': `rgba(255, 255, 255, ${borderOpacity})`,
+    '--reader-ui-control-border-hover': `rgba(255, 255, 255, ${borderHover})`
   }
 })
 
@@ -713,34 +792,13 @@ onUnmounted(() => {
   z-index: 10;
 }
 
-.reader-view__back-button {
-  background: var(--reader-toolbar-bg);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
-  color: rgba(255, 255, 255, 0.92);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.reader-view__back-button:hover {
-  background: rgba(0, 0, 0, 0.82);
-  border-color: rgba(255, 255, 255, 0.22);
-  color: #fff;
-}
-
-.reader-view__back-button :deep(.ant-btn-icon),
-.reader-view__back-button :deep(.anticon) {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-}
-
-.reader-view__back-button :deep(.anticon svg) {
-  display: block;
+.reader-view__glass-control {
+  --reader-ui-control-bg: var(--reader-toolbar-control-bg, var(--reader-toolbar-bg));
+  --reader-ui-control-bg-hover: var(--reader-toolbar-control-bg-hover, var(--reader-toolbar-bg-hover));
+  --reader-ui-control-bg-active: var(--reader-toolbar-control-bg-active, var(--reader-toolbar-bg-active));
+  --reader-ui-control-border: var(--reader-toolbar-border);
+  --reader-ui-control-border-hover: var(--reader-toolbar-border-hover);
+  --reader-ui-control-shadow: var(--reader-toolbar-control-shadow);
 }
 
 .reader-view__alert {
@@ -807,26 +865,42 @@ onUnmounted(() => {
 }
 
 .reader-view__toolbar-shell {
-  --reader-toolbar-bg: rgba(0, 0, 0, 0.72);
+  --reader-toolbar-bg: rgba(18, 18, 18, 0.28);
+  --reader-toolbar-bg-hover: rgba(18, 18, 18, 0.36);
+  --reader-toolbar-bg-active: rgba(18, 18, 18, 0.42);
+  --reader-toolbar-border: rgba(255, 255, 255, 0.18);
+  --reader-toolbar-border-hover: rgba(255, 255, 255, 0.26);
+  --reader-toolbar-shadow: 0 14px 40px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --reader-toolbar-control-shadow: 0 10px 26px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   --reader-toolbar-anim-ms: 240ms;
   --reader-toolbar-anim-fast-ms: 160ms;
   --reader-toolbar-anim-delay-ms: 40ms;
 
   background: var(--reader-toolbar-bg);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--reader-toolbar-border, rgba(255, 255, 255, 0.12));
+  backdrop-filter: var(--reader-ui-control-backdrop-filter, blur(10px));
+  -webkit-backdrop-filter: var(--reader-ui-control-backdrop-filter, blur(10px));
   border-radius: 16px;
   padding: 8px 14px;
   color: #fff;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--reader-toolbar-shadow, 0 10px 30px rgba(0, 0, 0, 0.45));
   width: fit-content;
   max-width: min(900px, 90vw);
 
   transition:
     padding var(--reader-toolbar-anim-ms) cubic-bezier(0.22, 1, 0.36, 1),
     background var(--reader-toolbar-anim-fast-ms) ease,
-    border-color var(--reader-toolbar-anim-fast-ms) ease;
+    border-color var(--reader-toolbar-anim-fast-ms) ease,
+    box-shadow var(--reader-toolbar-anim-fast-ms) ease;
+}
+
+.reader-view__toolbar-shell:hover {
+  background: var(--reader-toolbar-bg-hover, var(--reader-toolbar-bg));
+  border-color: var(--reader-toolbar-border-hover, var(--reader-toolbar-border));
+}
+
+.reader-view__toolbar-shell:active {
+  background: var(--reader-toolbar-bg-active, var(--reader-toolbar-bg));
 }
 
 .reader-view__toolbar-shell.is-expanded {
@@ -905,6 +979,7 @@ onUnmounted(() => {
   max-width: 0;
   opacity: 0;
   overflow: hidden;
+  background: transparent;
   pointer-events: none;
   transform: translateX(6px) scale(0.96);
   transform-origin: left center;
@@ -920,38 +995,15 @@ onUnmounted(() => {
   max-width: 420px;
   opacity: 1;
   pointer-events: auto;
+  overflow: visible;
   transform: translateX(0) scale(1);
   transition-delay: var(--reader-toolbar-anim-delay-ms);
 }
 
-.reader-view__toolbar-shell :deep(.ant-btn-circle.ant-btn-icon-only) {
-  display: inline-flex;
+.reader-view__toolbar-actions {
+  display: flex;
   align-items: center;
-  justify-content: center;
-}
-
-.reader-view__toolbar-shell :deep(.ant-btn-circle.ant-btn-icon-only > span) {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.reader-view__toolbar-shell :deep(.ant-btn-circle .ant-btn-icon) {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-}
-
-.reader-view__toolbar-shell :deep(.ant-btn-circle .anticon) {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-}
-
-.reader-view__toolbar-shell :deep(.ant-btn-circle .anticon svg) {
-  display: block;
+  gap: 10px;
 }
 
 .reader-view__panel {
@@ -970,13 +1022,11 @@ onUnmounted(() => {
   color: rgba(255, 255, 255, 0.72);
 }
 
-.reader-view__bookmark-input :deep(.ant-input) {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-}
-
 .reader-view__panel-actions {
+  display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 10px;
 }
 
 .reader-view__bookmark-item {

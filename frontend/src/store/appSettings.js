@@ -13,6 +13,10 @@ const SETTINGS_KEYS = Object.freeze({
   readerToolbarAnimationMs: 'ui.reader.toolbar.animation_ms',
   readerToolbarBackgroundOpacity: 'ui.reader.toolbar.background_opacity',
   readerToolbarCenterClickToggleEnabled: 'ui.reader.toolbar.center_click_toggle_enabled',
+  readerUiBlurEnabled: 'ui.reader.ui.blur_enabled',
+  readerUiBlurRadiusPx: 'ui.reader.ui.blur_radius_px',
+  readerUiControlBgOpacity: 'ui.reader.ui.control_bg_opacity',
+  readerUiControlBorderOpacity: 'ui.reader.ui.control_border_opacity',
   renameFilenameTemplate: 'rename.filename_template'
 })
 
@@ -71,8 +75,12 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
   const readerSplitDefaultEnabled = ref(false)
   const readerWideRatioThreshold = ref(1.0)
   const readerToolbarAnimationMs = ref(240)
-  const readerToolbarBackgroundOpacity = ref(0.72)
+  const readerToolbarBackgroundOpacity = ref(0.28)
   const readerToolbarCenterClickToggleEnabled = ref(true)
+  const readerUiBlurEnabled = ref(true)
+  const readerUiBlurRadiusPx = ref(12)
+  const readerUiControlBgOpacity = ref(0.46)
+  const readerUiControlBorderOpacity = ref(0.16)
   const renameFilenameTemplate = ref('')
 
   const saveSetting = async (key, value) => {
@@ -138,11 +146,23 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
       const toolbarAnimMs = clampInt(settings[SETTINGS_KEYS.readerToolbarAnimationMs], { min: 120, max: 600 })
       readerToolbarAnimationMs.value = toolbarAnimMs ?? 240
 
-      const toolbarBgOpacity = clampFloat(settings[SETTINGS_KEYS.readerToolbarBackgroundOpacity], { min: 0.4, max: 0.9 })
-      readerToolbarBackgroundOpacity.value = toolbarBgOpacity ?? 0.72
+      const toolbarBgOpacity = clampFloat(settings[SETTINGS_KEYS.readerToolbarBackgroundOpacity], { min: 0.08, max: 0.8 })
+      readerToolbarBackgroundOpacity.value = toolbarBgOpacity ?? 0.28
 
       const centerClickToggle = normalizeBool(settings[SETTINGS_KEYS.readerToolbarCenterClickToggleEnabled])
       readerToolbarCenterClickToggleEnabled.value = centerClickToggle ?? true
+
+      const uiBlurEnabled = normalizeBool(settings[SETTINGS_KEYS.readerUiBlurEnabled])
+      readerUiBlurEnabled.value = uiBlurEnabled ?? true
+
+      const uiBlurRadius = clampInt(settings[SETTINGS_KEYS.readerUiBlurRadiusPx], { min: 0, max: 30 })
+      readerUiBlurRadiusPx.value = uiBlurRadius ?? 12
+
+      const uiBgOpacity = clampFloat(settings[SETTINGS_KEYS.readerUiControlBgOpacity], { min: 0.12, max: 0.7 })
+      readerUiControlBgOpacity.value = uiBgOpacity ?? 0.46
+
+      const uiBorderOpacity = clampFloat(settings[SETTINGS_KEYS.readerUiControlBorderOpacity], { min: 0.06, max: 0.4 })
+      readerUiControlBorderOpacity.value = uiBorderOpacity ?? 0.16
 
       renameFilenameTemplate.value = String(settings[SETTINGS_KEYS.renameFilenameTemplate] ?? '')
 
@@ -221,7 +241,7 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
   }
 
   const setReaderToolbarBackgroundOpacity = async (value) => {
-    const normalized = clampFloat(value, { min: 0.4, max: 0.9 })
+    const normalized = clampFloat(value, { min: 0.08, max: 0.8 })
     if (normalized === null) {
       return
     }
@@ -236,6 +256,42 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
     }
     readerToolbarCenterClickToggleEnabled.value = normalized
     await saveSetting(SETTINGS_KEYS.readerToolbarCenterClickToggleEnabled, normalized ? '1' : '0')
+  }
+
+  const setReaderUiBlurEnabled = async (value) => {
+    const normalized = normalizeBool(value)
+    if (normalized === null) {
+      return
+    }
+    readerUiBlurEnabled.value = normalized
+    await saveSetting(SETTINGS_KEYS.readerUiBlurEnabled, normalized ? '1' : '0')
+  }
+
+  const setReaderUiBlurRadiusPx = async (value) => {
+    const normalized = clampInt(value, { min: 0, max: 30 })
+    if (normalized === null) {
+      return
+    }
+    readerUiBlurRadiusPx.value = normalized
+    await saveSetting(SETTINGS_KEYS.readerUiBlurRadiusPx, String(normalized))
+  }
+
+  const setReaderUiControlBgOpacity = async (value) => {
+    const normalized = clampFloat(value, { min: 0.12, max: 0.7 })
+    if (normalized === null) {
+      return
+    }
+    readerUiControlBgOpacity.value = normalized
+    await saveSetting(SETTINGS_KEYS.readerUiControlBgOpacity, String(normalized))
+  }
+
+  const setReaderUiControlBorderOpacity = async (value) => {
+    const normalized = clampFloat(value, { min: 0.06, max: 0.4 })
+    if (normalized === null) {
+      return
+    }
+    readerUiControlBorderOpacity.value = normalized
+    await saveSetting(SETTINGS_KEYS.readerUiControlBorderOpacity, String(normalized))
   }
 
   const setRenameFilenameTemplate = async (value) => {
@@ -260,6 +316,10 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
     readerToolbarAnimationMs,
     readerToolbarBackgroundOpacity,
     readerToolbarCenterClickToggleEnabled,
+    readerUiBlurEnabled,
+    readerUiBlurRadiusPx,
+    readerUiControlBgOpacity,
+    readerUiControlBorderOpacity,
     renameFilenameTemplate,
     ensureLoaded,
     setLanguage,
@@ -272,6 +332,10 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
     setReaderToolbarAnimationMs,
     setReaderToolbarBackgroundOpacity,
     setReaderToolbarCenterClickToggleEnabled,
+    setReaderUiBlurEnabled,
+    setReaderUiBlurRadiusPx,
+    setReaderUiControlBgOpacity,
+    setReaderUiControlBorderOpacity,
     setRenameFilenameTemplate,
     saveSetting,
     resetSetting

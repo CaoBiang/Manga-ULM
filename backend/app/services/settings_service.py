@@ -44,6 +44,10 @@ DEFAULT_SETTINGS: Dict[str, str] = {
     'ui.library.card.fields': '{"grid":["reading_status_tag","file_size","progress_percent","progress_bar","progress_summary","total_pages","last_read_date"],"list":["reading_status_tag","total_pages","file_size","last_read_date"]}',
     # 图书馆：作者标签类型（用于从标签中提取“作者”显示）
     'ui.library.card.author_tag_type_id': '',
+    'ui.reader.ui.blur_enabled': '1',
+    'ui.reader.ui.blur_radius_px': '12',
+    'ui.reader.ui.control_bg_opacity': '0.46',
+    'ui.reader.ui.control_border_opacity': '0.16',
 }
 
 

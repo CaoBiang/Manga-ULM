@@ -29,13 +29,15 @@ This project was bootstrapped based on a detailed design document. It currently 
 - 阅读按页流式解压：Zip/Rar 逐块读取，7z 按页解压，避免整本漫画灌入内存。
 - 扫描/封面提取按页处理：封面与跨页检测仅解压当前页，减少 CPU 与内存占用。
 - 书库列表滚动懒加载：先拉取第一页，再按滚动加载更多；封面按视口触发请求，减少首屏卡顿。
-- 详情见 `docs/performance.md`。
+- 详情见 `docs/design/performance.md`。
 
 ## 文档
 
-- 阅读器说明：`docs/reader.md`
-- 性能优化说明：`docs/performance.md`
-- 设置说明：`docs/settings.md`
+- 阅读器说明：`docs/use/reader.md`
+- 性能优化说明：`docs/design/performance.md`
+- 设置说明：`docs/use/settings.md`
+- 布局设计：`docs/design/layout.md`
+- 阅读器控件规范：`docs/standard/reader-ui.md`
 
 ## Getting Started
 
