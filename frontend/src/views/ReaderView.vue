@@ -1,11 +1,16 @@
 <template>
-  <div class="reader-view" @click="collapseToolbar">
+  <div class="reader-view" :style="toolbarStyleVars" @click="collapseToolbar">
     <div class="reader-view__top">
-      <a-button type="primary" shape="round" size="large" @click.stop="router.back()">
+      <a-button
+        type="text"
+        shape="circle"
+        size="large"
+        class="reader-view__back-button"
+        @click.stop="router.back()"
+      >
         <template #icon>
           <ArrowLeftOutlined />
         </template>
-        {{ $t('backToLibrary') }}
       </a-button>
       <a-tag v-if="isCurrentPageSpread" color="purple">
         {{ $t('spread') }}
@@ -117,27 +122,35 @@
               </a-space>
             </div>
             <div v-else-if="activePanel === 'bookmarks'" class="reader-view__panel-section">
-              <a-list
+              <ReaderTable
+                :columns="bookmarkColumns"
                 :data-source="bookmarks"
-                size="small"
-                bordered
-                :locale="{ emptyText: $t('noBookmarks') }"
+                :row-key="record => record.id"
+                :custom-row="bookmarkRowProps"
+                :empty-text="$t('noBookmarks')"
               >
-                <template #renderItem="{ item }">
-                  <a-list-item class="reader-view__bookmark-item">
-                    <div
-                      class="reader-view__bookmark-info"
-                      @click="jumpToBookmark(item.page_number)"
+                <template #bodyCell="{ column, record }">
+                  <template v-if="column.key === 'page'">
+                    <strong>{{ $t('page') }} {{ record.page_number + 1 }}</strong>
+                  </template>
+                  <template v-else-if="column.key === 'note'">
+                    <span class="reader-view__table-note">
+                      {{ record.note || '--' }}
+                    </span>
+                  </template>
+                  <template v-else-if="column.key === 'action'">
+                    <a-button
+                      type="text"
+                      danger
+                      size="small"
+                      class="reader-view__bookmark-delete"
+                      @click.stop="deleteBookmark(record.id)"
                     >
-                      <strong>{{ $t('page') }} {{ item.page_number + 1 }}</strong>
-                      <span v-if="item.note" class="reader-view__bookmark-note">{{ item.note }}</span>
-                    </div>
-                    <a-button type="link" danger size="small" @click.stop="deleteBookmark(item.id)">
-                      {{ $t('remove') }}
+                      <DeleteOutlined />
                     </a-button>
-                  </a-list-item>
+                  </template>
                 </template>
-              </a-list>
+              </ReaderTable>
             </div>
             <div v-else-if="activePanel === 'fileInfo'" class="reader-view__panel-section">
               <a-spin :spinning="fileInfo.loading">
@@ -153,20 +166,27 @@
                     </a-button>
                   </template>
                 </a-result>
-                <a-descriptions v-else-if="fileInfo.data" size="small" :column="1" bordered>
-                  <a-descriptions-item :label="$t('mangaFile')">
-                    <div>{{ fileInfo.data.manga_filename }}</div>
-                    <a-typography-text type="secondary">
-                      {{ formatBytes(fileInfo.data.manga_filesize) }}
-                    </a-typography-text>
-                  </a-descriptions-item>
-                  <a-descriptions-item :label="$t('currentPageFile')">
-                    <div>{{ fileInfo.data.page_filename }}</div>
-                    <a-typography-text type="secondary">
-                      {{ formatBytes(fileInfo.data.page_filesize) }}
-                    </a-typography-text>
-                  </a-descriptions-item>
-                </a-descriptions>
+                <ReaderTable
+                  v-else-if="fileInfo.data"
+                  :columns="fileInfoColumns"
+                  :data-source="fileInfoRows"
+                  :row-key="record => record.key"
+                  :show-header="false"
+                >
+                  <template #bodyCell="{ column, record }">
+                    <template v-if="column.key === 'label'">
+                      <strong>{{ record.label }}</strong>
+                    </template>
+                    <template v-else-if="column.key === 'value'">
+                      <div class="reader-view__fileinfo-value">
+                        <div>{{ record.filename }}</div>
+                        <a-typography-text type="secondary">
+                          {{ record.filesize }}
+                        </a-typography-text>
+                      </div>
+                    </template>
+                  </template>
+                </ReaderTable>
               </a-spin>
           </div>
         </div>
@@ -187,10 +207,12 @@ import {
   ColumnWidthOutlined,
   UnorderedListOutlined,
   PlusOutlined,
-  InfoCircleOutlined
+  InfoCircleOutlined,
+  DeleteOutlined
 } from '@ant-design/icons-vue'
 import { storeToRefs } from 'pinia'
 import { useAppSettingsStore } from '@/store/appSettings'
+import ReaderTable from '@/components/reader/ReaderTable.vue'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -222,6 +244,55 @@ const fileInfo = ref({
   data: null
 })
 const imageRef = ref(null)
+
+const bookmarkColumns = computed(() => [
+  {
+    title: t('page'),
+    dataIndex: 'page_number',
+    key: 'page',
+    width: 110
+  },
+  {
+    title: t('noteOptional'),
+    dataIndex: 'note',
+    key: 'note'
+  },
+  {
+    title: '',
+    key: 'action',
+    width: 56,
+    align: 'center'
+  }
+])
+
+const bookmarkRowProps = record => ({
+  onClick: () => jumpToBookmark(record.page_number)
+})
+
+const fileInfoColumns = computed(() => [
+  { title: '', dataIndex: 'label', key: 'label', width: 140 },
+  { title: '', dataIndex: 'value', key: 'value' }
+])
+
+const fileInfoRows = computed(() => {
+  if (!fileInfo.value.data) {
+    return []
+  }
+  return [
+    {
+      key: 'manga',
+      label: t('mangaFile'),
+      filename: fileInfo.value.data.manga_filename,
+      filesize: formatBytes(fileInfo.value.data.manga_filesize)
+    },
+    {
+      key: 'page',
+      label: t('currentPageFile'),
+      filename: fileInfo.value.data.page_filename,
+      filesize: formatBytes(fileInfo.value.data.page_filesize)
+    }
+  ]
+})
 
 const sizeUnits = computed(() => [
   t('sizeUnitB'),
@@ -611,6 +682,21 @@ onUnmounted(() => {
   z-index: 10;
 }
 
+.reader-view__back-button {
+  background: var(--reader-toolbar-bg);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.reader-view__back-button:hover {
+  background: rgba(0, 0, 0, 0.82);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
 .reader-view__alert {
   position: absolute;
   top: 24px;
@@ -851,6 +937,20 @@ onUnmounted(() => {
 .reader-view__bookmark-note {
   color: rgba(255, 255, 255, 0.65);
   font-size: 0.85rem;
+}
+
+.reader-view__table-note {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.reader-view__bookmark-delete :deep(.anticon) {
+  font-size: 16px;
+}
+
+.reader-view__fileinfo-value {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .panel-enter-active,

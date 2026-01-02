@@ -1,264 +1,385 @@
-<template>
-  <div class="p-8 max-w-4xl mx-auto">
-    <div class="flex justify-between items-center mb-6">
-      <h1 class="text-2xl font-bold text-gray-800">{{ $t('editFileDetails') }}</h1>
-      <button @click="goBack" class="btn btn-secondary">
-        {{ $t('back') }}
-      </button>
-    </div>
-    <div v-if="error" class="text-center text-red-500">
-      <p>{{ $t('errorLoadingData', { error: error }) }}</p>
-    </div>
-    <div v-else-if="file" class="space-y-6">
-      <div class="p-6 bg-white rounded-lg shadow">
-        <h2 class="text-lg font-semibold border-b pb-2 mb-4">{{ $t('metadata') }}</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div class="col-span-full">
-            <strong class="font-medium text-gray-600">{{ $t('filename') }}:</strong>
-            <div class="flex items-center gap-2 mt-1">
-              <input type="text" v-model="editableFilename" class="flex-grow p-2 border rounded-md">
-              <button @click="handleRename" :disabled="isRenaming" class="btn btn-secondary">
-                {{ isRenaming ? $t('renaming') : $t('rename') }}
-              </button>
-            </div>
-            <p v-if="renameStatus === 'error'" class="text-red-500 text-sm mt-1">{{ renameError }}</p>
-            <p v-if="renameStatus === 'success'" class="text-green-500 text-sm mt-1">{{ $t('renameSuccess') }}</p>
-          </div>
-          <div><strong class="font-medium text-gray-600">{{ $t('pages') }}:</strong> <span class="text-gray-800">{{ file.total_pages }}</span></div>
-          <div class="col-span-full"><strong class="font-medium text-gray-600">{{ $t('fullPath') }}:</strong> <span class="text-gray-800 break-all">{{ file.file_path }}</span></div>
-          <div class="col-span-full"><strong class="font-medium text-gray-600">{{ $t('hash') }}:</strong> <span class="text-gray-800 break-all">{{ file.file_hash }}</span></div>
-        </div>
-      </div>
-      
-      <div class="p-6 bg-white rounded-lg shadow">
-        <h2 class="text-lg font-semibold border-b pb-2 mb-4">{{ $t('tags') }}</h2>
-        <div class="flex items-start gap-4">
-          <TagSelector v-model="file.tags" />
-          <div v-if="file.tags && file.tags.length > 0" class="flex-grow pl-4">
-            <div class="flex flex-wrap gap-2">
-              <span v-for="tag in file.tags" :key="tag.id" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                {{ tag.name }}
-                <button @click="toggleTag(tag)" class="flex-shrink-0 ml-1.5 h-4 w-4 rounded-full inline-flex items-center justify-center text-blue-400 hover:bg-blue-200 hover:text-blue-500 focus:outline-none focus:bg-blue-500 focus:text-white">
-                  <span class="sr-only">{{ $t('removeTag') }}</span>
-                  <svg class="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
-                    <path stroke-linecap="round" stroke-width="1.5" d="M1 1l6 6m0-6L1 7" />
-                  </svg>
-                </button>
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Bookmarks Section -->
-      <div class="p-6 bg-white rounded-lg shadow">
-        <h2 class="text-lg font-semibold border-b pb-2 mb-4">{{ $t('bookmarks') }}</h2>
-        <!-- Add new bookmark form -->
-        <div class="flex items-start gap-4 mb-6 pb-6 border-b">
-          <input type="number" v-model.number="newBookmark.page" :placeholder="$t('pagePlaceholder')" min="1" class="w-24 p-2 border rounded-md">
-          <input type="text" v-model="newBookmark.note" :placeholder="$t('noteOptional')" class="flex-grow p-2 border rounded-md">
-          <button @click="addBookmark" :disabled="!newBookmark.page" class="btn btn-primary">{{ $t('add') }}</button>
-        </div>
-        <p v-if="bookmarkError" class="text-red-500 text-sm mb-4">{{ bookmarkError }}</p>
-
-        <!-- Existing bookmarks list -->
-        <div v-if="bookmarks.length" class="space-y-3">
-            <div v-for="bookmark in bookmarks" :key="bookmark.id" class="flex justify-between items-center p-3 bg-gray-50 rounded-md">
-                <div>
-                    <p class="font-semibold">{{ $t('page') }} {{ bookmark.page_number }}</p>
-                    <p v-if="bookmark.note" class="text-sm text-gray-600">{{ bookmark.note }}</p>
-                </div>
-                <button @click="deleteBookmark(bookmark.id)" class="btn btn-danger btn-sm">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" /></svg>
-                </button>
-            </div>
-        </div>
-        <div v-else>
-            <p class="text-gray-500">{{ $t('noBookmarksYet') }}</p>
-        </div>
-      </div>
-
-      <div class="flex justify-end items-center gap-4 mt-6">
-        <label class="flex items-center">
-          <input type="checkbox" v-model="renameFileOnSave" class="h-4 w-4 text-monet-blue focus:ring-monet-blue border-gray-300 rounded">
-          <span class="ml-2 text-sm text-gray-600">{{ $t('renameFileOnSave') }}</span>
-        </label>
-         <p v-if="saveStatus === 'success'" class="text-green-600">{{ $t('successfullySaved') }}</p>
-         <p v-if="saveStatus === 'error'" class="text-red-500">{{ saveError }}</p>
-        <button @click="handleSave" :disabled="isSaving" class="btn btn-primary">
-          {{ isSaving ? $t('saving') : $t('saveChanges') }}
-        </button>
-      </div>
-
-    </div>
-  </div>
-</template>
-
-
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import axios from 'axios'
+import { message } from 'ant-design-vue'
+import { DeleteOutlined } from '@ant-design/icons-vue'
 import TagSelector from '@/components/TagSelector.vue'
 
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
+
 const file = ref(null)
-const allTags = ref([])
 const bookmarks = ref([])
 const loading = ref(true)
-const error = ref(null)
-const renameFileOnSave = ref(true)
-const editableFilename = ref('')
+const error = ref('')
 
+const editableFilename = ref('')
 const isRenaming = ref(false)
 const renameStatus = ref('idle') // idle, success, error
-const renameError = ref(null)
+const renameError = ref('')
+
+const renameFileOnSave = ref(true)
+const isSaving = ref(false)
+const saveStatus = ref('idle') // idle, success, error
+const saveError = ref('')
 
 const newBookmark = ref({ page: null, note: '' })
-const bookmarkError = ref(null)
+const bookmarkError = ref('')
+const bookmarkSaving = ref(false)
+
+const fileId = computed(() => route.params.id)
+const totalPages = computed(() => Number(file.value?.total_pages || 0))
+
+const fileNameFromPath = computed(() => {
+  if (!file.value?.file_path) {
+    return ''
+  }
+  return file.value.file_path.split(/[\\/]/).pop() || ''
+})
 
 const goBack = () => {
   router.back()
 }
 
-const isSaving = ref(false)
-const saveStatus = ref('idle') // idle, success, error
-const saveError = ref(null)
+const syncEditableFilename = () => {
+  const name = fileNameFromPath.value
+  if (!name) {
+    editableFilename.value = ''
+    return
+  }
+  const dotIndex = name.lastIndexOf('.')
+  editableFilename.value = dotIndex > 0 ? name.slice(0, dotIndex) : name
+}
 
-const toggleTag = (tag) => {
-    if (!file.value || !file.value.tags) return;
-    const index = file.value.tags.findIndex(t => t.id === tag.id);
-    if (index > -1) {
-        file.value.tags.splice(index, 1);
-    }
-};
+const removeTag = (tag) => {
+  if (!file.value?.tags) {
+    return
+  }
+  file.value.tags = file.value.tags.filter(item => item.id !== tag.id)
+}
+
+const fetchData = async () => {
+  loading.value = true
+  error.value = ''
+  try {
+    const [fileResponse, bookmarksResponse] = await Promise.all([
+      axios.get(`/api/v1/files/${fileId.value}`),
+      axios.get(`/api/v1/files/${fileId.value}/bookmarks`)
+    ])
+    file.value = fileResponse.data
+    bookmarks.value = (bookmarksResponse.data || []).slice().sort((a, b) => a.page_number - b.page_number)
+    syncEditableFilename()
+  } catch (err) {
+    error.value = err.response?.data?.error || err.message || t('errorLoadingData', { error: '' })
+  } finally {
+    loading.value = false
+  }
+}
+
+const handleRename = async () => {
+  if (!editableFilename.value || !file.value) {
+    return
+  }
+
+  const filenameWithoutExt = editableFilename.value.includes('.')
+    ? editableFilename.value.substring(0, editableFilename.value.lastIndexOf('.'))
+    : editableFilename.value
+
+  isRenaming.value = true
+  renameStatus.value = 'idle'
+  renameError.value = ''
+  try {
+    await axios.post(`/api/v1/rename/file/${file.value.id}`, {
+      new_filename: filenameWithoutExt
+    })
+
+    renameStatus.value = 'success'
+    message.success(t('renameSuccess'))
+
+    const pathParts = file.value.file_path.split(/[\\/]/)
+    const oldFilename = pathParts.pop() || ''
+    const ext = oldFilename.includes('.') ? oldFilename.split('.').pop() : ''
+    const nextFilename = ext ? `${filenameWithoutExt}.${ext}` : filenameWithoutExt
+    pathParts.push(nextFilename)
+    file.value.file_path = pathParts.join('/')
+
+    editableFilename.value = filenameWithoutExt
+    setTimeout(() => {
+      renameStatus.value = 'idle'
+    }, 3000)
+  } catch (err) {
+    renameStatus.value = 'error'
+    renameError.value = err.response?.data?.error || t('unexpectedRenameError')
+    message.error(renameError.value)
+  } finally {
+    isRenaming.value = false
+  }
+}
 
 const addBookmark = async () => {
-    bookmarkError.value = null
-    if (!newBookmark.value.page || newBookmark.value.page < 1) {
-        bookmarkError.value = t('bookmarkPagePositiveNumber')
-        return;
-    }
+  bookmarkError.value = ''
+  if (!file.value) {
+    return
+  }
 
-    try {
-        const response = await axios.post(`/api/v1/files/${file.value.id}/bookmarks`, {
-            page_number: newBookmark.value.page,
-            note: newBookmark.value.note
-        });
-        bookmarks.value.push(response.data);
-        bookmarks.value.sort((a, b) => a.page_number - b.page_number); // Keep the list sorted
-        // Reset form
-        newBookmark.value.page = null;
-        newBookmark.value.note = '';
-    } catch (err) {
-        bookmarkError.value = err.response?.data?.error || t('failedToAddBookmark');
-    }
+  const pageNumberUi = Number(newBookmark.value.page)
+  if (!pageNumberUi || pageNumberUi < 1) {
+    bookmarkError.value = t('bookmarkPagePositiveNumber')
+    return
+  }
+
+  if (totalPages.value && pageNumberUi > totalPages.value) {
+    bookmarkError.value = t('goToPageOutOfRange', { total: totalPages.value })
+    return
+  }
+
+  bookmarkSaving.value = true
+  try {
+    const response = await axios.post(`/api/v1/files/${file.value.id}/bookmarks`, {
+      page_number: pageNumberUi - 1,
+      note: newBookmark.value.note
+    })
+    bookmarks.value = bookmarks.value
+      .concat([response.data])
+      .slice()
+      .sort((a, b) => a.page_number - b.page_number)
+    newBookmark.value = { page: null, note: '' }
+    message.success(t('save'))
+  } catch (err) {
+    bookmarkError.value = err.response?.data?.error || t('failedToAddBookmark')
+    message.error(bookmarkError.value)
+  } finally {
+    bookmarkSaving.value = false
+  }
 }
 
 const deleteBookmark = async (bookmarkId) => {
-    bookmarkError.value = null
-    try {
-        await axios.delete(`/api/v1/bookmarks/${bookmarkId}`);
-        bookmarks.value = bookmarks.value.filter(b => b.id !== bookmarkId);
-    } catch (err) {
-        bookmarkError.value = err.response?.data?.error || t('failedToDeleteBookmark');
-    }
+  bookmarkError.value = ''
+  try {
+    await axios.delete(`/api/v1/bookmarks/${bookmarkId}`)
+    bookmarks.value = bookmarks.value.filter(b => b.id !== bookmarkId)
+    message.success(t('remove'))
+  } catch (err) {
+    bookmarkError.value = err.response?.data?.error || t('failedToDeleteBookmark')
+    message.error(bookmarkError.value)
+  }
 }
 
 const handleSave = async () => {
+  if (!file.value) {
+    return
+  }
+
   isSaving.value = true
   saveStatus.value = 'idle'
-  saveError.value = null
+  saveError.value = ''
   try {
     const payload = {
       tags: file.value.tags,
       rename_file: renameFileOnSave.value
     }
     const response = await axios.put(`/api/v1/files/${file.value.id}`, payload)
-    file.value = response.data // Update local state with response from server
+    file.value = response.data
     saveStatus.value = 'success'
-     setTimeout(() => saveStatus.value = 'idle', 3000) // Reset after 3s
+    message.success(t('successfullySaved'))
+    setTimeout(() => {
+      saveStatus.value = 'idle'
+    }, 3000)
   } catch (err) {
     saveStatus.value = 'error'
     saveError.value = err.response?.data?.error || t('unexpectedSaveError')
+    message.error(saveError.value)
   } finally {
     isSaving.value = false
   }
 }
 
-const handleRename = async () => {
-  if (!editableFilename.value || !file.value) return;
-
-  // Extract filename without extension
-  const currentFilenameWithoutExt = editableFilename.value.includes('.')
-    ? editableFilename.value.substring(0, editableFilename.value.lastIndexOf('.'))
-    : editableFilename.value;
-
-  isRenaming.value = true
-  renameStatus.value = 'idle'
-  renameError.value = null
-  try {
-    await axios.post(`/api/rename/file/${file.value.id}`, {
-      new_filename: currentFilenameWithoutExt
-    })
-    renameStatus.value = 'success'
-    // The backend will emit a socket event, so we might not need to update the path manually here.
-    // However, it's good practice to update it for immediate feedback.
-    const parts = file.value.file_path.split(/[\\/]/);
-    const ext = parts.pop().split('.').pop();
-    parts[parts.length - 1] = `${currentFilenameWithoutExt}.${ext}`;
-    file.value.file_path = parts.join('/');
-    editableFilename.value = `${currentFilenameWithoutExt}`
-
-    setTimeout(() => renameStatus.value = 'idle', 3000)
-  } catch (err) {
-    renameStatus.value = 'error'
-    renameError.value = err.response?.data?.error || t('unexpectedRenameError')
-  } finally {
-    isRenaming.value = false
+const bookmarkColumns = computed(() => [
+  {
+    title: t('page'),
+    dataIndex: 'page_number',
+    key: 'page',
+    width: 120
+  },
+  {
+    title: t('noteOptional'),
+    dataIndex: 'note',
+    key: 'note'
+  },
+  {
+    title: '',
+    key: 'action',
+    width: 64,
+    align: 'center'
   }
-}
+])
 
-onMounted(async () => {
-  const fileId = route.params.id
-  try {
-    const [fileResponse, tagsResponse, bookmarksResponse] = await Promise.all([
-      axios.get(`/api/v1/files/${fileId}`),
-      axios.get('/api/v1/tags'),
-      axios.get(`/api/v1/files/${fileId}/bookmarks`),
-    ])
-    file.value = fileResponse.data
-    allTags.value = tagsResponse.data
-    bookmarks.value = bookmarksResponse.data
-    if (file.value) {
-      const filename = file.value.file_path.split(/[\\/]/).pop()
-      editableFilename.value = filename.substring(0, filename.lastIndexOf('.'))
-    }
-  } catch (err) {
-    error.value = err.response?.data?.error || err.message
-  } finally {
-    loading.value = false
-  }
-})
+onMounted(fetchData)
 </script>
 
-<style>
-.btn {
-  @apply py-2 px-4 rounded-md font-semibold text-sm transition-colors;
-}
-.btn-primary {
-  @apply bg-monet-blue text-white hover:bg-blue-700 disabled:bg-gray-400;
-}
-.btn-secondary {
-  @apply bg-monet-grey text-gray-800 hover:bg-gray-300;
-}
-.btn-danger {
-  @apply bg-red-500 text-white hover:bg-red-600;
-}
-.btn-sm {
-  @apply py-1 px-2 text-xs;
-}
-</style> 
+<template>
+  <a-space direction="vertical" size="large" class="w-full">
+    <a-card class="shadow-sm" :bodyStyle="{ padding: '20px 24px' }">
+      <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div class="min-w-0">
+          <a-typography-title :level="4" class="!mb-0">
+            {{ $t('editFileDetails') }}
+          </a-typography-title>
+          <a-typography-text type="secondary" class="block truncate">
+            {{ fileNameFromPath }}
+          </a-typography-text>
+        </div>
+        <a-space>
+          <a-button @click="goBack">
+            {{ $t('back') }}
+          </a-button>
+          <a-button type="primary" :loading="isSaving" @click="handleSave">
+            {{ isSaving ? $t('saving') : $t('saveChanges') }}
+          </a-button>
+        </a-space>
+      </div>
+    </a-card>
+
+    <a-spin :spinning="loading">
+      <a-result
+        v-if="error"
+        status="error"
+        :title="$t('failedToLoadLibrary')"
+        :sub-title="error"
+      >
+        <template #extra>
+          <a-button type="primary" @click="fetchData">
+            {{ $t('retry') }}
+          </a-button>
+        </template>
+      </a-result>
+
+      <template v-else-if="file">
+        <a-card class="shadow-sm" :title="$t('metadata')">
+          <a-form layout="vertical" @submit.prevent>
+            <a-form-item :label="$t('filename')">
+              <a-space class="w-full" wrap>
+                <a-input
+                  v-model:value="editableFilename"
+                  :placeholder="$t('filename')"
+                  style="min-width: 260px"
+                />
+                <a-button :loading="isRenaming" @click="handleRename">
+                  {{ isRenaming ? $t('renaming') : $t('rename') }}
+                </a-button>
+              </a-space>
+              <a-typography-text v-if="renameStatus === 'error'" type="danger" class="block mt-2">
+                {{ renameError }}
+              </a-typography-text>
+              <a-typography-text v-else-if="renameStatus === 'success'" type="success" class="block mt-2">
+                {{ $t('renameSuccess') }}
+              </a-typography-text>
+            </a-form-item>
+          </a-form>
+
+          <a-descriptions bordered size="small" :column="1">
+            <a-descriptions-item :label="$t('pages')">
+              {{ file.total_pages }}
+            </a-descriptions-item>
+            <a-descriptions-item :label="$t('fullPath')">
+              <span class="break-all">{{ file.file_path }}</span>
+            </a-descriptions-item>
+            <a-descriptions-item :label="$t('hash')">
+              <span class="break-all">{{ file.file_hash }}</span>
+            </a-descriptions-item>
+          </a-descriptions>
+        </a-card>
+
+        <a-card class="shadow-sm" :title="$t('tags')">
+          <a-space direction="vertical" size="middle" class="w-full">
+            <TagSelector v-model="file.tags" />
+            <a-divider class="my-0" />
+            <a-space v-if="file.tags && file.tags.length" wrap>
+              <a-tag
+                v-for="tag in file.tags"
+                :key="tag.id"
+                color="blue"
+                closable
+                @close.prevent="removeTag(tag)"
+              >
+                {{ tag.name }}
+              </a-tag>
+            </a-space>
+            <a-empty v-else :description="$t('tagsEmpty')" />
+          </a-space>
+        </a-card>
+
+        <a-card class="shadow-sm" :title="$t('bookmarks')">
+          <a-form layout="inline" @submit.prevent class="mb-4 flex flex-wrap gap-2">
+            <a-form-item :label="$t('page')">
+              <a-input-number
+                v-model:value="newBookmark.page"
+                :min="1"
+                :max="totalPages || undefined"
+                style="width: 120px"
+              />
+            </a-form-item>
+            <a-form-item :label="$t('noteOptional')" class="flex-1 min-w-[240px]">
+              <a-input v-model:value="newBookmark.note" :placeholder="$t('noteOptional')" />
+            </a-form-item>
+            <a-button
+              type="primary"
+              :loading="bookmarkSaving"
+              :disabled="!newBookmark.page"
+              @click="addBookmark"
+            >
+              {{ $t('add') }}
+            </a-button>
+          </a-form>
+
+          <a-alert v-if="bookmarkError" type="error" show-icon :message="bookmarkError" class="mb-4" />
+
+          <a-table
+            :columns="bookmarkColumns"
+            :data-source="bookmarks"
+            :row-key="record => record.id"
+            size="small"
+            :pagination="false"
+            :locale="{ emptyText: $t('noBookmarksYet') }"
+          >
+            <template #bodyCell="{ column, record }">
+              <template v-if="column.key === 'page'">
+                {{ record.page_number + 1 }}
+              </template>
+              <template v-else-if="column.key === 'note'">
+                {{ record.note || '--' }}
+              </template>
+              <template v-else-if="column.key === 'action'">
+                <a-button type="text" danger size="small" @click="deleteBookmark(record.id)">
+                  <DeleteOutlined />
+                </a-button>
+              </template>
+            </template>
+          </a-table>
+        </a-card>
+
+        <a-card class="shadow-sm" :bodyStyle="{ padding: '16px 24px' }">
+          <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <a-checkbox v-model:checked="renameFileOnSave">
+              {{ $t('renameFileOnSave') }}
+            </a-checkbox>
+            <div class="flex items-center gap-3">
+              <a-typography-text v-if="saveStatus === 'success'" type="success">
+                {{ $t('successfullySaved') }}
+              </a-typography-text>
+              <a-typography-text v-if="saveStatus === 'error'" type="danger">
+                {{ saveError }}
+              </a-typography-text>
+              <a-button type="primary" :loading="isSaving" @click="handleSave">
+                {{ isSaving ? $t('saving') : $t('saveChanges') }}
+              </a-button>
+            </div>
+          </div>
+        </a-card>
+      </template>
+    </a-spin>
+  </a-space>
+</template>

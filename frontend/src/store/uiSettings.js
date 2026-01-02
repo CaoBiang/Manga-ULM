@@ -12,6 +12,7 @@ export const DEFAULT_LIBRARY_GRID_COLUMNS = Object.freeze({
 })
 
 export const LIBRARY_CARD_FIELD_DEFS = Object.freeze([
+  { key: 'reading_status_tag', labelKey: 'libraryFieldReadingStatusTag' },
   { key: 'file_size', labelKey: 'libraryFieldFileSize' },
   { key: 'total_pages', labelKey: 'libraryFieldTotalPages' },
   { key: 'last_read_date', labelKey: 'libraryFieldLastReadAt' },
@@ -26,6 +27,7 @@ export const LIBRARY_CARD_FIELD_DEFS = Object.freeze([
 
 export const DEFAULT_LIBRARY_CARD_FIELDS = Object.freeze({
   grid: Object.freeze([
+    'reading_status_tag',
     'file_size',
     'progress_percent',
     'progress_bar',
@@ -34,6 +36,7 @@ export const DEFAULT_LIBRARY_CARD_FIELDS = Object.freeze({
     'last_read_date'
   ]),
   list: Object.freeze([
+    'reading_status_tag',
     'total_pages',
     'file_size',
     'last_read_date'

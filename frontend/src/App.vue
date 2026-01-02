@@ -125,7 +125,7 @@ function findNavItem(key, withParent = false, items = navItems.value, parentKey 
 }
 
 const isFullScreenRoute = computed(() => route.meta?.fullScreen)
-const isFullWidthRoute = computed(() => route.meta?.fullWidth)
+
 
 const theme = computed(() => ({
   token: {
@@ -161,7 +161,7 @@ const theme = computed(() => ({
         <component :is="Component" :key="route.name" v-if="!route.meta.keepAlive" />
       </router-view>
     </div>
-    <a-layout v-else class="min-h-screen bg-gray-50">
+    <a-layout v-else class="app-layout">
       <a-layout-sider
         v-model:collapsed="collapsed"
         collapsible
@@ -212,10 +212,10 @@ const theme = computed(() => ({
         </a-menu>
       </a-layout-sider>
 
-      <a-layout>
+      <a-layout class="app-main">
         <PageHeader :collapsed="collapsed" @toggle-collapsed="toggleCollapsed" />
         <a-layout-content class="app-content">
-          <div :class="isFullWidthRoute ? 'w-full' : 'mx-auto w-full max-w-7xl'">
+          <div class="w-full">
             <router-view v-slot="{ Component, route }">
               <keep-alive>
                 <component :is="Component" :key="route.name" v-if="route.meta.keepAlive" />
@@ -230,8 +230,18 @@ const theme = computed(() => ({
 </template>
 
 <style scoped>
+.app-layout {
+  height: 100vh;
+  overflow: hidden;
+  background: #f5f5f5;
+}
+
 .app-sider {
   border-inline-end: 1px solid #f0f0f0;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  overflow: auto;
 }
 
 .app-logo {
@@ -249,7 +259,7 @@ const theme = computed(() => ({
   width: 36px;
   height: 36px;
   border-radius: 12px;
-  background: linear-gradient(135deg, #1677ff, #69c0ff);
+  background: #1677ff;
   color: #fff;
   display: inline-flex;
   align-items: center;
@@ -263,7 +273,13 @@ const theme = computed(() => ({
 
 .app-content {
   padding: 24px;
-  min-height: calc(100vh - 64px);
+  flex: 1 1 auto;
+  overflow: auto;
   background: #f5f5f5;
+}
+
+.app-main {
+  height: 100vh;
+  overflow: hidden;
 }
 </style>

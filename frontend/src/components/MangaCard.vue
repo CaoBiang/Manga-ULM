@@ -4,6 +4,7 @@ import axios from 'axios'
 import { useI18n } from 'vue-i18n'
 import { message } from 'ant-design-vue'
 import { storeToRefs } from 'pinia'
+import { useRouter } from 'vue-router'
 import {
   HeartFilled,
   HeartOutlined,
@@ -14,6 +15,7 @@ import { useUiSettingsStore } from '@/store/uiSettings'
 import { useAppSettingsStore } from '@/store/appSettings'
 
 const { t } = useI18n()
+const router = useRouter()
 
 const sizeUnits = computed(() => [
   t('sizeUnitB'),
@@ -257,7 +259,7 @@ const updateStatus = async status => {
     const response = await axios.post(`/api/v1/files/${props.manga.id}/status`, { status })
     applyServerUpdate(response.data)
   } catch (error) {
-    console.error('Failed to update status:', error)
+    console.error('更新阅读状态失败：', error)
     message.error(t('failedToUpdateStatus'))
   } finally {
     updatingStatus.value = false
@@ -298,19 +300,30 @@ const toggleLike = async event => {
     })
   } catch (error) {
     isLiked.value = originalLikedState
-    console.error('Failed to update like status:', error)
+    console.error('更新喜欢状态失败：', error)
     message.error(t('failedToToggleLike'))
   }
 }
 
-const likeTooltip = computed(() =>
-  isLiked.value ? t('removeFromWishlist') : t('likeIt')
-)
+const openReader = () => {
+  router.push({ name: 'reader', params: { id: props.manga.id } })
+}
+
+const openEdit = (event) => {
+  event?.stopPropagation()
+  event?.preventDefault()
+  router.push({ name: 'edit', params: { id: props.manga.id } })
+}
 </script>
 
 <template>
   <div v-if="viewMode === 'grid'" class="manga-card-grid">
-    <a-card hoverable class="manga-card-grid__card" :bodyStyle="{ padding: '12px' }">
+    <a-card
+      hoverable
+      class="manga-card-grid__card"
+      :bodyStyle="{ padding: '12px' }"
+      @click="openReader"
+    >
       <template #cover>
         <div ref="coverHost" class="manga-card-grid__cover">
           <a-image
@@ -322,24 +335,32 @@ const likeTooltip = computed(() =>
           />
           <div v-else class="manga-card-cover__placeholder"></div>
           <a-tag
+            v-if="hasField('reading_status_tag')"
             class="manga-card-grid__status"
             :color="statusMeta.color"
             @click.stop="cycleStatus"
           >
             {{ statusMeta.label }}
           </a-tag>
-          <a-tooltip v-if="!hideWishlistButton" :title="likeTooltip" placement="left">
-            <a-button
-              type="text"
-              shape="circle"
-              size="small"
-              class="manga-card-grid__like"
-              @click="toggleLike"
-            >
-              <HeartFilled v-if="isLiked" style="color: #f5222d" />
-              <HeartOutlined v-else />
+          <a-button
+            v-if="!hideWishlistButton"
+            type="text"
+            shape="circle"
+            size="small"
+            class="manga-card-grid__like"
+            @click="toggleLike"
+          >
+            <HeartFilled v-if="isLiked" style="color: #f5222d" />
+            <HeartOutlined v-else />
+          </a-button>
+          <div class="manga-card-grid__cover-edit">
+            <a-button type="primary" size="small" block @click="openEdit">
+              <template #icon>
+                <EditOutlined />
+              </template>
+              {{ t('edit') }}
             </a-button>
-          </a-tooltip>
+          </div>
         </div>
       </template>
 
@@ -403,25 +424,6 @@ const likeTooltip = computed(() =>
           {{ tag.name }}
         </a-tag>
       </div>
-
-      <div class="manga-card-grid__actions">
-        <RouterLink :to="{ name: 'reader', params: { id: manga.id } }" custom v-slot="{ navigate }">
-          <a-button type="primary" size="small" block @click="navigate">
-            <template #icon>
-              <ReadOutlined />
-            </template>
-            {{ t('read') }}
-          </a-button>
-        </RouterLink>
-        <RouterLink :to="{ name: 'edit', params: { id: manga.id } }" custom v-slot="{ navigate }">
-          <a-button size="small" block @click="navigate">
-            <template #icon>
-              <EditOutlined />
-            </template>
-            {{ t('edit') }}
-          </a-button>
-        </RouterLink>
-      </div>
     </a-card>
   </div>
   <a-card v-else class="manga-card-list" :bodyStyle="{ padding: '16px' }">
@@ -436,18 +438,17 @@ const likeTooltip = computed(() =>
             :preview="false"
           />
           <div v-else class="manga-card-cover__placeholder"></div>
-          <a-tooltip v-if="!hideWishlistButton" :title="likeTooltip">
-            <a-button
-              type="text"
-              shape="circle"
-              size="small"
-              class="manga-card-list__like"
-              @click="toggleLike"
-            >
-              <HeartFilled v-if="isLiked" style="color: #f5222d" />
-              <HeartOutlined v-else />
-            </a-button>
-          </a-tooltip>
+          <a-button
+            v-if="!hideWishlistButton"
+            type="text"
+            shape="circle"
+            size="small"
+            class="manga-card-list__like"
+            @click="toggleLike"
+          >
+            <HeartFilled v-if="isLiked" style="color: #f5222d" />
+            <HeartOutlined v-else />
+          </a-button>
         </div>
       </a-col>
       <a-col :xs="16" :sm="18" :md="19">
@@ -459,6 +460,7 @@ const likeTooltip = computed(() =>
             {{ displayName }}
           </RouterLink>
           <a-tag
+            v-if="hasField('reading_status_tag')"
             :color="statusMeta.color"
             class="manga-card-list__status"
             @click.prevent="cycleStatus"
@@ -562,6 +564,36 @@ const likeTooltip = computed(() =>
   inset: 0;
 }
 
+.manga-card-grid__cover-edit {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.manga-card-grid__cover:hover .manga-card-grid__cover-edit {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.manga-card-grid__cover-edit :deep(.ant-btn) {
+  background: rgba(0, 0, 0, 0.55);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+.manga-card-grid__cover-edit :deep(.ant-btn:hover) {
+  background: rgba(0, 0, 0, 0.65);
+  border-color: rgba(255, 255, 255, 0.38);
+  color: #fff;
+}
+
 .manga-card-cover__placeholder {
   position: absolute;
   inset: 0;
@@ -589,6 +621,15 @@ const likeTooltip = computed(() =>
   background: rgba(255, 255, 255, 0.9);
 }
 
+.manga-card-grid__like:hover,
+.manga-card-grid__like:focus {
+  background: rgba(255, 255, 255, 0.9) !important;
+}
+
+.manga-card-grid__like:hover :deep(.anticon) {
+  color: #f5222d;
+}
+
 .manga-card-grid__meta {
   display: flex;
   flex-direction: column;
@@ -606,13 +647,6 @@ const likeTooltip = computed(() =>
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-}
-
-.manga-card-grid__actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: auto;
 }
 
 .manga-card-list {
@@ -637,6 +671,15 @@ const likeTooltip = computed(() =>
   top: 8px;
   right: 8px;
   background: rgba(255, 255, 255, 0.85);
+}
+
+.manga-card-list__like:hover,
+.manga-card-list__like:focus {
+  background: rgba(255, 255, 255, 0.85) !important;
+}
+
+.manga-card-list__like:hover :deep(.anticon) {
+  color: #f5222d;
 }
 
 .manga-card-list__header {

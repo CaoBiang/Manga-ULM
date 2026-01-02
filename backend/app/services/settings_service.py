@@ -40,7 +40,7 @@ DEFAULT_SETTINGS: Dict[str, str] = {
     # 图书馆：网格列数（按断点）
     'ui.library.grid.columns': '{"base":2,"sm":3,"md":4,"lg":5,"xl":6,"2xl":8}',
     # 图书馆：卡片展示字段（按视图模式）
-    'ui.library.card.fields': '{"grid":["file_size","progress_percent","progress_bar","progress_summary","total_pages","last_read_date"],"list":["total_pages","file_size","last_read_date"]}',
+    'ui.library.card.fields': '{"grid":["reading_status_tag","file_size","progress_percent","progress_bar","progress_summary","total_pages","last_read_date"],"list":["reading_status_tag","total_pages","file_size","last_read_date"]}',
     # 图书馆：作者标签类型（用于从标签中提取“作者”显示）
     'ui.library.card.author_tag_type_id': '',
 }
