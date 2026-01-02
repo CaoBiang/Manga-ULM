@@ -99,6 +99,9 @@ const handleClick = event => {
   --reader-button-shadow: var(--reader-ui-control-shadow, 0 8px 24px rgba(0, 0, 0, 0.35));
   --reader-button-focus: var(--reader-ui-focus-ring, 0 0 0 2px rgba(255, 255, 255, 0.16));
 
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   appearance: none;
   border: 1px solid var(--reader-button-border);
   background: var(--reader-button-surface);
@@ -127,9 +130,37 @@ const handleClick = event => {
     opacity 120ms ease;
 }
 
+.reader-button--appearance-floating::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 1);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.reader-button--appearance-floating:hover:not(:disabled)::after {
+  opacity: 0.18;
+}
+
+.reader-button--appearance-floating:active:not(:disabled)::after {
+  opacity: 0.26;
+}
+
+.reader-button--appearance-floating.is-active::after {
+  opacity: 0.24;
+}
+
+.reader-button--appearance-floating.is-active:hover:not(:disabled)::after {
+  opacity: 0.3;
+}
+
 .reader-button:hover:not(:disabled) {
   border-color: var(--reader-button-border-hover);
   background: var(--reader-button-surface-hover);
+  box-shadow: var(--reader-button-shadow), 0 0 0 1px rgba(255, 255, 255, 0.12);
 }
 
 .reader-button:active:not(:disabled) {
@@ -157,6 +188,8 @@ const handleClick = event => {
   align-items: center;
   justify-content: center;
   line-height: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .reader-button__icon :deep(.anticon) {
@@ -164,6 +197,11 @@ const handleClick = event => {
   align-items: center;
   justify-content: center;
   line-height: 0;
+}
+
+.reader-button__text {
+  position: relative;
+  z-index: 1;
 }
 
 .reader-button--sm {
@@ -280,8 +318,8 @@ const handleClick = event => {
   color: rgba(255, 255, 255, 0.98);
   box-shadow:
     var(--reader-button-shadow),
-    0 0 0 1px rgba(255, 255, 255, 0.16),
-    0 0 18px rgba(255, 255, 255, 0.06);
+    0 0 0 1px rgba(255, 255, 255, 0.22),
+    0 0 20px rgba(255, 255, 255, 0.1);
 }
 
 .reader-button--danger {

@@ -89,7 +89,7 @@
               <a-tooltip :title="$t('addBookmark')">
                 <ReaderButton
                   shape="circle"
-                  :active="activePanel === 'addBookmark' || isCurrentPageBookmarked"
+                  :active="activePanel === 'addBookmark'"
                   class="reader-view__toolbar-action reader-view__glass-control"
                   :aria-label="$t('addBookmark')"
                   @click.stop="handleBookmarkButtonClick"
@@ -115,13 +115,10 @@
         <transition name="panel">
           <div v-if="activePanel" class="reader-view__panel">
             <div v-if="activePanel === 'addBookmark'" class="reader-view__panel-section">
-              <a-typography-text type="secondary">
-                {{ $t('addBookmarkPrompt', { page: currentPage + 1 }) }}
-              </a-typography-text>
               <ReaderInput
-                ref="bookmarkNameInputRef"
-                v-model="newBookmarkName"
-                :placeholder="$t('bookmarkNamePlaceholder')"
+                ref="bookmarkNoteInputRef"
+                v-model="newBookmarkNote"
+                :placeholder="$t('bookmarkNotePlaceholder')"
                 @pressEnter="saveNewBookmark"
                 class="reader-view__bookmark-input"
               />
@@ -255,8 +252,8 @@ const isLoading = ref(true)
 const error = ref(null)
 const isToolbarExpanded = ref(false)
 const bookmarks = ref([])
-const newBookmarkName = ref('')
-const bookmarkNameInputRef = ref(null)
+const newBookmarkNote = ref('')
+const bookmarkNoteInputRef = ref(null)
 const activePanel = ref('')
 const pageIndicatorRef = ref(null)
 const fileInfo = ref({
@@ -367,8 +364,8 @@ const toolbarStyleVars = computed(() => {
   const ms = normalizeToolbarAnimationMs.value
   const bgOpacity = normalizeReaderUiControlBgOpacity.value
   const borderOpacity = normalizeReaderUiControlBorderOpacity.value
-  const bgHover = Math.min(0.9, bgOpacity + 0.06)
-  const bgActive = Math.min(0.92, bgOpacity + 0.08)
+  const bgHover = Math.min(0.94, bgOpacity + 0.1)
+  const bgActive = Math.min(0.96, bgOpacity + 0.14)
   const borderHover = Math.min(0.6, borderOpacity + 0.06)
 
   const toolbarBgOpacity = normalizeToolbarBackgroundOpacity.value
@@ -376,9 +373,9 @@ const toolbarStyleVars = computed(() => {
   const toolbarBgActiveOpacity = Math.min(0.98, toolbarBgOpacity + 0.12)
   const toolbarBorderOpacity = Math.min(0.32, borderOpacity + 0.02)
   const toolbarBorderHoverOpacity = Math.min(0.42, toolbarBorderOpacity + 0.08)
-  const toolbarControlBgOpacity = Math.min(0.32, Math.max(0.1, toolbarBgOpacity - 0.1))
-  const toolbarControlBgHoverOpacity = Math.min(0.4, toolbarControlBgOpacity + 0.08)
-  const toolbarControlBgActiveOpacity = Math.min(0.46, toolbarControlBgOpacity + 0.14)
+  const toolbarControlBgOpacity = Math.min(0.36, Math.max(0.12, toolbarBgOpacity - 0.06))
+  const toolbarControlBgHoverOpacity = Math.min(0.46, toolbarControlBgOpacity + 0.1)
+  const toolbarControlBgActiveOpacity = Math.min(0.54, toolbarControlBgOpacity + 0.18)
 
   const blurEnabled = readerUiBlurEnabled.value ?? true
   const blurValue = blurEnabled
@@ -394,15 +391,15 @@ const toolbarStyleVars = computed(() => {
     '--reader-toolbar-shadow': '0 14px 40px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.06)',
     '--reader-toolbar-control-shadow': '0 10px 26px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.08)',
     '--reader-toolbar-control-bg': `rgba(18, 18, 18, ${toolbarControlBgOpacity})`,
-    '--reader-toolbar-control-bg-hover': `rgba(18, 18, 18, ${toolbarControlBgHoverOpacity})`,
-    '--reader-toolbar-control-bg-active': `rgba(18, 18, 18, ${toolbarControlBgActiveOpacity})`,
+    '--reader-toolbar-control-bg-hover': `rgba(26, 26, 26, ${toolbarControlBgHoverOpacity})`,
+    '--reader-toolbar-control-bg-active': `rgba(32, 32, 32, ${toolbarControlBgActiveOpacity})`,
     '--reader-toolbar-anim-ms': `${ms}ms`,
     '--reader-toolbar-anim-fast-ms': `${Math.round(ms * 0.65)}ms`,
     '--reader-toolbar-anim-delay-ms': `${Math.round(ms * 0.18)}ms`,
     '--reader-ui-control-backdrop-filter': blurValue,
     '--reader-ui-control-bg': `rgba(18, 18, 18, ${bgOpacity})`,
-    '--reader-ui-control-bg-hover': `rgba(22, 22, 22, ${bgHover})`,
-    '--reader-ui-control-bg-active': `rgba(22, 22, 22, ${bgActive})`,
+    '--reader-ui-control-bg-hover': `rgba(28, 28, 28, ${bgHover})`,
+    '--reader-ui-control-bg-active': `rgba(34, 34, 34, ${bgActive})`,
     '--reader-ui-control-border': `rgba(255, 255, 255, ${borderOpacity})`,
     '--reader-ui-control-border-hover': `rgba(255, 255, 255, ${borderHover})`
   }
@@ -541,10 +538,16 @@ const fetchBookmarks = async () => {
 
 const handleBookmarkButtonClick = async () => {
   await setToolbarExpanded(true)
-  newBookmarkName.value = ''
+  if (isCurrentPageBookmarked.value) {
+    activePanel.value = 'bookmarks'
+    fetchBookmarks()
+    message.info(t('bookmarkAlreadyExists'))
+    return
+  }
+  newBookmarkNote.value = ''
   activePanel.value = 'addBookmark'
   nextTick(() => {
-    bookmarkNameInputRef.value?.focus()
+    bookmarkNoteInputRef.value?.focus()
   })
 }
 
@@ -555,9 +558,9 @@ const saveNewBookmark = async () => {
   try {
     await axios.post(`/api/v1/files/${fileId}/bookmarks`, {
       page_number: currentPage.value,
-      note: newBookmarkName.value || null
+      note: newBookmarkNote.value || null
     })
-    newBookmarkName.value = ''
+    newBookmarkNote.value = ''
     activePanel.value = ''
     fetchBookmarks()
     message.success(t('bookmarkSaved'))
