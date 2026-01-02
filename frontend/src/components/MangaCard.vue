@@ -1,14 +1,17 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import axios from 'axios'
 import { useI18n } from 'vue-i18n'
 import { message } from 'ant-design-vue'
+import { storeToRefs } from 'pinia'
 import {
   HeartFilled,
   HeartOutlined,
   ReadOutlined,
   EditOutlined
 } from '@ant-design/icons-vue'
+import { useUiSettingsStore } from '@/store/uiSettings'
+import { useAppSettingsStore } from '@/store/appSettings'
 
 const { t } = useI18n()
 
@@ -43,11 +46,72 @@ const props = defineProps({
   }
 })
 
+const uiSettingsStore = useUiSettingsStore()
+const { libraryAuthorTagTypeId } = storeToRefs(uiSettingsStore)
+const appSettingsStore = useAppSettingsStore()
+const { libraryLazyRootMarginPx } = storeToRefs(appSettingsStore)
+
+const visibleFields = computed(() => uiSettingsStore.fieldsForViewMode(props.viewMode))
+const hasField = (key) => visibleFields.value.includes(key)
+const hasAnyField = (keys) => keys.some(key => hasField(key))
+
+const coverHost = ref(null)
+const shouldLoadCover = ref(false)
+let coverObserver = null
+
+const teardownCoverObserver = () => {
+  if (coverObserver) {
+    coverObserver.disconnect()
+    coverObserver = null
+  }
+}
+
+const setupCoverObserver = () => {
+  if (shouldLoadCover.value) {
+    return
+  }
+  teardownCoverObserver()
+
+  if (!coverHost.value) {
+    return
+  }
+  if (!('IntersectionObserver' in window)) {
+    shouldLoadCover.value = true
+    return
+  }
+
+  coverObserver = new IntersectionObserver(
+    entries => {
+      if (entries.some(entry => entry.isIntersecting)) {
+        shouldLoadCover.value = true
+        teardownCoverObserver()
+      }
+    },
+    { rootMargin: `${libraryLazyRootMarginPx.value}px 0px` }
+  )
+  coverObserver.observe(coverHost.value)
+}
+
 const isLiked = ref(!!props.manga.is_liked)
 const localStatus = ref(props.manga.reading_status || 'unread')
 const progressPercent = ref(props.manga.progress_percent ?? 0)
 const localLastReadPage = ref(props.manga.last_read_page ?? 0)
 const updatingStatus = ref(false)
+
+onMounted(() => nextTick(() => setupCoverObserver()))
+onBeforeUnmount(() => teardownCoverObserver())
+
+watch(
+  () => props.viewMode,
+  () => nextTick(() => setupCoverObserver())
+)
+watch(
+  () => props.manga.cover_url,
+  () => {
+    shouldLoadCover.value = false
+    nextTick(() => setupCoverObserver())
+  }
+)
 
 watch(
   () => props.manga.is_liked,
@@ -138,6 +202,24 @@ const fileSizeDisplay = computed(() =>
 const lastReadDisplay = computed(() =>
   props.manga.last_read_date ? formatDateTime(props.manga.last_read_date) : t('lastReadNever')
 )
+const addedAtDisplay = computed(() =>
+  props.manga.add_date ? formatDateTime(props.manga.add_date) : '--'
+)
+const likedAtDisplay = computed(() =>
+  props.manga.liked_at ? formatDateTime(props.manga.liked_at) : '--'
+)
+
+const authorNames = computed(() => {
+  const typeId = libraryAuthorTagTypeId.value
+  if (!typeId) {
+    return []
+  }
+  return sanitizedTags.value
+    .filter(tag => tag.type_id === typeId)
+    .map(tag => tag.name)
+    .filter(Boolean)
+})
+const authorsDisplay = computed(() => authorNames.value.slice(0, 4).join(' / '))
 
 const progressSummary = computed(() => {
   const total = props.manga.total_pages || 0
@@ -230,13 +312,15 @@ const likeTooltip = computed(() =>
   <div v-if="viewMode === 'grid'" class="manga-card-grid">
     <a-card hoverable class="manga-card-grid__card" :bodyStyle="{ padding: '12px' }">
       <template #cover>
-        <div class="manga-card-grid__cover">
+        <div ref="coverHost" class="manga-card-grid__cover">
           <a-image
+            v-if="shouldLoadCover"
             :src="manga.cover_url"
             :alt="displayName"
             :fallback="fallbackCover"
             :preview="false"
           />
+          <div v-else class="manga-card-cover__placeholder"></div>
           <a-tag
             class="manga-card-grid__status"
             :color="statusMeta.color"
@@ -261,27 +345,51 @@ const likeTooltip = computed(() =>
 
       <a-card-meta
         :title="displayName"
-        :description="folderName"
+        :description="hasField('folder_name') ? folderName : ''"
       />
 
       <div class="manga-card-grid__meta">
-        <div class="manga-card-grid__row">
-          <a-typography-text type="secondary">{{ fileSizeDisplay }}</a-typography-text>
-          <a-typography-text type="secondary">{{ progressPercentDisplay }}</a-typography-text>
+        <div v-if="hasAnyField(['file_size', 'progress_percent'])" class="manga-card-grid__row">
+          <a-typography-text v-if="hasField('file_size')" type="secondary">
+            {{ fileSizeDisplay }}
+          </a-typography-text>
+          <a-typography-text v-if="hasField('progress_percent')" type="secondary">
+            {{ progressPercentDisplay }}
+          </a-typography-text>
         </div>
+
         <a-progress
+          v-if="hasField('progress_bar')"
           :percent="normalizedProgress"
           :show-info="false"
           :stroke-color="statusMeta.progress"
         />
-        <a-typography-text type="secondary" class="manga-card-grid__subtitle">
+
+        <a-typography-text
+          v-if="hasField('progress_summary')"
+          type="secondary"
+          class="manga-card-grid__subtitle"
+        >
           {{ progressSummary }}
         </a-typography-text>
-        <div class="manga-card-grid__row">
-          <a-typography-text type="secondary">
+
+        <a-typography-text v-if="hasField('authors') && authorsDisplay" type="secondary" class="manga-card-grid__subtitle">
+          {{ t('authorsLabel') }}: {{ authorsDisplay }}
+        </a-typography-text>
+
+        <a-typography-text v-if="hasField('add_date')" type="secondary" class="manga-card-grid__subtitle">
+          {{ t('addedAtLabel') }}: {{ addedAtDisplay }}
+        </a-typography-text>
+
+        <a-typography-text v-if="hasField('liked_at') && manga.is_liked" type="secondary" class="manga-card-grid__subtitle">
+          {{ t('likedAtLabel') }}: {{ likedAtDisplay }}
+        </a-typography-text>
+
+        <div v-if="hasAnyField(['total_pages', 'last_read_date'])" class="manga-card-grid__row">
+          <a-typography-text v-if="hasField('total_pages')" type="secondary">
             {{ manga.total_pages || 0 }} {{ t('pages') }}
           </a-typography-text>
-          <a-typography-text type="secondary">
+          <a-typography-text v-if="hasField('last_read_date')" type="secondary">
             {{ lastReadDisplay }}
           </a-typography-text>
         </div>
@@ -319,13 +427,15 @@ const likeTooltip = computed(() =>
   <a-card v-else class="manga-card-list" :bodyStyle="{ padding: '16px' }">
     <a-row :gutter="16" align="middle">
       <a-col :xs="8" :sm="6" :md="5">
-        <div class="manga-card-list__cover">
+        <div ref="coverHost" class="manga-card-list__cover">
           <a-image
+            v-if="shouldLoadCover"
             :src="manga.cover_url"
             :alt="displayName"
             :fallback="fallbackCover"
             :preview="false"
           />
+          <div v-else class="manga-card-cover__placeholder"></div>
           <a-tooltip v-if="!hideWishlistButton" :title="likeTooltip">
             <a-button
               type="text"
@@ -356,27 +466,36 @@ const likeTooltip = computed(() =>
             {{ statusMeta.label }}
           </a-tag>
         </div>
-        <a-typography-text type="secondary" class="manga-card-list__folder">
+        <a-typography-text v-if="hasField('folder_name')" type="secondary" class="manga-card-list__folder">
           {{ folderName }}
         </a-typography-text>
 
-        <div class="manga-card-list__progress">
+        <div v-if="hasAnyField(['progress_bar', 'progress_percent'])" class="manga-card-list__progress">
           <a-progress
+            v-if="hasField('progress_bar')"
             :percent="normalizedProgress"
             :stroke-color="statusMeta.progress"
             size="small"
             :show-info="false"
           />
-          <a-typography-text type="secondary">{{ progressPercentDisplay }}</a-typography-text>
+          <a-typography-text v-if="hasField('progress_percent')" type="secondary">
+            {{ progressPercentDisplay }}
+          </a-typography-text>
         </div>
-        <a-typography-text type="secondary" class="manga-card-list__summary">
+        <a-typography-text v-if="hasField('progress_summary')" type="secondary" class="manga-card-list__summary">
           {{ progressSummary }}
         </a-typography-text>
 
-        <a-space wrap size="small" class="manga-card-list__stats">
-          <span>{{ t('pages') }}: {{ manga.total_pages || 0 }}</span>
-          <span>{{ t('fileSizeLabel') }}: {{ fileSizeDisplay }}</span>
-          <span>{{ t('lastReadAt') }}: {{ lastReadDisplay }}</span>
+        <a-typography-text v-if="hasField('authors') && authorsDisplay" type="secondary">
+          {{ t('authorsLabel') }}: {{ authorsDisplay }}
+        </a-typography-text>
+
+        <a-space v-if="hasAnyField(['total_pages', 'file_size', 'last_read_date', 'add_date', 'liked_at'])" wrap size="small" class="manga-card-list__stats">
+          <span v-if="hasField('total_pages')">{{ t('pages') }}: {{ manga.total_pages || 0 }}</span>
+          <span v-if="hasField('file_size')">{{ t('fileSizeLabel') }}: {{ fileSizeDisplay }}</span>
+          <span v-if="hasField('last_read_date')">{{ t('lastReadAt') }}: {{ lastReadDisplay }}</span>
+          <span v-if="hasField('add_date')">{{ t('addedAtLabel') }}: {{ addedAtDisplay }}</span>
+          <span v-if="hasField('liked_at') && manga.is_liked">{{ t('likedAtLabel') }}: {{ likedAtDisplay }}</span>
         </a-space>
 
         <div v-if="sanitizedTags.length" class="manga-card-list__tags">
@@ -443,6 +562,12 @@ const likeTooltip = computed(() =>
   inset: 0;
 }
 
+.manga-card-cover__placeholder {
+  position: absolute;
+  inset: 0;
+  background: #f2f4f7;
+}
+
 .manga-card-grid__cover :deep(.ant-image-img),
 .manga-card-list__cover :deep(.ant-image-img) {
   width: 100%;
@@ -498,11 +623,13 @@ const likeTooltip = computed(() =>
   position: relative;
   border-radius: 12px;
   overflow: hidden;
+  width: 100%;
+  aspect-ratio: 3 / 4;
 }
 
 .manga-card-list__cover :deep(.ant-image) {
-  width: 100%;
-  display: block;
+  position: absolute;
+  inset: 0;
 }
 
 .manga-card-list__like {

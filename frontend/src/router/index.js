@@ -12,12 +12,13 @@ const router = createRouter({
       path: '/library',
       name: 'library',
       component: () => import('../views/LibraryView.vue'),
-      meta: { keepAlive: true }
+      meta: { keepAlive: true, fullWidth: true }
     },
     {
       path: '/likes',
       name: 'likes',
-      component: () => import('../views/LikeView.vue')
+      component: () => import('../views/LikeView.vue'),
+      meta: { fullWidth: true }
     },
     {
       path: '/reader/:id',
@@ -28,17 +29,42 @@ const router = createRouter({
     },
     {
       path: '/settings',
-      redirect: { name: 'settings-library' }
+      redirect: { name: 'settings-general' }
     },
     {
-      path: '/settings/library-paths',
+      path: '/settings/general',
+      name: 'settings-general',
+      component: () => import('../views/SettingsGeneralView.vue')
+    },
+    {
+      path: '/settings/library',
       name: 'settings-library',
       component: () => import('../views/SettingsLibraryView.vue')
+    },
+    {
+      path: '/settings/display',
+      name: 'settings-display',
+      component: () => import('../views/SettingsDisplayView.vue')
+    },
+    {
+      path: '/settings/reader',
+      name: 'settings-reader',
+      component: () => import('../views/SettingsReaderView.vue')
     },
     {
       path: '/settings/tag-management',
       name: 'settings-tags',
       component: () => import('../views/SettingsTagManagementView.vue')
+    },
+    {
+      path: '/settings/tasks',
+      name: 'settings-tasks',
+      component: () => import('../views/SettingsTasksView.vue')
+    },
+    {
+      path: '/settings/advanced',
+      name: 'settings-advanced',
+      component: () => import('../views/SettingsAdvancedView.vue')
     },
     {
       path: '/maintenance',

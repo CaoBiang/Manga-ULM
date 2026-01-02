@@ -4,12 +4,15 @@ import { storeToRefs } from 'pinia'
 import axios from 'axios'
 import { useI18n } from 'vue-i18n'
 import MangaCard from '@/components/MangaCard.vue'
+import MangaGrid from '@/components/MangaGrid.vue'
 import TagSelector from '@/components/TagSelector.vue'
-import { useLibraryPreferencesStore } from '@/store/preferences'
+import { useUiSettingsStore } from '@/store/uiSettings'
+import { useAppSettingsStore } from '@/store/appSettings'
 
 const { t } = useI18n()
-const libraryPreferencesStore = useLibraryPreferencesStore()
-const { viewMode } = storeToRefs(libraryPreferencesStore)
+const appSettingsStore = useAppSettingsStore()
+const { libraryViewMode: viewMode, libraryLazyRootMarginPx } = storeToRefs(appSettingsStore)
+const uiSettingsStore = useUiSettingsStore()
 
 const library = ref([])
 const pagination = ref({
@@ -19,9 +22,9 @@ const pagination = ref({
   total_items: 0,
 })
 const isLoading = ref(true)
+const isLoadingMore = ref(false)
 const errorMessage = ref('')
 const currentPage = ref(1)
-const goToPageInput = ref(1)
 
 const keyword = ref('')
 const selectedTags = ref([])
@@ -35,7 +38,14 @@ const perPageSelectOptions = computed(() =>
     value: size,
   }))
 )
-const currentPageSize = ref(200)
+const currentPageSize = computed({
+  get: () => appSettingsStore.libraryPerPage,
+  set: (value) => {
+    appSettingsStore.setLibraryPerPage(value).catch((error) => {
+      console.error('保存每页数量失败：', error)
+    })
+  }
+})
 const filterPanelKey = 'filters-panel'
 const activeFilterPanels = ref([])
 
@@ -49,6 +59,9 @@ const scrollPosition = ref(0)
 let keywordDebounceHandle = null
 let statsRefreshHandle = null
 let isLoaded = false
+const isActive = ref(false)
+const loadMoreSentinel = ref(null)
+let loadMoreObserver = null
 
 const sortOptions = computed(() => [
   { label: t('sortNewest'), value: 'add_date:desc' },
@@ -82,6 +95,7 @@ const tagModeOptions = computed(() => [
 
 const statusCounts = computed(() => libraryStats.value?.status_counts ?? {})
 const paginationTotalItems = computed(() => pagination.value.total_items ?? library.value.length ?? 0)
+const hasMore = computed(() => (pagination.value.page ?? 1) < (pagination.value.total_pages ?? 1))
 
 const parseSortValue = (value) => {
   const [by, order] = (value || '').split(':')
@@ -91,11 +105,12 @@ const parseSortValue = (value) => {
   }
 }
 
-const resetToFirstPage = () => {
-  if (currentPage.value !== 1) {
-    currentPage.value = 1
-  } else {
-    fetchLibrary()
+const resetAndFetch = async ({ scrollToTop = true } = {}) => {
+  currentPage.value = 1
+  await fetchLibrary({ page: 1, append: false })
+  if (scrollToTop) {
+    scrollPosition.value = 0
+    nextTick(() => window.scrollTo(0, 0))
   }
 }
 
@@ -107,13 +122,21 @@ const isStatusButtonActive = (status) => {
   return selectedStatuses.value.includes(status)
 }
 
-const fetchLibrary = async () => {
-  isLoading.value = true
+const fetchLibrary = async ({ page = 1, append = false } = {}) => {
+  if (append) {
+    if (isLoading.value || isLoadingMore.value) {
+      return
+    }
+    isLoadingMore.value = true
+  } else {
+    isLoading.value = true
+  }
+
   errorMessage.value = ''
   try {
     const { by, order } = parseSortValue(sortValue.value)
     const params = {
-      page: currentPage.value,
+      page,
       per_page: currentPageSize.value,
       sort_by: by,
       sort_order: order,
@@ -140,7 +163,20 @@ const fetchLibrary = async () => {
     }
 
     const response = await axios.get('/api/v1/files', { params })
-    library.value = response.data.files || []
+    const files = response.data.files || []
+
+    if (append) {
+      const existingIds = new Set(library.value.map(item => item.id))
+      const merged = [...library.value]
+      for (const item of files) {
+        if (!existingIds.has(item.id)) {
+          merged.push(item)
+        }
+      }
+      library.value = merged
+    } else {
+      library.value = files
+    }
 
     const newPage = response.data.pagination?.page ?? params.page
     pagination.value = {
@@ -150,16 +186,59 @@ const fetchLibrary = async () => {
       total_items: response.data.pagination?.total_items ?? library.value.length,
     }
 
-    if (currentPage.value !== newPage) {
-      currentPage.value = newPage
-    }
-    goToPageInput.value = newPage
+    currentPage.value = newPage
   } catch (error) {
     console.error('Failed to fetch library:', error)
     errorMessage.value = error.response?.data?.error || t('failedToFetchLibrary')
   } finally {
-    isLoading.value = false
+    if (append) {
+      isLoadingMore.value = false
+    } else {
+      isLoading.value = false
+    }
+    if (isActive.value) {
+      nextTick(() => setupLoadMoreObserver())
+    }
   }
+}
+
+const loadMore = async () => {
+  if (isLoading.value || isLoadingMore.value) {
+    return
+  }
+  if (!hasMore.value) {
+    return
+  }
+  const nextPage = (pagination.value.page ?? currentPage.value ?? 1) + 1
+  await fetchLibrary({ page: nextPage, append: true })
+}
+
+const teardownLoadMoreObserver = () => {
+  if (loadMoreObserver) {
+    loadMoreObserver.disconnect()
+    loadMoreObserver = null
+  }
+}
+
+const setupLoadMoreObserver = () => {
+  teardownLoadMoreObserver()
+  if (!('IntersectionObserver' in window)) {
+    return
+  }
+  if (!loadMoreSentinel.value) {
+    return
+  }
+
+  loadMoreObserver = new IntersectionObserver(
+    entries => {
+      if (entries.some(entry => entry.isIntersecting)) {
+        loadMore()
+      }
+    },
+    { rootMargin: `${libraryLazyRootMarginPx.value}px 0px` }
+  )
+
+  loadMoreObserver.observe(loadMoreSentinel.value)
 }
 
 const fetchStats = async (force = false) => {
@@ -230,24 +309,6 @@ const toggleTag = (tag) => {
   }
 }
 
-const handlePageChange = (page) => {
-  if (page > 0 && page <= pagination.value.total_pages) {
-    currentPage.value = page
-  }
-}
-
-const goToPage = () => {
-  const page = Number(goToPageInput.value)
-  const totalPages = pagination.value.total_pages || 1
-
-  if (Number.isInteger(page) && page > 0 && page <= totalPages) {
-    handlePageChange(page)
-  } else {
-    window.alert(t('goToPageOutOfRange', { total: totalPages }))
-    goToPageInput.value = pagination.value.page
-  }
-}
-
 const handleMangaUpdate = (updatedManga) => {
   if (!updatedManga?.id) {
     return
@@ -260,15 +321,13 @@ const handleMangaUpdate = (updatedManga) => {
   scheduleStatsRefresh()
 }
 
-watch(currentPage, fetchLibrary)
+watch(() => currentPageSize.value, () => resetAndFetch())
+watch(() => sortValue.value, () => resetAndFetch())
+watch(() => tagMode.value, () => resetAndFetch())
+watch(() => likedFilter.value, () => resetAndFetch())
 
-watch(() => currentPageSize.value, () => resetToFirstPage())
-watch(() => sortValue.value, () => resetToFirstPage())
-watch(() => tagMode.value, () => resetToFirstPage())
-watch(() => likedFilter.value, () => resetToFirstPage())
-
-watch(() => selectedTags.value.map(tag => tag.id).sort().join(','), () => resetToFirstPage())
-watch(() => selectedStatuses.value.slice().sort().join(','), () => resetToFirstPage())
+watch(() => selectedTags.value.map(tag => tag.id).sort().join(','), () => resetAndFetch())
+watch(() => selectedStatuses.value.slice().sort().join(','), () => resetAndFetch())
 
 watch(keyword, () => {
   if (keywordDebounceHandle) {
@@ -280,36 +339,41 @@ watch(keyword, () => {
       keyword.value = trimmed
       return
     }
-    resetToFirstPage()
+    resetAndFetch()
   }, 300)
 })
 
 onActivated(() => {
+  isActive.value = true
+  uiSettingsStore.ensureLoaded()
   if (!isLoaded) {
-    fetchLibrary()
+    fetchLibrary({ page: 1, append: false })
     fetchStats()
     isLoaded = true
-  } else {
-    fetchLibrary()
-    fetchStats(true)
+    nextTick(() => setupLoadMoreObserver())
   }
 
   nextTick(() => {
     window.scrollTo(0, scrollPosition.value)
+    setupLoadMoreObserver()
   })
 })
 
 onDeactivated(() => {
   scrollPosition.value = window.scrollY
+  isActive.value = false
+  teardownLoadMoreObserver()
 })
 
 onBeforeUnmount(() => {
+  isActive.value = false
   if (keywordDebounceHandle) {
     clearTimeout(keywordDebounceHandle)
   }
   if (statsRefreshHandle) {
     clearTimeout(statsRefreshHandle)
   }
+  teardownLoadMoreObserver()
 })
 </script>
 
@@ -427,7 +491,7 @@ onBeforeUnmount(() => {
 
     <a-card v-else class="shadow-sm">
       <template v-if="library.length > 0">
-        <div v-if="viewMode === 'grid'" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
+        <MangaGrid v-if="viewMode === 'grid'">
           <MangaCard
             v-for="manga in library"
             :key="manga.id"
@@ -436,7 +500,7 @@ onBeforeUnmount(() => {
             @metadata-updated="handleMangaUpdate"
             v-memo="[manga.id, manga.is_liked, manga.reading_status, manga.progress_percent]"
           />
-        </div>
+        </MangaGrid>
         <div v-else class="space-y-3">
           <MangaCard
             v-for="manga in library"
@@ -447,29 +511,18 @@ onBeforeUnmount(() => {
           />
         </div>
 
-        <div class="mt-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <a-pagination
-            :current="pagination.page"
-            :total="paginationTotalItems"
-            :page-size="pagination.per_page"
-            :show-size-changer="false"
-            :hide-on-single-page="pagination.total_pages <= 1"
-            show-less-items
-            @change="handlePageChange"
-          />
-          <a-space align="center">
-            <span class="text-sm text-gray-600">
-              {{ t('pageIndicator', { currentPage: pagination.page, totalPages: pagination.total_pages }) }}
-            </span>
-            <a-input-number
-              v-model:value="goToPageInput"
-              :min="1"
-              :max="pagination.total_pages"
-              :precision="0"
-              style="width: 100px"
-            />
-            <a-button @click="goToPage">{{ t('go') }}</a-button>
-          </a-space>
+        <div class="mt-8 flex flex-col items-center gap-3">
+          <a-spin v-if="isLoadingMore" :tip="t('loadingMore')" />
+          <a-button v-else-if="hasMore" @click="loadMore">
+            {{ t('loadMore') }}
+          </a-button>
+          <a-typography-text v-else type="secondary">
+            {{ t('noMoreManga') }}
+          </a-typography-text>
+          <a-typography-text type="secondary">
+            {{ t('loadedCount', { loaded: library.length, total: paginationTotalItems }) }}
+          </a-typography-text>
+          <div ref="loadMoreSentinel" style="height: 1px; width: 1px"></div>
         </div>
       </template>
       <template v-else>

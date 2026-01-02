@@ -1,19 +1,19 @@
 from flask import request, jsonify
 from . import api
 from .. import huey, socketio, db
-from ..models.manga import Config, LibraryPath, Task
+from ..models.manga import LibraryPath, Task
 from ..tasks.scanner import start_scan_task
 
 @api.route('/library/scan', methods=['POST'])
 def scan_library():
     """
-    Starts a library scan task.
-    Expects a JSON payload with a 'path' key.
-    e.g., {"path": "/path/to/manga/library"}
+    启动单个路径的图书馆扫描任务。
+
+    请求体示例：{"path": "D:/漫画库"}
     """
     path = request.json.get('path')
     if not path:
-        return jsonify({'error': 'Path is required'}), 400
+        return jsonify({'error': '必须提供扫描路径'}), 400
     
     # Check if there's already an active scan task for this path
     existing_task = Task.query.filter_by(
@@ -24,17 +24,10 @@ def scan_library():
     
     if existing_task:
         return jsonify({
-            'error': 'A scan task is already running for this path',
+            'error': '该路径已存在运行中的扫描任务',
             'task_id': existing_task.task_id
         }), 409
-    
-    # Get max workers from config, with a default value
-    max_workers_setting = Config.query.get('scan.max_workers')
-    if max_workers_setting and max_workers_setting.value.isdigit():
-        max_workers = int(max_workers_setting.value)
-    else:
-        max_workers = 12 # Default value
-    
+
     # Create task record in database
     task_record = Task(
         name=f'扫描路径: {path}',
@@ -46,14 +39,14 @@ def scan_library():
     db.session.commit()
     
     # Dispatch the background task
-    task = start_scan_task(path, max_workers=max_workers, task_db_id=task_record.id)
+    task = start_scan_task(path, task_db_id=task_record.id)
     
     # Update task record with Huey task ID
     task_record.task_id = task.id
     db.session.commit()
     
     return jsonify({
-        'message': 'Scan started', 
+        'message': '已开始扫描', 
         'task_id': task.id,
         'db_task_id': task_record.id
     }), 202
@@ -61,11 +54,11 @@ def scan_library():
 @api.route('/library/scan_all', methods=['POST'])
 def scan_all_libraries():
     """
-    Starts scan tasks for all registered library paths.
+    启动所有已配置图书馆路径的扫描任务。
     """
     paths = LibraryPath.query.all()
     if not paths:
-        return jsonify({'error': 'No library paths have been configured.'}), 400
+        return jsonify({'error': '尚未配置图书馆路径'}), 400
     
     # Check if there are any active scan tasks
     active_tasks = Task.query.filter_by(
@@ -75,16 +68,9 @@ def scan_all_libraries():
     
     if active_tasks:
         return jsonify({
-            'error': 'There are already running scan tasks. Please wait for them to complete.',
+            'error': '当前存在运行中的扫描任务，请等待完成后再试',
             'active_tasks': [task.to_dict() for task in active_tasks]
         }), 409
-    
-    # Get max workers from config, with a default value
-    max_workers_setting = Config.query.get('scan.max_workers')
-    if max_workers_setting and max_workers_setting.value.isdigit():
-        max_workers = int(max_workers_setting.value)
-    else:
-        max_workers = 12 # Default value
 
     tasks = []
     for p in paths:
@@ -99,7 +85,7 @@ def scan_all_libraries():
         db.session.commit()
         
         # Dispatch the background task
-        task = start_scan_task(p.path, max_workers=max_workers, task_db_id=task_record.id)
+        task = start_scan_task(p.path, task_db_id=task_record.id)
         
         # Update task record with Huey task ID
         task_record.task_id = task.id
@@ -111,10 +97,10 @@ def scan_all_libraries():
             'db_task_id': task_record.id
         })
         
-    return jsonify({'message': 'Scan started for all libraries', 'tasks': tasks}), 202
+    return jsonify({'message': '已开始扫描全部图书馆路径', 'tasks': tasks}), 202
 
 # Placeholder for other library-related endpoints from the design doc
 @api.route('/library/sync-report', methods=['GET'])
 def get_sync_report():
     # TODO: Implement sync report logic
-    return jsonify({'message': 'Sync report placeholder'}) 
+    return jsonify({'message': '同步报告功能尚未实现'}) 

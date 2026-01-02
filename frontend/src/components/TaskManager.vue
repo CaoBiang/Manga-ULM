@@ -130,7 +130,7 @@ async function fetchActiveTasks() {
     const response = await axios.get('/api/v1/tasks/active')
     activeTasks.value = response.data.tasks
   } catch (error) {
-    console.error('Failed to fetch active tasks:', error)
+    console.error('获取活跃任务失败：', error)
     errorMessage.value = t('failedToFetchTasks')
   } finally {
     isLoading.value = false
@@ -151,9 +151,9 @@ async function cancelTask(taskId) {
   try {
     isCancelling.value = taskId
     await libraryStore.cancelTask(taskId)
-    await fetchActiveTasks() // 刷新任务列表
+    await fetchActiveTasks()
   } catch (error) {
-    console.error('Failed to cancel task:', error)
+    console.error('取消任务失败：', error)
     errorMessage.value = t('failedToCancelTask')
   } finally {
     isCancelling.value = null
@@ -177,7 +177,7 @@ function getStatusMeta(status) {
   }
 }
 
-// 获取状态文?
+// 获取状态文本
 function getStatusText(status) {
   switch (status) {
     case 'pending':
@@ -213,13 +213,13 @@ function getTaskTypeText(taskType) {
   }
 }
 
-// 格式化时?
+// 格式化时间
 function formatTime(timestamp) {
   if (!timestamp) return ''
   return new Date(timestamp).toLocaleString()
 }
 
-// 格式化时?
+// 格式化耗时
 function formatDuration(seconds) {
   if (seconds < 60) {
     return `${Math.round(seconds)}${t('secondsShort')}`
@@ -234,9 +234,9 @@ function formatDuration(seconds) {
   }
 }
 
-// 监听WebSocket事件
+// 监听 WebSocket 事件
 libraryStore.socket.on('task_progress', (data) => {
-  // 更新对应任务的状?
+  // 更新对应任务的状态
   const task = activeTasks.value.find(t => t.id === data.task_id)
   if (task) {
     task.progress = data.progress
@@ -246,18 +246,18 @@ libraryStore.socket.on('task_progress', (data) => {
 })
 
 libraryStore.socket.on('task_complete', (data) => {
-  // 任务完成，刷新任务列?
+  // 任务完成时刷新列表
   fetchActiveTasks()
 })
 
 libraryStore.socket.on('task_error', (data) => {
-  // 任务出错，刷新任务列?
+  // 任务出错时刷新列表
   fetchActiveTasks()
 })
 
 onMounted(() => {
   fetchActiveTasks()
-  // ?0秒自动刷新一?
+  // 每 30 秒自动刷新一次
   refreshInterval = setInterval(fetchActiveTasks, 30000)
 })
 
@@ -266,4 +266,4 @@ onUnmounted(() => {
     clearInterval(refreshInterval)
   }
 })
-</script> 
+</script>

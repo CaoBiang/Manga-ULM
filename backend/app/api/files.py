@@ -1,15 +1,19 @@
-from flask import jsonify, request, send_file
+from flask import jsonify, request, Response, stream_with_context
 from . import api
 from ..models import File, Tag
 from .. import db
 import os
-import zipfile
-import rarfile
-import py7zr
-import io
 import re
+from loguru import logger
 from sqlalchemy.orm import selectinload
 from sqlalchemy.sql.expression import func
+from ..infrastructure.archive_reader import (
+    get_entry_by_index,
+    get_entry_metadata as get_cached_entry_metadata,
+    guess_mimetype,
+    iter_entry_chunks,
+)
+from ..services.settings_service import get_int_setting
 from ..tasks.rename import sanitize_filename
 READING_STATUS_OPTIONS = {'unread', 'in_progress', 'finished'}
 SORTABLE_COLUMNS = {
@@ -21,13 +25,6 @@ SORTABLE_COLUMNS = {
     'last_read_page': lambda: func.coalesce(File.last_read_page, 0),
     'reading_status': lambda: File.reading_status,
 }
-
-def natural_sort_key(s):
-    """
-    A key for natural sorting.
-    Splits the string into numbers and text, and converts numbers to integers.
-    """
-    return [int(text) if text.isdigit() else text.lower() for text in re.split('([0-9]+)', s)]
 
 def file_to_dict(file_obj, is_liked=False):
     """Converts a File object to a dictionary."""
@@ -77,54 +74,28 @@ def file_to_dict(file_obj, is_liked=False):
         data['liked_at'] = file_obj.like_item.added_at.isoformat() if file_obj.like_item.added_at else None
     return data
 
-def get_image_from_archive(file_path, page_num):
+def build_page_response(file_path, page_num):
     """
-    Extracts a single image from a compressed archive without full decompression.
-    Returns the image data as a BytesIO stream and the mimetype.
+    按页流式返回图片，避免整本或整页一次性堆入内存。
     """
-    IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp']
-    ext = os.path.splitext(file_path)[1].lower()
-    
-    try:
-        if ext in ['.zip', '.cbz']:
-            with zipfile.ZipFile(file_path, 'r') as archive:
-                image_list = sorted(
-                    [name for name in archive.namelist() if any(name.lower().endswith(img_ext) for img_ext in IMAGE_EXTENSIONS) and not name.startswith('__MACOSX')],
-                    key=natural_sort_key
-                )
-                if 0 <= page_num < len(image_list):
-                    image_name = image_list[page_num]
-                    mimetype = f'image/{os.path.splitext(image_name)[1].lower().replace(".", "")}'
-                    return io.BytesIO(archive.read(image_name)), mimetype
-        
-        elif ext in ['.rar', '.cbr']:
-            with rarfile.RarFile(file_path, 'r') as archive:
-                image_list = sorted(
-                    [info.filename for info in archive.infolist() if any(info.filename.lower().endswith(img_ext) for img_ext in IMAGE_EXTENSIONS) and not info.isdir()],
-                    key=natural_sort_key
-                )
-                if 0 <= page_num < len(image_list):
-                    image_name = image_list[page_num]
-                    mimetype = f'image/{os.path.splitext(image_name)[1].lower().replace(".", "")}'
-                    return io.BytesIO(archive.read(image_name)), mimetype
+    entry = get_entry_by_index(file_path, page_num)
+    if entry is None:
+        return None
 
-        elif ext in ['.7z', '.cb7']:
-            with py7zr.SevenZipFile(file_path, 'r') as archive:
-                all_files = archive.readall()
-                image_list = sorted(
-                    [name for name, bio in all_files.items() if any(name.lower().endswith(img_ext) for img_ext in IMAGE_EXTENSIONS) and not bio.get('is_directory')],
-                    key=natural_sort_key
-                )
-                if 0 <= page_num < len(image_list):
-                    image_name = image_list[page_num]
-                    mimetype = f'image/{os.path.splitext(image_name)[1].lower().replace(".", "")}'
-                    # The content is already a BytesIO-like object in py7zr's case
-                    return all_files[image_name], mimetype
+    mimetype = guess_mimetype(entry.name)
+    content_length = entry.size
+    chunk_kb = get_int_setting('reader.stream.chunk_kb', default=512, min_value=64, max_value=4096)
+    chunk_size = chunk_kb * 1024
 
-    except Exception:
-        # Log the exception here
-        return None, None
-    return None, None
+    def generate():
+        yield from iter_entry_chunks(file_path, entry, chunk_size=chunk_size)
+
+    response = Response(stream_with_context(generate()), mimetype=mimetype, direct_passthrough=True)
+    if content_length:
+        response.headers['Content-Length'] = str(content_length)
+    # 避免浏览器缓存过期图片，交给前端自行控制
+    response.headers['Cache-Control'] = 'no-store'
+    return response
 
 
 def parse_int_list(raw_value):
@@ -156,50 +127,14 @@ def parse_bool(raw_value):
 
 def get_page_details_from_archive(file_path, page_num):
     """
-    Extracts metadata for a single image from a compressed archive.
-    Returns the image's filename and size.
+    复用索引缓存返回页面元数据，避免大文件重复解压。
     """
-    IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp']
-    ext = os.path.splitext(file_path)[1].lower()
-    
     try:
-        if ext in ['.zip', '.cbz']:
-            with zipfile.ZipFile(file_path, 'r') as archive:
-                image_infos = sorted(
-                    [info for info in archive.infolist() if any(info.filename.lower().endswith(img_ext) for img_ext in IMAGE_EXTENSIONS) and not info.filename.startswith('__MACOSX')],
-                    key=lambda info: natural_sort_key(info.filename)
-                )
-                if 0 <= page_num < len(image_infos):
-                    info = image_infos[page_num]
-                    return info.filename, info.file_size
-        
-        elif ext in ['.rar', '.cbr']:
-            with rarfile.RarFile(file_path, 'r') as archive:
-                image_infos = sorted(
-                    [info for info in archive.infolist() if any(info.filename.lower().endswith(img_ext) for img_ext in IMAGE_EXTENSIONS) and not info.isdir()],
-                    key=lambda info: natural_sort_key(info.filename)
-                )
-                if 0 <= page_num < len(image_infos):
-                    info = image_infos[page_num]
-                    return info.filename, info.file_size
-
-        elif ext in ['.7z', '.cb7']:
-             with py7zr.SevenZipFile(file_path, 'r') as archive:
-                # py7zr doesn't have a simple infolist like zipfile/rarfile that includes file size without extraction.
-                # This part might be slow as it reads the file entry. A better way would be needed for large 7z files if performance is critical.
-                all_files = archive.readall()
-                image_list = sorted(
-                    [name for name, bio in all_files.items() if any(name.lower().endswith(img_ext) for img_ext in IMAGE_EXTENSIONS) and not bio.get('is_directory')],
-                    key=natural_sort_key
-                )
-                if 0 <= page_num < len(image_list):
-                    image_name = image_list[page_num]
-                    # The content is a BytesIO-like object, so we can get its size.
-                    content = all_files[image_name]
-                    return image_name, content.getbuffer().nbytes
-
-    except Exception as e:
-        print(f"Error getting page details: {e}") # Basic logging
+        metadata = get_cached_entry_metadata(file_path, page_num)
+        if metadata:
+            return metadata
+    except Exception as exc:
+        logger.warning('获取页面元数据失败: {} | 页码: {} | 错误: {}', file_path, page_num, exc)
         return None, None
     return None, None
 
@@ -616,12 +551,11 @@ def get_file_page(id, page_num):
     if page_num < 0 or page_num >= file_record.total_pages:
         return jsonify({'error': 'Page number out of range'}), 400
 
-    image_stream, mimetype = get_image_from_archive(file_record.file_path, page_num)
-    
-    if image_stream and mimetype:
-        return send_file(image_stream, mimetype=mimetype)
-    else:
-        return jsonify({'error': 'Failed to extract page from archive'}), 500
+    response = build_page_response(file_record.file_path, page_num)
+    if response:
+        return response
+
+    return jsonify({'error': 'Failed to extract page from archive'}), 500
 
 @api.route('/files/<int:id>/page/<int:page_num>/details', methods=['GET'])
 def get_file_page_details(id, page_num):

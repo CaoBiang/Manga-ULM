@@ -155,13 +155,97 @@
           <a-input-number
             v-model:value="maxWorkers"
             :min="1"
-            :max="64"
+            :max="128"
             style="width: 160px"
             @change="() => saveSetting('scan.max_workers', maxWorkers)"
           />
         </a-form-item>
         <a-typography-text type="secondary">
           {{ $t('maxParallelScanProcessesHelp') }}
+        </a-typography-text>
+
+        <a-divider class="!my-4" />
+
+        <a-form-item :label="$t('scanSpreadRatio')">
+          <a-input-number
+            v-model:value="spreadRatio"
+            :min="1"
+            :max="5"
+            :step="0.1"
+            style="width: 160px"
+            @change="() => saveSetting('scan.spread.ratio', spreadRatio)"
+          />
+          <div class="mt-1 text-xs text-gray-500">
+            {{ $t('scanSpreadRatioHelp') }}
+          </div>
+        </a-form-item>
+
+        <a-divider class="!my-4" />
+
+        <a-typography-title :level="5" class="!mb-2">
+          {{ $t('scanCoverSettings') }}
+        </a-typography-title>
+
+        <div class="grid gap-4 md:grid-cols-2">
+          <a-form-item :label="$t('scanCoverMaxWidth')">
+            <a-input-number
+              v-model:value="coverMaxWidth"
+              :min="64"
+              :max="4000"
+              :step="10"
+              addon-after="px"
+              style="width: 220px"
+              @change="() => saveSetting('scan.cover.max_width', coverMaxWidth)"
+            />
+          </a-form-item>
+
+          <a-form-item :label="$t('scanCoverTargetKb')">
+            <a-input-number
+              v-model:value="coverTargetKb"
+              :min="50"
+              :max="5000"
+              :step="50"
+              addon-after="KB"
+              style="width: 220px"
+              @change="() => saveSetting('scan.cover.target_kb', coverTargetKb)"
+            />
+          </a-form-item>
+
+          <a-form-item :label="$t('scanCoverQualityStart')">
+            <a-input-number
+              v-model:value="coverQualityStart"
+              :min="1"
+              :max="100"
+              :step="1"
+              style="width: 220px"
+              @change="() => saveSetting('scan.cover.quality_start', coverQualityStart)"
+            />
+          </a-form-item>
+
+          <a-form-item :label="$t('scanCoverQualityMin')">
+            <a-input-number
+              v-model:value="coverQualityMin"
+              :min="1"
+              :max="100"
+              :step="1"
+              style="width: 220px"
+              @change="() => saveSetting('scan.cover.quality_min', coverQualityMin)"
+            />
+          </a-form-item>
+
+          <a-form-item :label="$t('scanCoverQualityStep')">
+            <a-input-number
+              v-model:value="coverQualityStep"
+              :min="1"
+              :max="50"
+              :step="1"
+              style="width: 220px"
+              @change="() => saveSetting('scan.cover.quality_step', coverQualityStep)"
+            />
+          </a-form-item>
+        </div>
+        <a-typography-text type="secondary">
+          {{ $t('scanCoverSettingsHelp') }}
         </a-typography-text>
       </a-form>
     </a-card>
@@ -193,6 +277,12 @@ const currentScanDisplay = computed(
 const libraryPaths = ref([])
 const newPath = ref('')
 const maxWorkers = ref(12)
+const spreadRatio = ref(1.5)
+const coverMaxWidth = ref(500)
+const coverTargetKb = ref(300)
+const coverQualityStart = ref(80)
+const coverQualityMin = ref(10)
+const coverQualityStep = ref(10)
 const statusMessage = ref('')
 const isError = ref(false)
 let statusTimer = null
@@ -332,12 +422,26 @@ function deletePath(id) {
 
 async function fetchSettings() {
   try {
-    const workersRes = await axios
-      .get('/api/v1/settings/scan.max_workers')
-      .catch(e => e.response)
-    if (workersRes && workersRes.status === 200 && workersRes.data['scan.max_workers'] !== null) {
-      maxWorkers.value = parseInt(workersRes.data['scan.max_workers'], 10)
+    const response = await axios.get('/api/v1/settings')
+    const settings = response.data || {}
+
+    const toInt = (value, fallback) => {
+      const parsed = Number.parseInt(String(value), 10)
+      return Number.isNaN(parsed) ? fallback : parsed
     }
+    const toFloat = (value, fallback) => {
+      const parsed = Number.parseFloat(String(value))
+      return Number.isNaN(parsed) ? fallback : parsed
+    }
+
+    maxWorkers.value = toInt(settings['scan.max_workers'], 12)
+    spreadRatio.value = toFloat(settings['scan.spread.ratio'], 1.5)
+
+    coverMaxWidth.value = toInt(settings['scan.cover.max_width'], 500)
+    coverTargetKb.value = toInt(settings['scan.cover.target_kb'], 300)
+    coverQualityStart.value = toInt(settings['scan.cover.quality_start'], 80)
+    coverQualityMin.value = toInt(settings['scan.cover.quality_min'], 10)
+    coverQualityStep.value = toInt(settings['scan.cover.quality_step'], 10)
   } catch (error) {
     console.error('Failed to fetch settings:', error)
     showStatus(t('failedToFetchSettings'), true)

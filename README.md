@@ -23,6 +23,20 @@ This project was bootstrapped based on a detailed design document. It currently 
 *   **At-a-glance Insights**: A library overview dashboard surfaces key metrics (totals, size, top tags) and highlight reels (recently added/read, largest files) powered by the new `/api/v1/files/stats` endpoint.
 *   **In-place Reading Controls**: Cards now expose progress bars, status cycling, quick status buttons, and instant like toggles that sync through new backend APIs.
 
+## 性能优化速览
+
+- 新增 `archive_reader` 索引缓存：基于文件大小与修改时间缓存页列表，翻页不再重复遍历压缩目录。
+- 阅读按页流式解压：Zip/Rar 逐块读取，7z 按页解压，避免整本漫画灌入内存。
+- 扫描/封面提取按页处理：封面与跨页检测仅解压当前页，减少 CPU 与内存占用。
+- 书库列表滚动懒加载：先拉取第一页，再按滚动加载更多；封面按视口触发请求，减少首屏卡顿。
+- 详情见 `docs/performance.md`。
+
+## 文档
+
+- 阅读器说明：`docs/reader.md`
+- 性能优化说明：`docs/performance.md`
+- 设置说明：`docs/settings.md`
+
 ## Getting Started
 
 ### Prerequisites

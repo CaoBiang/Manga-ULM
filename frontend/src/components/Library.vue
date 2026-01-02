@@ -7,10 +7,12 @@ import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { useI18n } from 'vue-i18n'
 import { message } from 'ant-design-vue'
+import { useAppSettingsStore } from '@/store/appSettings'
 
 const { t } = useI18n()
 const router = useRouter()
 const libraryStore = useLibraryStore()
+const appSettingsStore = useAppSettingsStore()
 const { 
   scanProgress, 
   scanStatus, 
@@ -61,7 +63,7 @@ const handleFileSelection = (fileId, isSelected) => {
 }
 
 const startBatchRename = async () => {
-  const template = localStorage.getItem('mangaFilenameTemplate')
+  const template = appSettingsStore.renameFilenameTemplate
   if (!template) {
     message.warning(t('pleaseSaveFilenameTemplate'))
     return

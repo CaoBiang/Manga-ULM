@@ -40,7 +40,7 @@ const fetchTagData = async () => {
     const response = await axios.get('/api/v1/tag_types')
     tagTypes.value = response.data
   } catch (error) {
-    console.error('Failed to fetch tag types:', error)
+    console.error('加载标签类型失败：', error)
     message.error(t('failedToFetchTagTypes'))
   }
 }

@@ -10,3 +10,4 @@ eventlet
 rarfile
 py7zr
 Pillow
+loguru

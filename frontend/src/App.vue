@@ -26,14 +26,39 @@ const navItems = computed(() => [
     icon: SettingOutlined,
     children: [
       {
+        key: 'settings-general',
+        label: t('generalSettings'),
+        path: '/settings/general'
+      },
+      {
         key: 'settings-library',
-        label: t('libraryPathManagement'),
-        path: '/settings/library-paths'
+        label: t('librarySettings'),
+        path: '/settings/library'
+      },
+      {
+        key: 'settings-display',
+        label: t('displaySettings'),
+        path: '/settings/display'
+      },
+      {
+        key: 'settings-reader',
+        label: t('readerSettings'),
+        path: '/settings/reader'
       },
       {
         key: 'settings-tags',
         label: t('tagManagement'),
         path: '/settings/tag-management'
+      },
+      {
+        key: 'settings-tasks',
+        label: t('taskManager'),
+        path: '/settings/tasks'
+      },
+      {
+        key: 'settings-advanced',
+        label: t('advancedSettings'),
+        path: '/settings/advanced'
       }
     ]
   },
@@ -100,6 +125,7 @@ function findNavItem(key, withParent = false, items = navItems.value, parentKey 
 }
 
 const isFullScreenRoute = computed(() => route.meta?.fullScreen)
+const isFullWidthRoute = computed(() => route.meta?.fullWidth)
 
 const theme = computed(() => ({
   token: {
@@ -189,7 +215,7 @@ const theme = computed(() => ({
       <a-layout>
         <PageHeader :collapsed="collapsed" @toggle-collapsed="toggleCollapsed" />
         <a-layout-content class="app-content">
-          <div class="mx-auto w-full max-w-7xl">
+          <div :class="isFullWidthRoute ? 'w-full' : 'mx-auto w-full max-w-7xl'">
             <router-view v-slot="{ Component, route }">
               <keep-alive>
                 <component :is="Component" :key="route.name" v-if="route.meta.keepAlive" />

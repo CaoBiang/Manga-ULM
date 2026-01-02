@@ -38,7 +38,9 @@
           class="reader-view__toolbar-collapsed"
           @click="expandToolbar"
         >
-          <a-tag color="blue">{{ currentPage + 1 }} / {{ totalPages }}</a-tag>
+          <a-typography-text strong class="reader-view__toolbar-progress">
+            {{ currentPage + 1 }} / {{ totalPages }}
+          </a-typography-text>
         </div>
         <a-card
           v-else
@@ -189,10 +191,14 @@ import {
   PlusOutlined,
   InfoCircleOutlined
 } from '@ant-design/icons-vue'
+import { storeToRefs } from 'pinia'
+import { useAppSettingsStore } from '@/store/appSettings'
 
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
+const appSettingsStore = useAppSettingsStore()
+const { readerPreloadAhead, readerSplitDefaultEnabled, readerWideRatioThreshold } = storeToRefs(appSettingsStore)
 
 const fileId = route.params.id
 const currentPage = ref(0)
@@ -220,7 +226,7 @@ const sizeUnits = computed(() => [
   t('sizeUnitTB')
 ])
 
-const isPagingEnabled = ref(false)
+const isPagingEnabled = ref(!!readerSplitDefaultEnabled.value)
 const isCurrentImageWide = ref(false)
 const showRightHalf = ref(false)
 
@@ -242,7 +248,8 @@ const imageStyles = computed(() => {
 
 const onImageLoad = event => {
   const img = event.target
-  isCurrentImageWide.value = img.naturalWidth > img.naturalHeight
+  const ratio = img.naturalHeight > 0 ? img.naturalWidth / img.naturalHeight : 1
+  isCurrentImageWide.value = ratio >= (readerWideRatioThreshold.value || 1.0)
 }
 
 const togglePagingMode = () => {
@@ -263,10 +270,10 @@ const isCurrentPageBookmarked = computed(() =>
 )
 
 const preloadedImages = ref({})
-const preloadAhead = 2
 
 const preloadImages = () => {
-  for (let i = 1; i <= preloadAhead; i += 1) {
+  const ahead = readerPreloadAhead.value || 0
+  for (let i = 1; i <= ahead; i += 1) {
     const pageToLoad = currentPage.value + i
     if (pageToLoad < totalPages.value && !preloadedImages.value[pageToLoad]) {
       const img = new Image()
@@ -602,6 +609,13 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   cursor: pointer;
+}
+
+.reader-view__toolbar-progress {
+  color: rgba(255, 255, 255, 0.9);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  user-select: none;
 }
 
 .reader-view__toolbar-card {

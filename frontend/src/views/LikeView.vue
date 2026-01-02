@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import axios from 'axios'
 import { message } from 'ant-design-vue'
 import MangaCard from '../components/MangaCard.vue'
+import MangaGrid from '@/components/MangaGrid.vue'
 
 const likedItems = ref([])
 const isLoading = ref(true)
@@ -29,14 +30,14 @@ onMounted(fetchLikes)
   <a-card :title="$t('myWishlist')" class="shadow-sm">
     <a-spin v-if="isLoading" class="w-full flex justify-center py-10" />
     <template v-else>
-      <div v-if="likedItems.length" class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+      <MangaGrid v-if="likedItems.length">
         <MangaCard
           v-for="manga in likedItems"
           :key="manga.id"
           :manga="manga"
           :hide-wishlist-button="true"
         />
-      </div>
+      </MangaGrid>
       <a-empty v-else :description="$t('wishlistEmpty')" class="py-12" />
     </template>
   </a-card>

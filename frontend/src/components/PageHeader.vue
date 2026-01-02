@@ -8,7 +8,7 @@ import {
   MenuUnfoldOutlined,
   ReloadOutlined
 } from '@ant-design/icons-vue'
-import { useLibraryPreferencesStore } from '@/store/preferences'
+import { useAppSettingsStore } from '@/store/appSettings'
 
 const props = defineProps({
   collapsed: {
@@ -28,13 +28,20 @@ const titleKeyMap = {
   library: 'library',
   likes: 'wishlist',
   settings: 'settings',
+  'settings-general': 'generalSettings',
+  'settings-library': 'librarySettings',
+  'settings-display': 'displaySettings',
+  'settings-reader': 'readerSettings',
+  'settings-tags': 'tagManagement',
+  'settings-tasks': 'taskManager',
+  'settings-advanced': 'advancedSettings',
   maintenance: 'maintenance',
   reader: 'reader',
   edit: 'editFileDetails'
 }
 
-const libraryPreferencesStore = useLibraryPreferencesStore()
-const { viewMode } = storeToRefs(libraryPreferencesStore)
+const appSettingsStore = useAppSettingsStore()
+const { libraryViewMode } = storeToRefs(appSettingsStore)
 
 const pageTitle = computed(() => {
   const key = titleKeyMap[route.name] || 'home'
@@ -63,7 +70,7 @@ const viewToggleOptions = computed(() => [
 const showViewToggle = computed(() => route.name === 'library')
 
 const handleViewModeChange = (mode) => {
-  libraryPreferencesStore.setViewMode(mode)
+  appSettingsStore.setLibraryViewMode(mode)
 }
 </script>
 
@@ -103,7 +110,7 @@ const handleViewModeChange = (mode) => {
           {{ t('viewModeLabel') }}
         </span>
         <a-segmented
-          :value="viewMode"
+          :value="libraryViewMode"
           :options="viewToggleOptions"
           size="small"
           @change="handleViewModeChange"

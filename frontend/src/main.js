@@ -8,20 +8,36 @@ import 'ant-design-vue/dist/reset.css'
 import App from './App.vue'
 import router from './router'
 import './assets/main.css'
+import { useUiSettingsStore } from './store/uiSettings'
+import { useAppSettingsStore } from './store/appSettings'
 
-const app = createApp(App)
+async function bootstrap() {
+  const app = createApp(App)
 
-app.use(createPinia())
-app.use(router)
-app.use(Antd)
+  const pinia = createPinia()
+  app.use(pinia)
+  app.use(router)
+  app.use(Antd)
 
-const i18n = createI18n({
-  legacy: false,
-  locale: localStorage.getItem('lang') || 'en',
-  fallbackLocale: 'en',
-  messages,
-})
+  const i18n = createI18n({
+    legacy: false,
+    locale: 'zh',
+    fallbackLocale: 'zh',
+    messages
+  })
 
-app.use(i18n)
+  app.use(i18n)
 
-app.mount('#app') 
+  const appSettingsStore = useAppSettingsStore(pinia)
+  await appSettingsStore.ensureLoaded()
+  i18n.global.locale.value = appSettingsStore.language
+  if (typeof document !== 'undefined') {
+    document.documentElement.lang = appSettingsStore.language
+  }
+
+  useUiSettingsStore(pinia).ensureLoaded()
+
+  app.mount('#app')
+}
+
+bootstrap()
