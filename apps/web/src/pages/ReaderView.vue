@@ -280,6 +280,7 @@ const newBookmarkNote = ref('')
 const bookmarkNoteInputRef = ref(null)
 const activePanel = ref('')
 const pageIndicatorRef = ref(null)
+const collapsedToolbarWidthPx = ref(null)
 const fileInfo = ref({
   loading: false,
   error: null,
@@ -432,6 +433,9 @@ const toolbarStyleVars = computed(() => {
     '--reader-toolbar-anim-ms': `${ms}ms`,
     '--reader-toolbar-anim-fast-ms': `${Math.round(ms * 0.65)}ms`,
     '--reader-toolbar-anim-delay-ms': `${Math.round(ms * 0.18)}ms`,
+    '--reader-toolbar-collapsed-width-px': collapsedToolbarWidthPx.value
+      ? `${collapsedToolbarWidthPx.value}px`
+      : 'fit-content',
     '--reader-ui-control-backdrop-filter': blurValue,
     '--reader-ui-control-bg': `rgba(18, 18, 18, ${bgOpacity})`,
     '--reader-ui-control-bg-hover': `rgba(28, 28, 28, ${bgHover})`,
@@ -444,6 +448,23 @@ const toolbarStyleVars = computed(() => {
 const isPagingEnabled = ref(!!readerSplitDefaultEnabled.value)
 const isCurrentImageWide = ref(false)
 const showRightHalf = ref(false)
+
+let pageIndicatorResizeObserver = null
+
+const updateCollapsedToolbarWidth = () => {
+  const indicatorEl = pageIndicatorRef.value
+  if (!indicatorEl || typeof indicatorEl.getBoundingClientRect !== 'function') {
+    collapsedToolbarWidthPx.value = null
+    return
+  }
+
+  const rect = indicatorEl.getBoundingClientRect()
+  const paddingX = 12 * 2
+  const borderX = 1 * 2
+  const width = Math.ceil(rect.width + paddingX + borderX)
+  const maxWidth = Math.floor((window.innerWidth || 0) * 0.9)
+  collapsedToolbarWidthPx.value = maxWidth > 0 ? Math.min(maxWidth, width) : width
+}
 
 const shouldShowSplitView = computed(() => isPagingEnabled.value && isCurrentImageWide.value)
 
@@ -510,6 +531,10 @@ watch(currentPage, (newPage, oldPage) => {
   if (fileInfo.value.data && newPage !== oldPage) {
     fileInfo.value.data = null
   }
+
+  nextTick(() => {
+    updateCollapsedToolbarWidth()
+  })
 })
 
 const debounce = (func, delay) => {
@@ -819,11 +844,27 @@ onMounted(() => {
   fetchMangaDetails()
   fetchBookmarks()
   window.addEventListener('keydown', handleKeydown)
+  window.addEventListener('resize', updateCollapsedToolbarWidth)
+
+  nextTick(() => {
+    updateCollapsedToolbarWidth()
+    if (typeof window.ResizeObserver === 'function' && pageIndicatorRef.value) {
+      pageIndicatorResizeObserver = new ResizeObserver(() => {
+        updateCollapsedToolbarWidth()
+      })
+      pageIndicatorResizeObserver.observe(pageIndicatorRef.value)
+    }
+  })
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
+  window.removeEventListener('resize', updateCollapsedToolbarWidth)
   debouncedUpdateProgress.flush()
+  if (pageIndicatorResizeObserver) {
+    pageIndicatorResizeObserver.disconnect()
+    pageIndicatorResizeObserver = null
+  }
 })
 </script>
 
@@ -937,11 +978,12 @@ onUnmounted(() => {
   padding: 4px 12px;
   color: #fff;
   box-shadow: var(--reader-toolbar-shell-shadow, 0 10px 30px rgba(0, 0, 0, 0.45));
-  width: fit-content;
+  width: var(--reader-toolbar-collapsed-width-px, fit-content);
   max-width: min(900px, 90vw);
 
   transition:
     padding var(--reader-toolbar-anim-ms) cubic-bezier(0.22, 1, 0.36, 1),
+    width var(--reader-toolbar-anim-ms) cubic-bezier(0.22, 1, 0.36, 1),
     background var(--reader-toolbar-anim-fast-ms) ease,
     border-color var(--reader-toolbar-anim-fast-ms) ease,
     box-shadow var(--reader-toolbar-anim-fast-ms) ease;
@@ -1018,7 +1060,9 @@ onUnmounted(() => {
   margin-top: 0;
   cursor: pointer;
 
-  transition: margin-top var(--reader-toolbar-anim-ms) cubic-bezier(0.22, 1, 0.36, 1);
+  transition:
+    margin-top var(--reader-toolbar-anim-ms) cubic-bezier(0.22, 1, 0.36, 1),
+    gap var(--reader-toolbar-anim-ms) cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .reader-view__toolbar-shell.is-expanded .reader-view__toolbar-controls-row {
@@ -1126,12 +1170,18 @@ onUnmounted(() => {
   transition:
     max-height var(--reader-toolbar-anim-ms) cubic-bezier(0.22, 1, 0.36, 1),
     opacity var(--reader-toolbar-anim-fast-ms) ease,
+    margin-top var(--reader-toolbar-anim-ms) cubic-bezier(0.22, 1, 0.36, 1),
+    padding-top var(--reader-toolbar-anim-ms) cubic-bezier(0.22, 1, 0.36, 1),
+    border-top-color var(--reader-toolbar-anim-fast-ms) ease,
     transform var(--reader-toolbar-anim-ms) cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .panel-enter-from,
 .panel-leave-to {
   max-height: 0;
+  margin-top: 0;
+  padding-top: 0;
+  border-top-color: transparent;
   opacity: 0;
   transform: translateY(6px);
 }
@@ -1139,7 +1189,11 @@ onUnmounted(() => {
 .panel-enter-to,
 .panel-leave-from {
   max-height: 520px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top-color: rgba(255, 255, 255, 0.2);
   opacity: 1;
   transform: translateY(0);
 }
+
 </style>
