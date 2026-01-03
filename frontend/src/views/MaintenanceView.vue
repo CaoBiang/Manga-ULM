@@ -4,6 +4,8 @@ import { useI18n } from 'vue-i18n'
 import axios from 'axios'
 import { Modal, message } from 'ant-design-vue'
 import BackupManager from '../components/BackupManager.vue'
+import GlassPage from '@/components/glass/ui/GlassPage.vue'
+import GlassSurface from '@/components/glass/ui/GlassSurface.vue'
 
 const duplicates = ref([])
 const isLoadingDuplicates = ref(false)
@@ -71,10 +73,11 @@ const cleanupSelectedMissingFiles = () => {
 </script>
 
 <template>
-  <a-space direction="vertical" size="large" class="w-full">
-    <BackupManager />
+  <GlassPage :title="$t('maintenance')">
+    <a-space direction="vertical" size="large" class="w-full">
+      <BackupManager />
 
-    <a-card :title="$t('duplicateFinder')" class="shadow-sm">
+      <GlassSurface :title="$t('duplicateFinder')">
       <a-button type="primary" :loading="isLoadingDuplicates" @click="findDuplicates">
         {{ isLoadingDuplicates ? $t('scanning') : $t('findDuplicates') }}
       </a-button>
@@ -101,9 +104,9 @@ const cleanupSelectedMissingFiles = () => {
         </template>
       </a-list>
       <a-empty v-else-if="!isLoadingDuplicates" class="mt-4" :description="$t('noDuplicatesFound')" />
-    </a-card>
+      </GlassSurface>
 
-    <a-card :title="$t('missingFileCleanup')" class="shadow-sm">
+      <GlassSurface :title="$t('missingFileCleanup')">
       <a-space wrap class="mb-4">
         <a-button type="primary" :loading="isLoadingMissing" @click="findMissingFiles">
           {{ isLoadingMissing ? $t('scanning') : $t('findMissingFiles') }}
@@ -142,6 +145,7 @@ const cleanupSelectedMissingFiles = () => {
       </a-list>
 
       <a-empty v-else-if="!isLoadingMissing" :description="$t('noMissingFilesFound')" />
-    </a-card>
-  </a-space>
+      </GlassSurface>
+    </a-space>
+  </GlassPage>
 </template>

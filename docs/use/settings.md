@@ -30,6 +30,22 @@ flowchart TD
 - Key：`ui.reader.ui.blur_enabled`
 - Value：`0`
 
+## 漫画管理器外观相关（新增）
+
+漫画管理器（非阅读器）页面统一使用毛玻璃风格，可在“设置” -> “显示设置”中调整：
+
+- `ui.manager.ui.blur_enabled`：是否启用磨砂模糊（`0/1`）。
+- `ui.manager.ui.blur_radius_px`：模糊半径（像素，`0–30`）。
+- `ui.manager.ui.surface_bg_opacity`：容器背景透明度（`0.35–0.95`）。
+- `ui.manager.ui.surface_border_opacity`：容器边框透明度（`0.06–0.45`）。
+- `ui.manager.ui.control_bg_opacity`：控件背景透明度（`0.18–0.9`）。
+- `ui.manager.ui.control_border_opacity`：控件边框透明度（`0.06–0.6`）。
+
+示例：关闭管理器模糊（更省性能）
+
+- Key：`ui.manager.ui.blur_enabled`
+- Value：`0`
+
 ## 阅读器交互（新增）
 
 阅读器支持“点击区域”配置，用于控制点击画面左/中/右区域时执行的动作，并可调整每个区域的响应范围。

@@ -1,18 +1,21 @@
 <template>
-  <div class="p-4 md:p-8">
+  <GlassPage :title="$t('displaySettings')">
     <a-space direction="vertical" size="large" class="w-full">
-      <a-typography-title :level="2" class="!mb-0">
-        {{ $t('displaySettings') }}
-      </a-typography-title>
-
-      <a-card :title="$t('libraryDisplaySettings')" :bordered="false">
+      <GlassSurface :title="$t('libraryDisplaySettings')">
         <LibraryDisplaySettings />
-      </a-card>
+      </GlassSurface>
+
+      <GlassSurface :title="$t('managerUiAppearance')">
+        <ManagerAppearanceSettings />
+      </GlassSurface>
     </a-space>
-  </div>
+  </GlassPage>
 </template>
 
 <script setup>
 import LibraryDisplaySettings from '@/components/LibraryDisplaySettings.vue'
+import ManagerAppearanceSettings from '@/components/glass/settings/ManagerAppearanceSettings.vue'
+import GlassPage from '@/components/glass/ui/GlassPage.vue'
+import GlassSurface from '@/components/glass/ui/GlassSurface.vue'
 </script>
 

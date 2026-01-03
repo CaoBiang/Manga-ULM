@@ -5,6 +5,8 @@ import axios from 'axios'
 import { message } from 'ant-design-vue'
 import MangaCard from '../components/MangaCard.vue'
 import MangaGrid from '@/components/MangaGrid.vue'
+import GlassPage from '@/components/glass/ui/GlassPage.vue'
+import GlassSurface from '@/components/glass/ui/GlassSurface.vue'
 
 const likedItems = ref([])
 const isLoading = ref(true)
@@ -27,18 +29,20 @@ onMounted(fetchLikes)
 </script>
 
 <template>
-  <a-card :title="$t('myWishlist')" class="shadow-sm">
-    <a-spin v-if="isLoading" class="w-full flex justify-center py-10" />
-    <template v-else>
-      <MangaGrid v-if="likedItems.length">
-        <MangaCard
-          v-for="manga in likedItems"
-          :key="manga.id"
-          :manga="manga"
-          :hide-wishlist-button="true"
-        />
-      </MangaGrid>
-      <a-empty v-else :description="$t('wishlistEmpty')" class="py-12" />
-    </template>
-  </a-card>
+  <GlassPage :title="$t('myWishlist')">
+    <GlassSurface>
+      <a-spin v-if="isLoading" class="w-full flex justify-center py-10" />
+      <template v-else>
+        <MangaGrid v-if="likedItems.length">
+          <MangaCard
+            v-for="manga in likedItems"
+            :key="manga.id"
+            :manga="manga"
+            :hide-wishlist-button="true"
+          />
+        </MangaGrid>
+        <a-empty v-else :description="$t('wishlistEmpty')" class="py-12" />
+      </template>
+    </GlassSurface>
+  </GlassPage>
 </template>

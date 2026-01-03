@@ -1,11 +1,7 @@
 <template>
-  <div class="p-4 md:p-8">
+  <GlassPage :title="$t('tagManagement')">
     <a-space direction="vertical" size="large" class="w-full">
-      <a-typography-title :level="2" class="!mb-0">
-        {{ $t('tagManagement') }}
-      </a-typography-title>
-
-      <a-card :title="$t('tagTypeManagement')" :bordered="false">
+      <GlassSurface :title="$t('tagTypeManagement')">
         <a-space direction="vertical" size="large" class="w-full">
           <div>
             <a-typography-title :level="4">
@@ -18,9 +14,9 @@
 
           <TagManager :types="tagTypes" />
         </a-space>
-      </a-card>
+      </GlassSurface>
     </a-space>
-  </div>
+  </GlassPage>
 </template>
 
 <script setup>
@@ -31,6 +27,8 @@ import { useI18n } from 'vue-i18n'
 
 import TagTypeManager from '@/components/TagTypeManager.vue'
 import TagManager from '@/components/TagManager.vue'
+import GlassPage from '@/components/glass/ui/GlassPage.vue'
+import GlassSurface from '@/components/glass/ui/GlassSurface.vue'
 
 const { t } = useI18n()
 const tagTypes = ref([])

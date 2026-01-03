@@ -1,11 +1,7 @@
 <template>
-  <div class="p-4 md:p-8">
+  <GlassPage :title="$t('advancedSettings')">
     <a-space direction="vertical" size="large" class="w-full">
-      <a-typography-title :level="2" class="!mb-0">
-        {{ $t('advancedSettings') }}
-      </a-typography-title>
-
-      <a-card :bordered="false">
+      <GlassSurface>
         <a-space direction="vertical" size="middle" class="w-full">
           <a-alert :message="$t('advancedSettingsHelp')" type="info" show-icon />
 
@@ -54,7 +50,7 @@
             </template>
           </a-table>
         </a-space>
-      </a-card>
+      </GlassSurface>
     </a-space>
 
     <a-modal
@@ -73,7 +69,7 @@
         </a-form-item>
       </a-form>
     </a-modal>
-  </div>
+  </GlassPage>
 </template>
 
 <script setup>
@@ -81,6 +77,8 @@ import { computed, onMounted, ref } from 'vue'
 import axios from 'axios'
 import { message, Modal } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
+import GlassPage from '@/components/glass/ui/GlassPage.vue'
+import GlassSurface from '@/components/glass/ui/GlassSurface.vue'
 
 const { t } = useI18n()
 

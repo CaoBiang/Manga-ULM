@@ -1,16 +1,16 @@
 <template>
-  <div class="p-4 md:p-8">
+  <GlassPage :title="$t('taskManager')">
     <a-space direction="vertical" size="large" class="w-full">
-      <a-typography-title :level="2" class="!mb-0">
-        {{ $t('taskManager') }}
-      </a-typography-title>
-
-      <TaskManager />
+      <GlassSurface>
+        <TaskManager />
+      </GlassSurface>
     </a-space>
-  </div>
+  </GlassPage>
 </template>
 
 <script setup>
 import TaskManager from '@/components/TaskManager.vue'
+import GlassPage from '@/components/glass/ui/GlassPage.vue'
+import GlassSurface from '@/components/glass/ui/GlassSurface.vue'
 </script>
 

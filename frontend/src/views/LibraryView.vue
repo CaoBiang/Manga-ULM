@@ -8,6 +8,8 @@ import MangaGrid from '@/components/MangaGrid.vue'
 import TagSelector from '@/components/TagSelector.vue'
 import { useUiSettingsStore } from '@/store/uiSettings'
 import { useAppSettingsStore } from '@/store/appSettings'
+import GlassPage from '@/components/glass/ui/GlassPage.vue'
+import GlassSurface from '@/components/glass/ui/GlassSurface.vue'
 
 const { t } = useI18n()
 const appSettingsStore = useAppSettingsStore()
@@ -378,163 +380,165 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <a-space direction="vertical" size="large" class="w-full">
-    <a-card class="shadow-sm filters-card" :bodyStyle="{ padding: 0 }">
-      <a-collapse
-        v-model:activeKey="activeFilterPanels"
-        :bordered="false"
-        expand-icon-position="start"
-      >
-        <a-collapse-panel
-          :key="filterPanelKey"
-          :header="t('filtersPanelTitle')"
-          class="filters-card__panel"
+  <GlassPage>
+    <a-space direction="vertical" size="large" class="w-full">
+      <GlassSurface class="filters-card" padding="none">
+        <a-collapse
+          v-model:activeKey="activeFilterPanels"
+          :bordered="false"
+          expand-icon-position="start"
         >
-          <a-form layout="vertical" class="filters-form">
-            <div class="filters-section filters-section--search">
-              <a-form-item :label="t('keywordPlaceholder')" class="filters-field">
-                <a-input-search
-                  v-model:value="keyword"
-                  :placeholder="t('keywordPlaceholder')"
-                  allow-clear
-                  size="large"
-                />
-              </a-form-item>
-              <a-form-item :label="t('filterByTags')" class="filters-field">
-                <TagSelector v-model="selectedTags" />
-              </a-form-item>
-            </div>
+          <a-collapse-panel
+            :key="filterPanelKey"
+            :header="t('filtersPanelTitle')"
+            class="filters-card__panel"
+          >
+            <a-form layout="vertical" class="filters-form">
+              <div class="filters-section filters-section--search">
+                <a-form-item :label="t('keywordPlaceholder')" class="filters-field">
+                  <a-input-search
+                    v-model:value="keyword"
+                    :placeholder="t('keywordPlaceholder')"
+                    allow-clear
+                    size="large"
+                  />
+                </a-form-item>
+                <a-form-item :label="t('filterByTags')" class="filters-field">
+                  <TagSelector v-model="selectedTags" />
+                </a-form-item>
+              </div>
 
-            <div class="filters-section filters-section--controls">
-              <a-form-item :label="t('itemsPerPage')" class="filters-field">
-                <a-select
-                  v-model:value="currentPageSize"
-                  :options="perPageSelectOptions"
-                  size="large"
-                />
-              </a-form-item>
-              <a-form-item :label="t('sortOrder')" class="filters-field">
-                <a-select
-                  v-model:value="sortValue"
-                  :options="sortOptions"
-                  size="large"
-                />
-              </a-form-item>
-              <a-form-item :label="t('tagModeLabel')" class="filters-field">
-                <a-segmented
-                  :value="tagMode"
-                  :options="tagModeOptions"
-                  size="large"
-                  @change="setTagMode"
-                />
-              </a-form-item>
-              <a-form-item :label="t('likedFilterLabel')" class="filters-field">
-                <a-segmented
-                  :value="likedFilter"
-                  :options="likedOptions"
-                  size="large"
-                  @change="setLikedFilter"
-                />
-              </a-form-item>
-            </div>
+              <div class="filters-section filters-section--controls">
+                <a-form-item :label="t('itemsPerPage')" class="filters-field">
+                  <a-select
+                    v-model:value="currentPageSize"
+                    :options="perPageSelectOptions"
+                    size="large"
+                  />
+                </a-form-item>
+                <a-form-item :label="t('sortOrder')" class="filters-field">
+                  <a-select
+                    v-model:value="sortValue"
+                    :options="sortOptions"
+                    size="large"
+                  />
+                </a-form-item>
+                <a-form-item :label="t('tagModeLabel')" class="filters-field">
+                  <a-segmented
+                    :value="tagMode"
+                    :options="tagModeOptions"
+                    size="large"
+                    @change="setTagMode"
+                  />
+                </a-form-item>
+                <a-form-item :label="t('likedFilterLabel')" class="filters-field">
+                  <a-segmented
+                    :value="likedFilter"
+                    :options="likedOptions"
+                    size="large"
+                    @change="setLikedFilter"
+                  />
+                </a-form-item>
+              </div>
 
-            <a-divider class="filters-divider" />
+              <a-divider class="filters-divider" />
 
-            <div class="filters-section filters-section--status">
-              <span class="filters-section__label">{{ t('statFilterByStatus') }}</span>
-              <a-space wrap>
-                <a-tag
-                  v-for="option in statusOptions"
-                  :key="`filter-status-${option.value}`"
-                  :color="isStatusButtonActive(option.value) ? option.color : undefined"
-                  class="cursor-pointer"
-                  :class="{ 'opacity-60': !isStatusButtonActive(option.value) }"
-                  @click="toggleStatus(option.value)"
-                >
-                  {{ option.label }}
-                  <span v-if="option.value !== 'all'" class="ml-1 text-xs">({{ statusCount(option.value) }})</span>
-                </a-tag>
-              </a-space>
-            </div>
+              <div class="filters-section filters-section--status">
+                <span class="filters-section__label">{{ t('statFilterByStatus') }}</span>
+                <a-space wrap>
+                  <a-tag
+                    v-for="option in statusOptions"
+                    :key="`filter-status-${option.value}`"
+                    :color="isStatusButtonActive(option.value) ? option.color : undefined"
+                    class="cursor-pointer"
+                    :class="{ 'opacity-60': !isStatusButtonActive(option.value) }"
+                    @click="toggleStatus(option.value)"
+                  >
+                    {{ option.label }}
+                    <span v-if="option.value !== 'all'" class="ml-1 text-xs">({{ statusCount(option.value) }})</span>
+                  </a-tag>
+                </a-space>
+              </div>
 
-            <div v-if="selectedTags.length > 0" class="filters-active-tags">
-              <span class="filters-section__label">{{ t('activeTagFilters') }}</span>
-              <a-space wrap>
-                <a-tag
-                  v-for="tag in selectedTags"
-                  :key="`active-tag-${tag.id}`"
-                  color="blue"
-                  closable
-                  @close.prevent="toggleTag(tag)"
-                >
-                  {{ tag.name }}
-                </a-tag>
-              </a-space>
-            </div>
-          </a-form>
-        </a-collapse-panel>
-      </a-collapse>
-    </a-card>
+              <div v-if="selectedTags.length > 0" class="filters-active-tags">
+                <span class="filters-section__label">{{ t('activeTagFilters') }}</span>
+                <a-space wrap>
+                  <a-tag
+                    v-for="tag in selectedTags"
+                    :key="`active-tag-${tag.id}`"
+                    color="blue"
+                    closable
+                    @close.prevent="toggleTag(tag)"
+                  >
+                    {{ tag.name }}
+                  </a-tag>
+                </a-space>
+              </div>
+            </a-form>
+          </a-collapse-panel>
+        </a-collapse>
+      </GlassSurface>
 
-    <a-alert
-      v-if="errorMessage"
-      type="error"
-      show-icon
-      :message="errorMessage"
-    />
+      <a-alert
+        v-if="errorMessage"
+        type="error"
+        show-icon
+        :message="errorMessage"
+      />
 
-    <a-card v-if="isLoading" class="shadow-sm">
-      <div class="flex justify-center py-12">
-        <a-spin :tip="t('loadingLibrary')" size="large" />
-      </div>
-    </a-card>
-
-    <a-card v-else class="shadow-sm">
-      <template v-if="library.length > 0">
-        <MangaGrid v-if="viewMode === 'grid'">
-          <MangaCard
-            v-for="manga in library"
-            :key="manga.id"
-            :manga="manga"
-            :view-mode="viewMode"
-            @metadata-updated="handleMangaUpdate"
-            v-memo="[manga.id, manga.is_liked, manga.reading_status, manga.progress_percent]"
-          />
-        </MangaGrid>
-        <div v-else class="space-y-3">
-          <MangaCard
-            v-for="manga in library"
-            :key="`list-${manga.id}`"
-            :manga="manga"
-            :view-mode="viewMode"
-            @metadata-updated="handleMangaUpdate"
-          />
+      <GlassSurface v-if="isLoading">
+        <div class="flex justify-center py-12">
+          <a-spin :tip="t('loadingLibrary')" size="large" />
         </div>
+      </GlassSurface>
 
-        <div class="mt-8 flex flex-col items-center gap-3">
-          <a-spin v-if="isLoadingMore" :tip="t('loadingMore')" />
-          <a-button v-else-if="hasMore" @click="loadMore">
-            {{ t('loadMore') }}
-          </a-button>
-          <a-typography-text v-else type="secondary">
-            {{ t('noMoreManga') }}
-          </a-typography-text>
-          <a-typography-text type="secondary">
-            {{ t('loadedCount', { loaded: library.length, total: paginationTotalItems }) }}
-          </a-typography-text>
-          <div ref="loadMoreSentinel" style="height: 1px; width: 1px"></div>
-        </div>
-      </template>
-      <template v-else>
-        <a-empty :description="t('noMangaFoundTip')">
-          <template #description>
-            <span>{{ t('noMangaFoundTip') }}</span>
-          </template>
-          <span class="font-medium text-gray-700">{{ t('noMangaFound') }}</span>
-        </a-empty>
-      </template>
-    </a-card>
-  </a-space>
+      <GlassSurface v-else>
+        <template v-if="library.length > 0">
+          <MangaGrid v-if="viewMode === 'grid'">
+            <MangaCard
+              v-for="manga in library"
+              :key="manga.id"
+              :manga="manga"
+              :view-mode="viewMode"
+              @metadata-updated="handleMangaUpdate"
+              v-memo="[manga.id, manga.is_liked, manga.reading_status, manga.progress_percent]"
+            />
+          </MangaGrid>
+          <div v-else class="space-y-3">
+            <MangaCard
+              v-for="manga in library"
+              :key="`list-${manga.id}`"
+              :manga="manga"
+              :view-mode="viewMode"
+              @metadata-updated="handleMangaUpdate"
+            />
+          </div>
+
+          <div class="mt-8 flex flex-col items-center gap-3">
+            <a-spin v-if="isLoadingMore" :tip="t('loadingMore')" />
+            <a-button v-else-if="hasMore" @click="loadMore">
+              {{ t('loadMore') }}
+            </a-button>
+            <a-typography-text v-else type="secondary">
+              {{ t('noMoreManga') }}
+            </a-typography-text>
+            <a-typography-text type="secondary">
+              {{ t('loadedCount', { loaded: library.length, total: paginationTotalItems }) }}
+            </a-typography-text>
+            <div ref="loadMoreSentinel" style="height: 1px; width: 1px"></div>
+          </div>
+        </template>
+        <template v-else>
+          <a-empty :description="t('noMangaFoundTip')">
+            <template #description>
+              <span>{{ t('noMangaFoundTip') }}</span>
+            </template>
+            <span class="font-medium text-gray-700">{{ t('noMangaFound') }}</span>
+          </a-empty>
+        </template>
+      </GlassSurface>
+    </a-space>
+  </GlassPage>
 </template>
 
 <style>
@@ -544,7 +548,7 @@ onBeforeUnmount(() => {
 }
 
 .filters-card :deep(.ant-collapse-item) {
-  border-bottom: 1px solid #f2f4f7;
+  border-bottom: 1px solid var(--manager-ui-surface-border, rgba(255, 255, 255, 0.14));
   border-radius: 0;
   background: transparent;
 }
@@ -557,7 +561,7 @@ onBeforeUnmount(() => {
   padding: 16px 24px;
   font-size: 1rem;
   font-weight: 600;
-  color: #0f172a;
+  color: var(--manager-ui-text, rgba(15, 23, 42, 0.92));
 }
 
 .filters-card :deep(.ant-collapse-content-box) {

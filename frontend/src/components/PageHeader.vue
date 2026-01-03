@@ -32,6 +32,7 @@ const titleKeyMap = {
   'settings-library': 'librarySettings',
   'settings-display': 'displaySettings',
   'settings-reader': 'readerSettings',
+  'settings-reader-interaction': 'readerInteractionSettings',
   'settings-tags': 'tagManagement',
   'settings-tasks': 'taskManager',
   'settings-advanced': 'advancedSettings',
@@ -136,9 +137,11 @@ const handleViewModeChange = (mode) => {
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(6px);
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  background: var(--manager-ui-surface-bg, rgba(255, 255, 255, 0.72));
+  backdrop-filter: var(--manager-ui-backdrop-filter, blur(10px));
+  -webkit-backdrop-filter: var(--manager-ui-backdrop-filter, blur(10px));
+  box-shadow: var(--manager-ui-shadow-sm, 0 6px 18px rgba(15, 23, 42, 0.08));
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
 }
 
 .page-header__left {

@@ -1,25 +1,23 @@
 <template>
-  <div class="p-4 md:p-8">
+  <GlassPage :title="$t('librarySettings')">
     <a-space direction="vertical" size="large" class="w-full">
-      <a-typography-title :level="2" class="!mb-0">
-        {{ $t('librarySettings') }}
-      </a-typography-title>
-
       <ScannerSettings />
 
-      <a-card :title="$t('libraryBrowseSettings')" :bordered="false">
+      <GlassSurface :title="$t('libraryBrowseSettings')">
         <LibraryBrowseSettings />
-      </a-card>
+      </GlassSurface>
 
-      <a-card :title="$t('renameSettings')" :bordered="false">
+      <GlassSurface :title="$t('renameSettings')">
         <RenameTemplateSettings />
-      </a-card>
+      </GlassSurface>
     </a-space>
-  </div>
+  </GlassPage>
 </template>
 
 <script setup>
 import ScannerSettings from '@/components/ScannerSettings.vue'
 import LibraryBrowseSettings from '@/components/LibraryBrowseSettings.vue'
 import RenameTemplateSettings from '@/components/RenameTemplateSettings.vue'
+import GlassPage from '@/components/glass/ui/GlassPage.vue'
+import GlassSurface from '@/components/glass/ui/GlassSurface.vue'
 </script>

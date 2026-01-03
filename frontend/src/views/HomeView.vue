@@ -3,6 +3,8 @@ import { ref, computed, onMounted, onActivated } from 'vue'
 import axios from 'axios'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
+import GlassPage from '@/components/glass/ui/GlassPage.vue'
+import GlassSurface from '@/components/glass/ui/GlassSurface.vue'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -117,161 +119,153 @@ onActivated(() => {
 </script>
 
 <template>
-  <a-space direction="vertical" size="large" class="w-full">
-    <a-card class="shadow-sm" :bodyStyle="{ padding: '20px 24px' }">
-      <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <p class="text-sm font-semibold uppercase tracking-wide text-monet-blue">
-            {{ t('home') }}
-          </p>
-          <h1 class="text-3xl font-bold text-gray-900">{{ t('libraryDashboardTitle') }}</h1>
-          <p class="text-sm text-gray-500">{{ t('libraryDashboardSubtitle') }}</p>
-        </div>
-        <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <a-button size="large" @click="refreshStats" :loading="statsLoading">
-            {{ t('refresh') }}
-          </a-button>
-          <a-button type="primary" size="large" @click="goToLibrary">
-            {{ t('viewLibraryButton') }}
-          </a-button>
-        </div>
+  <GlassPage
+    :title="t('libraryDashboardTitle')"
+    :subtitle="t('libraryDashboardSubtitle')"
+  >
+    <template #extra>
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <a-button size="large" @click="refreshStats" :loading="statsLoading">
+          {{ t('refresh') }}
+        </a-button>
+        <a-button type="primary" size="large" @click="goToLibrary">
+          {{ t('viewLibraryButton') }}
+        </a-button>
       </div>
-    </a-card>
+    </template>
 
-    <a-card class="shadow-sm">
-      <template #title>
-        {{ t('libraryOverview') }}
-      </template>
+    <a-space direction="vertical" size="large" class="w-full">
+      <GlassSurface :title="t('libraryOverview')">
+        <template #extra>
+          <a-space align="center">
+            <a-typography-text v-if="lastUpdatedDisplay" type="secondary">
+              {{ t('lastUpdatedLabel', { time: lastUpdatedDisplay }) }}
+            </a-typography-text>
+            <a-typography-text v-if="statsError" type="danger">
+              {{ statsError }}
+            </a-typography-text>
+            <a-button size="small" :loading="statsLoading" @click="refreshStats">
+              {{ statsLoading ? t('loading') : t('refresh') }}
+            </a-button>
+          </a-space>
+        </template>
 
-      <template #extra>
-        <a-space align="center">
-          <a-typography-text v-if="lastUpdatedDisplay" type="secondary">
-            {{ t('lastUpdatedLabel', { time: lastUpdatedDisplay }) }}
-          </a-typography-text>
-          <a-typography-text v-if="statsError" type="danger">
-            {{ statsError }}
-          </a-typography-text>
-          <a-button size="small" :loading="statsLoading" @click="refreshStats">
-            {{ statsLoading ? t('loading') : t('refresh') }}
-          </a-button>
-        </a-space>
-      </template>
+        <div v-if="statsLoading && !libraryStats" class="flex justify-center py-12">
+          <a-spin :tip="t('loading')" size="large" />
+        </div>
 
-      <div v-if="statsLoading && !libraryStats" class="flex justify-center py-12">
-        <a-spin :tip="t('loading')" size="large" />
-      </div>
+        <template v-else-if="libraryStats">
+          <a-row :gutter="[16, 16]" class="mb-4">
+            <a-col :xs="24" :md="12" :xl="6">
+              <GlassSurface variant="card" padding="sm" class="h-full">
+                <a-statistic
+                  :title="t('statTitlesTotal')"
+                  :value="totals.items || 0"
+                  :value-style="{ fontWeight: 800, color: 'rgba(15, 23, 42, 0.92)' }"
+                />
+                <a-typography-text type="secondary">
+                  {{ t('statPagesTotal', { count: totalPagesDisplay }) }}
+                </a-typography-text>
+                <br>
+                <a-typography-text type="secondary">
+                  {{ t('statAveragePages', { count: averagePagesDisplay }) }}
+                </a-typography-text>
+              </GlassSurface>
+            </a-col>
+            <a-col :xs="24" :md="12" :xl="6">
+              <GlassSurface variant="card" padding="sm" class="h-full">
+                <p class="text-sm font-medium text-gray-600">{{ t('statFilterByStatus') }}</p>
+                <a-space wrap class="mt-3">
+                  <a-tag
+                    v-for="item in statusSummary"
+                    :key="`status-summary-${item.key}`"
+                    :color="item.color"
+                  >
+                    {{ item.label }}
+                    <span class="ml-1 text-xs text-white/80">({{ item.count }})</span>
+                  </a-tag>
+                </a-space>
+              </GlassSurface>
+            </a-col>
+            <a-col :xs="24" :md="12" :xl="6">
+              <GlassSurface variant="card" padding="sm" class="h-full">
+                <p class="text-sm font-medium text-gray-600">{{ t('statEngagement') }}</p>
+                <a-typography-text class="block mt-2">
+                  {{ t('statLikedCount', { count: likedCountDisplay }) }}
+                </a-typography-text>
+                <a-typography-text class="block">
+                  {{ t('statTotalSize', { size: totalSizeReadable }) }}
+                </a-typography-text>
+              </GlassSurface>
+            </a-col>
+            <a-col :xs="24" :md="12" :xl="6">
+              <GlassSurface variant="card" padding="sm" class="h-full">
+                <p class="text-sm font-medium text-gray-600">{{ t('statTopTags') }}</p>
+                <a-space wrap class="mt-3">
+                  <a-tag
+                    v-for="tag in topTagsPreview"
+                    :key="`top-tag-${tag.id}`"
+                    color="geekblue"
+                  >
+                    {{ tag.name }}
+                    <span class="ml-1 text-xs text-white/80">({{ tag.usage_count }})</span>
+                  </a-tag>
+                  <span v-if="!topTagsPreview.length" class="text-xs text-gray-400">{{ t('statEmptyList') }}</span>
+                </a-space>
+              </GlassSurface>
+            </a-col>
+          </a-row>
 
-      <template v-else-if="libraryStats">
-        <a-row :gutter="[16, 16]" class="mb-4">
-          <a-col :xs="24" :md="12" :xl="6">
-            <a-card size="small" class="h-full bg-gradient-to-br from-monet-blue/60 to-white" :bordered="false">
-              <a-statistic
-                :title="t('statTitlesTotal')"
-                :value="totals.items || 0"
-                :value-style="{ fontWeight: 700, color: '#1f2937' }"
-              />
-              <a-typography-text type="secondary">
-                {{ t('statPagesTotal', { count: totalPagesDisplay }) }}
-              </a-typography-text>
-              <br>
-              <a-typography-text type="secondary">
-                {{ t('statAveragePages', { count: averagePagesDisplay }) }}
-              </a-typography-text>
-            </a-card>
-          </a-col>
-          <a-col :xs="24" :md="12" :xl="6">
-            <a-card size="small" class="h-full" :bordered="false">
-              <p class="text-sm font-medium text-gray-600">{{ t('statFilterByStatus') }}</p>
-              <a-space wrap class="mt-3">
-                <a-tag
-                  v-for="item in statusSummary"
-                  :key="`status-summary-${item.key}`"
-                  :color="item.color"
+          <a-row v-if="hasHighlights" :gutter="[16, 16]">
+            <a-col :xs="24" :md="12">
+              <GlassSurface variant="card" padding="sm" :title="t('recentlyAdded')">
+                <a-list
+                  :data-source="highlightRecentlyAdded"
+                  :locale="{ emptyText: t('statEmptyList') }"
+                  size="small"
+                  bordered
                 >
-                  {{ item.label }}
-                  <span class="ml-1 text-xs text-white/80">({{ item.count }})</span>
-                </a-tag>
-              </a-space>
-            </a-card>
-          </a-col>
-          <a-col :xs="24" :md="12" :xl="6">
-            <a-card size="small" class="h-full" :bordered="false">
-              <p class="text-sm font-medium text-gray-600">{{ t('statEngagement') }}</p>
-              <a-typography-text class="block mt-2">
-                {{ t('statLikedCount', { count: likedCountDisplay }) }}
-              </a-typography-text>
-              <a-typography-text class="block">
-                {{ t('statTotalSize', { size: totalSizeReadable }) }}
-              </a-typography-text>
-            </a-card>
-          </a-col>
-          <a-col :xs="24" :md="12" :xl="6">
-            <a-card size="small" class="h-full" :bordered="false">
-              <p class="text-sm font-medium text-gray-600">{{ t('statTopTags') }}</p>
-              <a-space wrap class="mt-3">
-                <a-tag
-                  v-for="tag in topTagsPreview"
-                  :key="`top-tag-${tag.id}`"
-                  color="geekblue"
+                  <template #renderItem="{ item }">
+                    <a-list-item class="!px-0 flex items-center justify-between gap-3">
+                      <RouterLink
+                        :to="{ name: 'reader', params: { id: item.id } }"
+                        class="font-medium text-monet-blue hover:underline truncate flex-1"
+                      >
+                        {{ item.display_name || item.file_path }}
+                      </RouterLink>
+                      <span class="text-xs text-gray-500 whitespace-nowrap">{{ formatDateTime(item.add_date) }}</span>
+                    </a-list-item>
+                  </template>
+                </a-list>
+              </GlassSurface>
+            </a-col>
+            <a-col :xs="24" :md="12">
+              <GlassSurface variant="card" padding="sm" :title="t('recentlyRead')">
+                <a-list
+                  :data-source="highlightRecentlyRead"
+                  :locale="{ emptyText: t('statEmptyList') }"
+                  size="small"
+                  bordered
                 >
-                  {{ tag.name }}
-                  <span class="ml-1 text-xs text-white/80">({{ tag.usage_count }})</span>
-                </a-tag>
-                <span v-if="!topTagsPreview.length" class="text-xs text-gray-400">{{ t('statEmptyList') }}</span>
-              </a-space>
-            </a-card>
-          </a-col>
-        </a-row>
+                  <template #renderItem="{ item }">
+                    <a-list-item class="!px-0 flex items-center justify-between gap-3">
+                      <RouterLink
+                        :to="{ name: 'reader', params: { id: item.id } }"
+                        class="font-medium text-monet-blue hover:underline truncate flex-1"
+                      >
+                        {{ item.display_name || item.file_path }}
+                      </RouterLink>
+                      <span class="text-xs text-gray-500 whitespace-nowrap">{{ formatDateTime(item.last_read_date) }}</span>
+                    </a-list-item>
+                  </template>
+                </a-list>
+              </GlassSurface>
+            </a-col>
+          </a-row>
+        </template>
 
-        <a-row v-if="hasHighlights" :gutter="[16, 16]">
-          <a-col :xs="24" :md="12">
-            <a-card size="small" type="inner" :title="t('recentlyAdded')">
-              <a-list
-                :data-source="highlightRecentlyAdded"
-                :locale="{ emptyText: t('statEmptyList') }"
-                size="small"
-                bordered
-              >
-                <template #renderItem="{ item }">
-                  <a-list-item class="!px-0 flex items-center justify-between gap-3">
-                    <RouterLink
-                      :to="{ name: 'reader', params: { id: item.id } }"
-                      class="font-medium text-monet-blue hover:underline truncate flex-1"
-                    >
-                      {{ item.display_name || item.file_path }}
-                    </RouterLink>
-                    <span class="text-xs text-gray-500 whitespace-nowrap">{{ formatDateTime(item.add_date) }}</span>
-                  </a-list-item>
-                </template>
-              </a-list>
-            </a-card>
-          </a-col>
-          <a-col :xs="24" :md="12">
-            <a-card size="small" type="inner" :title="t('recentlyRead')">
-              <a-list
-                :data-source="highlightRecentlyRead"
-                :locale="{ emptyText: t('statEmptyList') }"
-                size="small"
-                bordered
-              >
-                <template #renderItem="{ item }">
-                  <a-list-item class="!px-0 flex items-center justify-between gap-3">
-                    <RouterLink
-                      :to="{ name: 'reader', params: { id: item.id } }"
-                      class="font-medium text-monet-blue hover:underline truncate flex-1"
-                    >
-                      {{ item.display_name || item.file_path }}
-                    </RouterLink>
-                    <span class="text-xs text-gray-500 whitespace-nowrap">{{ formatDateTime(item.last_read_date) }}</span>
-                  </a-list-item>
-                </template>
-              </a-list>
-            </a-card>
-          </a-col>
-        </a-row>
-      </template>
-
-      <a-empty v-else :description="statsError || t('failedToFetchStats')" />
-    </a-card>
-  </a-space>
+        <a-empty v-else :description="statsError || t('failedToFetchStats')" />
+      </GlassSurface>
+    </a-space>
+  </GlassPage>
 </template>

@@ -1,11 +1,7 @@
 <template>
-  <div class="p-4 md:p-8">
+  <GlassPage :title="$t('generalSettings')">
     <a-space direction="vertical" size="large" class="w-full">
-      <a-typography-title :level="2" class="!mb-0">
-        {{ $t('generalSettings') }}
-      </a-typography-title>
-
-      <a-card :title="$t('language')" :bordered="false">
+      <GlassSurface :title="$t('language')">
         <a-form layout="vertical" @submit.prevent>
           <a-form-item :label="$t('language')">
             <a-select
@@ -18,15 +14,17 @@
             </a-select>
           </a-form-item>
         </a-form>
-      </a-card>
+      </GlassSurface>
     </a-space>
-  </div>
+  </GlassPage>
 </template>
 
 <script setup>
 import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppSettingsStore } from '@/store/appSettings'
+import GlassPage from '@/components/glass/ui/GlassPage.vue'
+import GlassSurface from '@/components/glass/ui/GlassSurface.vue'
 
 const { locale } = useI18n()
 const appSettingsStore = useAppSettingsStore()

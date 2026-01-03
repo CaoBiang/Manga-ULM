@@ -6,6 +6,8 @@ import axios from 'axios'
 import { message } from 'ant-design-vue'
 import { DeleteOutlined } from '@ant-design/icons-vue'
 import TagSelector from '@/components/TagSelector.vue'
+import GlassPage from '@/components/glass/ui/GlassPage.vue'
+import GlassSurface from '@/components/glass/ui/GlassSurface.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -221,8 +223,9 @@ onMounted(fetchData)
 </script>
 
 <template>
-  <a-space direction="vertical" size="large" class="w-full">
-    <a-card class="shadow-sm" :bodyStyle="{ padding: '20px 24px' }">
+  <GlassPage>
+    <a-space direction="vertical" size="large" class="w-full">
+      <GlassSurface padding="lg">
       <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div class="min-w-0">
           <a-typography-title :level="4" class="!mb-0">
@@ -241,24 +244,24 @@ onMounted(fetchData)
           </a-button>
         </a-space>
       </div>
-    </a-card>
+      </GlassSurface>
 
-    <a-spin :spinning="loading">
-      <a-result
-        v-if="error"
-        status="error"
-        :title="$t('failedToLoadLibrary')"
-        :sub-title="error"
-      >
-        <template #extra>
-          <a-button type="primary" @click="fetchData">
-            {{ $t('retry') }}
-          </a-button>
-        </template>
-      </a-result>
+      <a-spin :spinning="loading">
+        <a-result
+          v-if="error"
+          status="error"
+          :title="$t('failedToLoadLibrary')"
+          :sub-title="error"
+        >
+          <template #extra>
+            <a-button type="primary" @click="fetchData">
+              {{ $t('retry') }}
+            </a-button>
+          </template>
+        </a-result>
 
-      <template v-else-if="file">
-        <a-card class="shadow-sm" :title="$t('metadata')">
+        <template v-else-if="file">
+          <GlassSurface :title="$t('metadata')">
           <a-form layout="vertical" @submit.prevent>
             <a-form-item :label="$t('filename')">
               <a-space class="w-full" wrap>
@@ -291,9 +294,9 @@ onMounted(fetchData)
               <span class="break-all">{{ file.file_hash }}</span>
             </a-descriptions-item>
           </a-descriptions>
-        </a-card>
+          </GlassSurface>
 
-        <a-card class="shadow-sm" :title="$t('tags')">
+          <GlassSurface :title="$t('tags')">
           <a-space direction="vertical" size="middle" class="w-full">
             <TagSelector v-model="file.tags" />
             <a-divider class="my-0" />
@@ -310,9 +313,9 @@ onMounted(fetchData)
             </a-space>
             <a-empty v-else :description="$t('tagsEmpty')" />
           </a-space>
-        </a-card>
+          </GlassSurface>
 
-        <a-card class="shadow-sm" :title="$t('bookmarks')">
+          <GlassSurface :title="$t('bookmarks')">
           <a-form layout="inline" @submit.prevent class="mb-4 flex flex-wrap gap-2">
             <a-form-item :label="$t('page')">
               <a-input-number
@@ -359,9 +362,9 @@ onMounted(fetchData)
               </template>
             </template>
           </a-table>
-        </a-card>
+          </GlassSurface>
 
-        <a-card class="shadow-sm" :bodyStyle="{ padding: '16px 24px' }">
+          <GlassSurface padding="md">
           <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <a-checkbox v-model:checked="renameFileOnSave">
               {{ $t('renameFileOnSave') }}
@@ -378,8 +381,9 @@ onMounted(fetchData)
               </a-button>
             </div>
           </div>
-        </a-card>
-      </template>
-    </a-spin>
-  </a-space>
+          </GlassSurface>
+        </template>
+      </a-spin>
+    </a-space>
+  </GlassPage>
 </template>

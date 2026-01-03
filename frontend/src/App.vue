@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, watchEffect, onBeforeUnmount } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
@@ -10,6 +10,7 @@ import {
   BookOutlined
 } from '@ant-design/icons-vue'
 import PageHeader from '@/components/PageHeader.vue'
+import { useAppSettingsStore } from '@/store/appSettings'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -131,6 +132,49 @@ function findNavItem(key, withParent = false, items = navItems.value, parentKey 
 
 const isFullScreenRoute = computed(() => route.meta?.fullScreen)
 
+const appSettingsStore = useAppSettingsStore()
+
+const managerUiCssVars = computed(() => ({
+  '--manager-ui-blur-enabled': appSettingsStore.managerUiBlurEnabled ? '1' : '0',
+  '--manager-ui-blur-radius-px': String(appSettingsStore.managerUiBlurRadiusPx),
+  '--manager-ui-surface-bg-opacity': String(appSettingsStore.managerUiSurfaceBgOpacity),
+  '--manager-ui-surface-border-opacity': String(appSettingsStore.managerUiSurfaceBorderOpacity),
+  '--manager-ui-control-bg-opacity': String(appSettingsStore.managerUiControlBgOpacity),
+  '--manager-ui-control-border-opacity': String(appSettingsStore.managerUiControlBorderOpacity)
+}))
+
+const managerBodyClass = 'app-is-manager'
+const managerVarKeys = Object.freeze(Object.keys(managerUiCssVars.value))
+
+const cleanupManagerUiFromBody = () => {
+  if (typeof document === 'undefined') {
+    return
+  }
+  document.body.classList.remove(managerBodyClass)
+  for (const key of managerVarKeys) {
+    document.body.style.removeProperty(key)
+  }
+}
+
+watchEffect(() => {
+  if (typeof document === 'undefined') {
+    return
+  }
+
+  if (isFullScreenRoute.value) {
+    cleanupManagerUiFromBody()
+    return
+  }
+
+  document.body.classList.add(managerBodyClass)
+  for (const [key, value] of Object.entries(managerUiCssVars.value)) {
+    document.body.style.setProperty(key, value)
+  }
+})
+
+onBeforeUnmount(() => {
+  cleanupManagerUiFromBody()
+})
 
 const theme = computed(() => ({
   token: {
@@ -166,7 +210,7 @@ const theme = computed(() => ({
         <component :is="Component" :key="route.name" v-if="!route.meta.keepAlive" />
       </router-view>
     </div>
-    <a-layout v-else class="app-layout">
+    <a-layout v-else class="app-layout manager-shell">
       <a-layout-sider
         v-model:collapsed="collapsed"
         collapsible
@@ -238,15 +282,18 @@ const theme = computed(() => ({
 .app-layout {
   height: 100vh;
   overflow: hidden;
-  background: #f5f5f5;
+  background: transparent;
 }
 
 .app-sider {
-  border-inline-end: 1px solid #f0f0f0;
+  border-inline-end: 1px solid rgba(15, 23, 42, 0.08);
   height: 100vh;
   position: sticky;
   top: 0;
   overflow: auto;
+  background: var(--manager-ui-surface-bg, rgba(255, 255, 255, 0.72));
+  backdrop-filter: var(--manager-ui-backdrop-filter, none);
+  -webkit-backdrop-filter: var(--manager-ui-backdrop-filter, none);
 }
 
 .app-logo {
@@ -256,7 +303,7 @@ const theme = computed(() => ({
   height: 64px;
   padding: 0 16px;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--manager-ui-text, rgba(15, 23, 42, 0.92));
   letter-spacing: 0.02em;
 }
 
@@ -280,7 +327,7 @@ const theme = computed(() => ({
   padding: 24px;
   flex: 1 1 auto;
   overflow: auto;
-  background: #f5f5f5;
+  background: transparent;
 }
 
 .app-main {

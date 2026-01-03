@@ -7,6 +7,12 @@ const SETTINGS_KEYS = Object.freeze({
   libraryViewMode: 'ui.library.view_mode',
   libraryPerPage: 'ui.library.pagination.per_page',
   libraryLazyRootMarginPx: 'ui.library.lazy_load.root_margin_px',
+  managerUiBlurEnabled: 'ui.manager.ui.blur_enabled',
+  managerUiBlurRadiusPx: 'ui.manager.ui.blur_radius_px',
+  managerUiSurfaceBgOpacity: 'ui.manager.ui.surface_bg_opacity',
+  managerUiSurfaceBorderOpacity: 'ui.manager.ui.surface_border_opacity',
+  managerUiControlBgOpacity: 'ui.manager.ui.control_bg_opacity',
+  managerUiControlBorderOpacity: 'ui.manager.ui.control_border_opacity',
   readerPreloadAhead: 'ui.reader.preload_ahead',
   readerSplitDefaultEnabled: 'ui.reader.split_view.default_enabled',
   readerWideRatioThreshold: 'ui.reader.wide_ratio_threshold',
@@ -151,6 +157,12 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
   const libraryViewMode = ref('grid')
   const libraryPerPage = ref(50)
   const libraryLazyRootMarginPx = ref(600)
+  const managerUiBlurEnabled = ref(true)
+  const managerUiBlurRadiusPx = ref(10)
+  const managerUiSurfaceBgOpacity = ref(0.72)
+  const managerUiSurfaceBorderOpacity = ref(0.14)
+  const managerUiControlBgOpacity = ref(0.6)
+  const managerUiControlBorderOpacity = ref(0.14)
   const readerPreloadAhead = ref(2)
   const readerSplitDefaultEnabled = ref(false)
   const readerWideRatioThreshold = ref(1.0)
@@ -214,6 +226,24 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
 
       const rootMargin = clampInt(settings[SETTINGS_KEYS.libraryLazyRootMarginPx], { min: 0, max: 5000 })
       libraryLazyRootMarginPx.value = rootMargin ?? 600
+
+      const mgrUiBlurEnabled = normalizeBool(settings[SETTINGS_KEYS.managerUiBlurEnabled])
+      managerUiBlurEnabled.value = mgrUiBlurEnabled ?? true
+
+      const mgrUiBlurRadius = clampInt(settings[SETTINGS_KEYS.managerUiBlurRadiusPx], { min: 0, max: 30 })
+      managerUiBlurRadiusPx.value = mgrUiBlurRadius ?? 10
+
+      const mgrSurfaceBgOpacity = clampFloat(settings[SETTINGS_KEYS.managerUiSurfaceBgOpacity], { min: 0.35, max: 0.95 })
+      managerUiSurfaceBgOpacity.value = mgrSurfaceBgOpacity ?? 0.72
+
+      const mgrSurfaceBorderOpacity = clampFloat(settings[SETTINGS_KEYS.managerUiSurfaceBorderOpacity], { min: 0.06, max: 0.45 })
+      managerUiSurfaceBorderOpacity.value = mgrSurfaceBorderOpacity ?? 0.14
+
+      const mgrControlBgOpacity = clampFloat(settings[SETTINGS_KEYS.managerUiControlBgOpacity], { min: 0.18, max: 0.9 })
+      managerUiControlBgOpacity.value = mgrControlBgOpacity ?? 0.6
+
+      const mgrControlBorderOpacity = clampFloat(settings[SETTINGS_KEYS.managerUiControlBorderOpacity], { min: 0.06, max: 0.6 })
+      managerUiControlBorderOpacity.value = mgrControlBorderOpacity ?? 0.14
 
       const preloadAhead = clampInt(settings[SETTINGS_KEYS.readerPreloadAhead], { min: 0, max: 20 })
       readerPreloadAhead.value = preloadAhead ?? 2
@@ -286,6 +316,60 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
     }
     libraryLazyRootMarginPx.value = normalized
     await saveSetting(SETTINGS_KEYS.libraryLazyRootMarginPx, String(normalized))
+  }
+
+  const setManagerUiBlurEnabled = async (value) => {
+    const normalized = normalizeBool(value)
+    if (normalized === null) {
+      return
+    }
+    managerUiBlurEnabled.value = normalized
+    await saveSetting(SETTINGS_KEYS.managerUiBlurEnabled, normalized ? '1' : '0')
+  }
+
+  const setManagerUiBlurRadiusPx = async (value) => {
+    const normalized = clampInt(value, { min: 0, max: 30 })
+    if (normalized === null) {
+      return
+    }
+    managerUiBlurRadiusPx.value = normalized
+    await saveSetting(SETTINGS_KEYS.managerUiBlurRadiusPx, String(normalized))
+  }
+
+  const setManagerUiSurfaceBgOpacity = async (value) => {
+    const normalized = clampFloat(value, { min: 0.35, max: 0.95 })
+    if (normalized === null) {
+      return
+    }
+    managerUiSurfaceBgOpacity.value = normalized
+    await saveSetting(SETTINGS_KEYS.managerUiSurfaceBgOpacity, String(normalized))
+  }
+
+  const setManagerUiSurfaceBorderOpacity = async (value) => {
+    const normalized = clampFloat(value, { min: 0.06, max: 0.45 })
+    if (normalized === null) {
+      return
+    }
+    managerUiSurfaceBorderOpacity.value = normalized
+    await saveSetting(SETTINGS_KEYS.managerUiSurfaceBorderOpacity, String(normalized))
+  }
+
+  const setManagerUiControlBgOpacity = async (value) => {
+    const normalized = clampFloat(value, { min: 0.18, max: 0.9 })
+    if (normalized === null) {
+      return
+    }
+    managerUiControlBgOpacity.value = normalized
+    await saveSetting(SETTINGS_KEYS.managerUiControlBgOpacity, String(normalized))
+  }
+
+  const setManagerUiControlBorderOpacity = async (value) => {
+    const normalized = clampFloat(value, { min: 0.06, max: 0.6 })
+    if (normalized === null) {
+      return
+    }
+    managerUiControlBorderOpacity.value = normalized
+    await saveSetting(SETTINGS_KEYS.managerUiControlBorderOpacity, String(normalized))
   }
 
   const setReaderPreloadAhead = async (value) => {
@@ -400,6 +484,12 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
     libraryViewMode,
     libraryPerPage,
     libraryLazyRootMarginPx,
+    managerUiBlurEnabled,
+    managerUiBlurRadiusPx,
+    managerUiSurfaceBgOpacity,
+    managerUiSurfaceBorderOpacity,
+    managerUiControlBgOpacity,
+    managerUiControlBorderOpacity,
     readerPreloadAhead,
     readerSplitDefaultEnabled,
     readerWideRatioThreshold,
@@ -417,6 +507,12 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
     setLibraryViewMode,
     setLibraryPerPage,
     setLibraryLazyRootMarginPx,
+    setManagerUiBlurEnabled,
+    setManagerUiBlurRadiusPx,
+    setManagerUiSurfaceBgOpacity,
+    setManagerUiSurfaceBorderOpacity,
+    setManagerUiControlBgOpacity,
+    setManagerUiControlBorderOpacity,
     setReaderPreloadAhead,
     setReaderSplitDefaultEnabled,
     setReaderWideRatioThreshold,

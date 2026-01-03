@@ -50,6 +50,13 @@ DEFAULT_SETTINGS: Dict[str, str] = {
     'ui.reader.ui.blur_radius_px': '12',
     'ui.reader.ui.control_bg_opacity': '0.46',
     'ui.reader.ui.control_border_opacity': '0.16',
+    # 管理器（非阅读器）：毛玻璃外观
+    'ui.manager.ui.blur_enabled': '1',
+    'ui.manager.ui.blur_radius_px': '10',
+    'ui.manager.ui.surface_bg_opacity': '0.72',
+    'ui.manager.ui.surface_border_opacity': '0.14',
+    'ui.manager.ui.control_bg_opacity': '0.6',
+    'ui.manager.ui.control_border_opacity': '0.14',
 }
 
 

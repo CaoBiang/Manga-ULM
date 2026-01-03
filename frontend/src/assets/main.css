@@ -2,8 +2,174 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  @apply bg-monet-cream text-gray-800;
+@layer base {
+  body.app-is-manager {
+    @apply bg-monet-cream text-gray-800;
+  }
+
+  body.app-is-manager {
+    --manager-ui-radius-sm: 10px;
+    --manager-ui-radius-md: 14px;
+    --manager-ui-radius-lg: 16px;
+
+    --manager-ui-text: rgba(15, 23, 42, 0.92);
+    --manager-ui-text-muted: rgba(15, 23, 42, 0.62);
+
+    --manager-ui-blur-enabled: 1;
+    --manager-ui-blur-radius-px: 10;
+    --manager-ui-surface-bg-opacity: 0.72;
+    --manager-ui-surface-border-opacity: 0.14;
+    --manager-ui-control-bg-opacity: 0.6;
+    --manager-ui-control-border-opacity: 0.14;
+
+    --manager-ui-backdrop-filter: blur(calc(var(--manager-ui-blur-radius-px) * var(--manager-ui-blur-enabled) * 1px));
+
+    --manager-ui-surface-bg: rgba(255, 255, 255, var(--manager-ui-surface-bg-opacity));
+    --manager-ui-surface-border: rgba(255, 255, 255, var(--manager-ui-surface-border-opacity));
+
+    --manager-ui-control-bg: rgba(255, 255, 255, var(--manager-ui-control-bg-opacity));
+    --manager-ui-control-bg-hover: rgba(255, 255, 255, calc(var(--manager-ui-control-bg-opacity) + 0.06));
+    --manager-ui-control-bg-active: rgba(255, 255, 255, calc(var(--manager-ui-control-bg-opacity) + 0.1));
+    --manager-ui-control-border: rgba(15, 23, 42, var(--manager-ui-control-border-opacity));
+    --manager-ui-control-border-hover: rgba(15, 23, 42, calc(var(--manager-ui-control-border-opacity) + 0.06));
+
+    --manager-ui-shadow-sm: 0 6px 18px rgba(15, 23, 42, 0.08);
+    --manager-ui-shadow: 0 12px 32px rgba(15, 23, 42, 0.1);
+  }
+
+  body.app-is-manager .ant-typography,
+  body.app-is-manager .ant-typography.ant-typography-secondary {
+    color: var(--manager-ui-text);
+  }
+
+  body.app-is-manager .ant-typography.ant-typography-secondary {
+    color: var(--manager-ui-text-muted);
+  }
+
+  body.app-is-manager .ant-card,
+  body.app-is-manager .ant-modal-content,
+  body.app-is-manager .ant-popover-inner,
+  body.app-is-manager .ant-dropdown-menu,
+  body.app-is-manager .ant-select-dropdown,
+  body.app-is-manager .ant-message-notice-content {
+    background: var(--manager-ui-surface-bg);
+    border: 1px solid var(--manager-ui-surface-border);
+    border-radius: var(--manager-ui-radius-lg);
+    box-shadow: var(--manager-ui-shadow);
+    backdrop-filter: var(--manager-ui-backdrop-filter);
+    -webkit-backdrop-filter: var(--manager-ui-backdrop-filter);
+  }
+
+  body.app-is-manager .ant-card-head {
+    background: transparent;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  body.app-is-manager .ant-card-body {
+    background: transparent;
+  }
+
+  body.app-is-manager .ant-btn-default {
+    background: var(--manager-ui-control-bg);
+    border-color: var(--manager-ui-control-border);
+    border-radius: var(--manager-ui-radius-sm);
+    backdrop-filter: var(--manager-ui-backdrop-filter);
+    -webkit-backdrop-filter: var(--manager-ui-backdrop-filter);
+    box-shadow: var(--manager-ui-shadow-sm);
+  }
+
+  body.app-is-manager .ant-btn-default:hover {
+    background: var(--manager-ui-control-bg-hover);
+    border-color: var(--manager-ui-control-border-hover);
+  }
+
+  body.app-is-manager .ant-input,
+  body.app-is-manager .ant-input-affix-wrapper,
+  body.app-is-manager .ant-input-number,
+  body.app-is-manager .ant-select:not(.ant-select-customize-input) .ant-select-selector,
+  body.app-is-manager .ant-picker,
+  body.app-is-manager .ant-segmented {
+    background: var(--manager-ui-control-bg);
+    border-color: var(--manager-ui-control-border);
+    border-radius: var(--manager-ui-radius-sm);
+    backdrop-filter: var(--manager-ui-backdrop-filter);
+    -webkit-backdrop-filter: var(--manager-ui-backdrop-filter);
+    box-shadow: var(--manager-ui-shadow-sm);
+    transition:
+      background 120ms ease,
+      border-color 120ms ease,
+      box-shadow 120ms ease;
+  }
+
+  body.app-is-manager .ant-input:hover,
+  body.app-is-manager .ant-input-affix-wrapper:hover,
+  body.app-is-manager .ant-input-number:hover,
+  body.app-is-manager .ant-select:not(.ant-select-customize-input) .ant-select-selector:hover,
+  body.app-is-manager .ant-picker:hover,
+  body.app-is-manager .ant-segmented:hover {
+    background: var(--manager-ui-control-bg-hover);
+    border-color: var(--manager-ui-control-border-hover);
+  }
+
+  body.app-is-manager .ant-input:focus,
+  body.app-is-manager .ant-input-affix-wrapper-focused,
+  body.app-is-manager .ant-input-number-focused,
+  body.app-is-manager .ant-select-focused:not(.ant-select-disabled) .ant-select-selector,
+  body.app-is-manager .ant-picker-focused {
+    border-color: rgba(22, 119, 255, 0.55) !important;
+    box-shadow: var(--manager-ui-shadow-sm), 0 0 0 2px rgba(22, 119, 255, 0.16) !important;
+  }
+
+  body.app-is-manager .ant-table,
+  body.app-is-manager .ant-table-container {
+    background: transparent;
+  }
+
+  body.app-is-manager .ant-table-container {
+    border-radius: var(--manager-ui-radius-lg);
+    border: 1px solid var(--manager-ui-surface-border);
+    overflow: hidden;
+    background: rgba(255, 255, 255, calc(var(--manager-ui-surface-bg-opacity) - 0.2));
+    backdrop-filter: var(--manager-ui-backdrop-filter);
+    -webkit-backdrop-filter: var(--manager-ui-backdrop-filter);
+  }
+
+  body.app-is-manager .ant-table-thead > tr > th {
+    background: rgba(255, 255, 255, calc(var(--manager-ui-surface-bg-opacity) - 0.1));
+    border-bottom: 1px solid rgba(255, 255, 255, 0.14) !important;
+  }
+
+  body.app-is-manager .ant-table-tbody > tr > td {
+    background: transparent;
+    border-top: 1px solid rgba(255, 255, 255, 0.12) !important;
+  }
+
+  body.app-is-manager .ant-table-tbody > tr.ant-table-row:hover > td,
+  body.app-is-manager .ant-table-tbody > tr.ant-table-row-hover > td,
+  body.app-is-manager .ant-table-tbody > tr > td.ant-table-cell-row-hover {
+    background: rgba(255, 255, 255, 0.24) !important;
+  }
+
+  body.app-is-manager .ant-menu,
+  body.app-is-manager .ant-menu-submenu > .ant-menu {
+    background: transparent;
+  }
+
+  body.app-is-manager .ant-menu-item,
+  body.app-is-manager .ant-menu-submenu-title {
+    border-radius: 12px;
+    margin-inline: 8px;
+    width: calc(100% - 16px);
+  }
+
+  body.app-is-manager .ant-menu-item:hover,
+  body.app-is-manager .ant-menu-submenu-title:hover {
+    background: rgba(255, 255, 255, 0.22) !important;
+  }
+
+  body.app-is-manager .ant-menu-item-selected {
+    background: rgba(255, 255, 255, 0.3) !important;
+  }
 }
 
 @layer components {

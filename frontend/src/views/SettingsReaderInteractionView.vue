@@ -1,18 +1,15 @@
 <template>
-  <div class="p-4 md:p-8">
+  <GlassPage :title="$t('readerInteractionSettings')">
     <a-space direction="vertical" size="large" class="w-full">
-      <a-typography-title :level="2" class="!mb-0">
-        {{ $t('readerInteractionSettings') }}
-      </a-typography-title>
-
-      <a-card :title="$t('readerTapZonesConfigTitle')" :bordered="false">
+      <GlassSurface :title="$t('readerTapZonesConfigTitle')">
         <ReaderTapZonesSettings />
-      </a-card>
+      </GlassSurface>
     </a-space>
-  </div>
+  </GlassPage>
 </template>
 
 <script setup>
 import ReaderTapZonesSettings from '@/components/ReaderTapZonesSettings.vue'
+import GlassPage from '@/components/glass/ui/GlassPage.vue'
+import GlassSurface from '@/components/glass/ui/GlassSurface.vue'
 </script>
-

@@ -282,7 +282,7 @@ onMounted(() => {
 }
 
 .tag-selector-panel__types {
-  border-right: 1px solid #f0f0f0;
+  border-right: 1px solid var(--manager-ui-surface-border, rgba(255, 255, 255, 0.14));
   padding-right: 12px;
 }
 
@@ -300,7 +300,7 @@ onMounted(() => {
 .tag-selector-panel__footer {
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid var(--manager-ui-surface-border, rgba(255, 255, 255, 0.14));
 }
 
 .tag-selector-panel__menu-item {
