@@ -97,7 +97,7 @@
                   :aria-label="$t('addBookmark')"
                   @click.stop="handleBookmarkButtonClick"
                 >
-                  <PlusOutlined />
+                  <BookOutlined />
                 </ReaderButton>
               </a-tooltip>
               <a-tooltip :title="$t('fileInfo')">
@@ -144,6 +144,24 @@
                 </ReaderButton>
               </div>
             </div>
+            <div v-else-if="activePanel === 'editBookmark'" class="reader-view__panel-section">
+              <a-typography-text strong>{{ $t('editBookmark') }}</a-typography-text>
+              <ReaderInput
+                ref="bookmarkEditInputRef"
+                v-model="editBookmarkNote"
+                :placeholder="$t('bookmarkNotePlaceholder')"
+                @pressEnter="saveEditedBookmark"
+                class="reader-view__bookmark-input"
+              />
+              <div class="reader-view__panel-actions">
+                <ReaderButton variant="ghost" @click="cancelEditBookmark">
+                  {{ $t('cancel') }}
+                </ReaderButton>
+                <ReaderButton variant="primary" @click="saveEditedBookmark">
+                  {{ $t('save') }}
+                </ReaderButton>
+              </div>
+            </div>
             <div v-else-if="activePanel === 'bookmarks'" class="reader-view__panel-section">
               <ReaderTable
                 :columns="bookmarkColumns"
@@ -162,16 +180,27 @@
                     </span>
                   </template>
                   <template v-else-if="column.key === 'action'">
-                    <ReaderButton
-                      variant="danger"
-                      shape="circle"
-                      size="sm"
-                      class="reader-view__bookmark-delete"
-                      :aria-label="$t('delete')"
-                      @click.stop="deleteBookmark(record.id)"
-                    >
-                      <DeleteOutlined />
-                    </ReaderButton>
+                    <div class="reader-view__bookmark-actions">
+                      <ReaderButton
+                        shape="circle"
+                        size="sm"
+                        class="reader-view__bookmark-edit"
+                        :aria-label="$t('edit')"
+                        @click.stop="openEditBookmark(record)"
+                      >
+                        <EditOutlined />
+                      </ReaderButton>
+                      <ReaderButton
+                        variant="danger"
+                        shape="circle"
+                        size="sm"
+                        class="reader-view__bookmark-delete"
+                        :aria-label="$t('delete')"
+                        @click.stop="deleteBookmark(record.id)"
+                      >
+                        <DeleteOutlined />
+                      </ReaderButton>
+                    </div>
                   </template>
                 </template>
               </ReaderTable>
@@ -238,9 +267,10 @@ import {
   ArrowLeftOutlined,
   ColumnWidthOutlined,
   UnorderedListOutlined,
-  PlusOutlined,
+  BookOutlined,
   InfoCircleOutlined,
   DeleteOutlined,
+  EditOutlined,
   BorderOutlined
 } from '@ant-design/icons-vue'
 import { storeToRefs } from 'pinia'
@@ -279,6 +309,9 @@ const isToolbarExpanded = ref(false)
 const bookmarks = ref([])
 const newBookmarkNote = ref('')
 const bookmarkNoteInputRef = ref(null)
+const bookmarkEditInputRef = ref(null)
+const editingBookmark = ref(null)
+const editBookmarkNote = ref('')
 const activePanel = ref('')
 const pageIndicatorRef = ref(null)
 const collapsedToolbarWidthPx = ref(null)
@@ -317,7 +350,7 @@ const bookmarkColumns = computed(() => [
   {
     title: t('actions'),
     key: 'action',
-    width: 56,
+    width: 96,
     align: 'center'
   }
 ])
@@ -641,6 +674,44 @@ const saveNewBookmark = async () => {
     console.error('保存书签失败：', err)
     const serverError = err?.response?.data?.error
     message.error(serverError || t('failedToSaveBookmark'))
+  }
+}
+
+const openEditBookmark = async record => {
+  await setToolbarExpanded(true)
+  editingBookmark.value = record
+  editBookmarkNote.value = record?.note || ''
+  activePanel.value = 'editBookmark'
+  nextTick(() => {
+    bookmarkEditInputRef.value?.focus()
+  })
+}
+
+const cancelEditBookmark = () => {
+  editingBookmark.value = null
+  editBookmarkNote.value = ''
+  activePanel.value = 'bookmarks'
+}
+
+const saveEditedBookmark = async () => {
+  if (!isToolbarExpanded.value) {
+    return
+  }
+  if (!editingBookmark.value?.id) {
+    cancelEditBookmark()
+    return
+  }
+  try {
+    await axios.put(`/api/v1/bookmarks/${editingBookmark.value.id}`, {
+      note: editBookmarkNote.value || null
+    })
+    message.success(t('bookmarkUpdated'))
+    cancelEditBookmark()
+    fetchBookmarks()
+  } catch (err) {
+    console.error('更新书签失败：', err)
+    const serverError = err?.response?.data?.error
+    message.error(serverError || t('failedToUpdateBookmark'))
   }
 }
 
@@ -1185,6 +1256,17 @@ onUnmounted(() => {
 
 .reader-view__bookmark-delete :deep(.anticon) {
   font-size: 16px;
+}
+
+.reader-view__bookmark-edit :deep(.anticon) {
+  font-size: 16px;
+}
+
+.reader-view__bookmark-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .reader-view__fileinfo-value {

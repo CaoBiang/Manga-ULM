@@ -56,3 +56,45 @@ def delete_bookmark(bookmark_id):
     db.session.delete(bookmark)
     db.session.commit()
     return '', 204 
+
+@api.route('/bookmarks/<int:bookmark_id>', methods=['PUT'])
+def update_bookmark(bookmark_id):
+    bookmark = db.session.get(Bookmark, bookmark_id)
+    if not bookmark:
+        return jsonify({'error': '书签不存在'}), 404
+
+    data = request.get_json() or {}
+    if not isinstance(data, dict):
+        return jsonify({'error': '请求体必须是 JSON 对象'}), 400
+
+    has_changes = False
+
+    if 'note' in data:
+        bookmark.note = data.get('note')
+        has_changes = True
+
+    if 'page_number' in data:
+        try:
+            page_number = int(data.get('page_number'))
+        except (TypeError, ValueError):
+            return jsonify({'error': '页码（page_number）必须是整数'}), 400
+
+        if page_number < 0:
+            return jsonify({'error': '页码（page_number）必须是从 0 开始的非负整数'}), 400
+
+        existing = (
+            Bookmark.query.filter_by(file_id=bookmark.file_id, page_number=page_number)
+            .filter(Bookmark.id != bookmark.id)
+            .first()
+        )
+        if existing:
+            return jsonify({'error': '该页已存在书签'}), 409
+
+        bookmark.page_number = page_number
+        has_changes = True
+
+    if not has_changes:
+        return jsonify({'error': '未提供可更新字段（note/page_number）'}), 400
+
+    db.session.commit()
+    return jsonify(bookmark_to_dict(bookmark))
