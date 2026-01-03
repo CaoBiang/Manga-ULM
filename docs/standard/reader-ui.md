@@ -31,6 +31,17 @@
 - 回车提交：监听 `@pressEnter`。
 - 需要聚焦时：通过组件 `ref` 调用 `focus()`。
 
+### ReaderTable
+
+- 路径：`apps/web/src/components/reader/ReaderTable.vue`
+- 用途：阅读器面板中的轻量表格展示（如书签列表、文件信息）。
+
+约定：
+
+- 表头必须使用 i18n，禁止写死字符串。
+- 书签表格列顺序固定为：`页码` / `备注` / `操作`。
+- 书签表格的“页码”列内容只显示数字（例如 `"22"`），不显示 `"第"` 等前缀。
+
 ### ReaderToolbar（进度控件容器）
 
 - 路径：`apps/web/src/pages/ReaderView.vue`

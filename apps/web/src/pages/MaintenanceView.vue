@@ -73,7 +73,7 @@ const cleanupSelectedMissingFiles = () => {
 </script>
 
 <template>
-  <GlassPage :title="$t('maintenance')">
+  <GlassPage>
     <a-space direction="vertical" size="large" class="w-full">
       <BackupManager />
 

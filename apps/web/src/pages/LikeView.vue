@@ -29,7 +29,7 @@ onMounted(fetchLikes)
 </script>
 
 <template>
-  <GlassPage :title="$t('myWishlist')">
+  <GlassPage>
     <GlassSurface>
       <a-spin v-if="isLoading" class="w-full flex justify-center py-10" />
       <template v-else>

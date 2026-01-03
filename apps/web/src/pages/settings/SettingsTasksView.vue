@@ -1,5 +1,5 @@
 <template>
-  <GlassPage :title="$t('taskManager')">
+  <GlassPage>
     <a-space direction="vertical" size="large" class="w-full">
       <GlassSurface>
         <TaskManager />

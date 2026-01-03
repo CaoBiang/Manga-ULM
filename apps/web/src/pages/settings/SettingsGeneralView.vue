@@ -1,5 +1,5 @@
 <template>
-  <GlassPage :title="$t('generalSettings')">
+  <GlassPage>
     <a-space direction="vertical" size="large" class="w-full">
       <GlassSurface :title="$t('language')">
         <a-form layout="vertical" @submit.prevent>

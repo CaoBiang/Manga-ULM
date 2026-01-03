@@ -154,7 +154,7 @@
               >
                 <template #bodyCell="{ column, record }">
                   <template v-if="column.key === 'page'">
-                    <strong>{{ $t('page') }} {{ record.page_number + 1 }}</strong>
+                    <strong>{{ record.page_number + 1 }}</strong>
                   </template>
                   <template v-else-if="column.key === 'note'">
                     <span class="reader-view__table-note">
@@ -301,18 +301,18 @@ watch(
 
 const bookmarkColumns = computed(() => [
   {
-    title: t('page'),
+    title: t('pageNumber'),
     dataIndex: 'page_number',
     key: 'page',
     width: 110
   },
   {
-    title: t('noteOptional'),
+    title: t('note'),
     dataIndex: 'note',
     key: 'note'
   },
   {
-    title: '',
+    title: t('actions'),
     key: 'action',
     width: 56,
     align: 'center'

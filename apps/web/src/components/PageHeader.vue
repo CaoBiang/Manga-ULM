@@ -32,7 +32,6 @@ const titleKeyMap = {
   'settings-library': 'librarySettings',
   'settings-display': 'displaySettings',
   'settings-reader': 'readerSettings',
-  'settings-reader-interaction': 'readerInteractionSettings',
   'settings-tags': 'tagManagement',
   'settings-tasks': 'taskManager',
   'settings-advanced': 'advancedSettings',
@@ -45,18 +44,8 @@ const appSettingsStore = useAppSettingsStore()
 const { libraryViewMode } = storeToRefs(appSettingsStore)
 
 const pageTitle = computed(() => {
-  const key = titleKeyMap[route.name] || 'home'
+  const key = route.meta?.titleKey || titleKeyMap[route.name] || 'home'
   return t(key)
-})
-
-const breadcrumbItems = computed(() => {
-  const crumbs = [
-    { key: 'home', label: t('appName'), path: '/' }
-  ]
-  if (route.name && route.name !== 'home') {
-    crumbs.push({ key: route.name, label: pageTitle.value })
-  }
-  return crumbs
 })
 
 const refreshPage = () => {
@@ -91,17 +80,6 @@ const handleViewModeChange = (mode) => {
         <a-typography-title :level="4" class="!mb-0 text-gray-800">
           {{ pageTitle }}
         </a-typography-title>
-        <a-breadcrumb>
-          <a-breadcrumb-item
-            v-for="item in breadcrumbItems"
-            :key="item.key"
-          >
-            <RouterLink v-if="item.path" :to="item.path" class="text-gray-500 hover:text-primary">
-              {{ item.label }}
-            </RouterLink>
-            <span v-else>{{ item.label }}</span>
-          </a-breadcrumb-item>
-        </a-breadcrumb>
       </div>
     </div>
 

@@ -119,10 +119,7 @@ onActivated(() => {
 </script>
 
 <template>
-  <GlassPage
-    :title="t('libraryDashboardTitle')"
-    :subtitle="t('libraryDashboardSubtitle')"
-  >
+  <GlassPage>
     <template #extra>
       <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
         <a-button size="large" @click="refreshStats" :loading="statsLoading">

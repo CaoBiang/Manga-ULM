@@ -1,5 +1,5 @@
 <template>
-  <GlassPage :title="$t('advancedSettings')">
+  <GlassPage>
     <a-space direction="vertical" size="large" class="w-full">
       <GlassSurface>
         <a-space direction="vertical" size="middle" class="w-full">

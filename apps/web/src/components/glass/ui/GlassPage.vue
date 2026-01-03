@@ -23,7 +23,7 @@ const hasHeader = computed(() => Boolean(props.title || props.subtitle))
 <template>
   <div class="glass-page" :class="`glass-page--pad-${padding}`">
     <div v-if="hasHeader || $slots.extra" class="glass-page__header">
-      <div class="glass-page__heading">
+      <div v-if="hasHeader" class="glass-page__heading">
         <h1 v-if="title" class="glass-page__title">
           {{ title }}
         </h1>
@@ -102,7 +102,7 @@ const hasHeader = computed(() => Boolean(props.title || props.subtitle))
 }
 
 .glass-page__extra {
+  margin-left: auto;
   flex: 0 0 auto;
 }
 </style>
-

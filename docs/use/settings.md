@@ -46,11 +46,11 @@ flowchart TD
 - Key：`ui.manager.ui.blur_enabled`
 - Value：`0`
 
-## 阅读器交互（新增）
+## 阅读器点击区域（新增）
 
 阅读器支持“点击区域”配置，用于控制点击画面左/中/右区域时执行的动作，并可调整每个区域的响应范围。
 
-- 设置页面：`/settings/reader-interaction`
+- 设置页面：`/settings/reader`（阅读器设置 -> 点击区域）
 - 对应 Key：`ui.reader.tap_zones`
 
 Value 为 JSON 字符串，示例（默认）：

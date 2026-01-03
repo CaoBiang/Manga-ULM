@@ -47,11 +47,6 @@ const navItems = computed(() => [
         path: '/settings/reader'
       },
       {
-        key: 'settings-reader-interaction',
-        label: t('readerInteractionSettings'),
-        path: '/settings/reader-interaction'
-      },
-      {
         key: 'settings-tags',
         label: t('tagManagement'),
         path: '/settings/tag-management'
@@ -290,7 +285,8 @@ const theme = computed(() => ({
   height: 100vh;
   position: sticky;
   top: 0;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   background: var(--manager-ui-surface-bg, rgba(255, 255, 255, 0.72));
   backdrop-filter: var(--manager-ui-backdrop-filter, none);
   -webkit-backdrop-filter: var(--manager-ui-backdrop-filter, none);

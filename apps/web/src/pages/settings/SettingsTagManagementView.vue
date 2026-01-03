@@ -1,5 +1,5 @@
 <template>
-  <GlassPage :title="$t('tagManagement')">
+  <GlassPage>
     <a-space direction="vertical" size="large" class="w-full">
       <GlassSurface :title="$t('tagTypeManagement')">
         <a-space direction="vertical" size="large" class="w-full">

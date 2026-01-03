@@ -36,8 +36,13 @@ flowchart TD
 - 路径：`apps/web/src/components/glass/ui/GlassPage.vue`
 - 用途：统一页面内边距与顶部标题区（可选）。
 - 用法：
-  - 只需要统一边距时：不传 `title`/`subtitle`。
-  - 需要在内容区再展示标题时：传入 `title`/`subtitle`，并用 `#extra` 放右侧操作区。
+  - 默认用法（推荐）：只负责统一边距，不传 `title`/`subtitle`，避免页面内容区重复出现标题。
+  - 需要在内容区再展示“模块级标题”时：传入 `title`/`subtitle`，并用 `#extra` 放右侧操作区（注意：这里不用于“页面标题”）。
+
+### 页面标题规范（必须）
+
+- 页面标题只在全局 `PageHeader` 中展示一次，不显示“应用名/页面名”的面包屑。
+- 页面标题来源统一为路由 `meta.titleKey`（见：`apps/web/src/router/index.js`），页面内容区不要再额外渲染同级标题（例如 `GlassPage` 的 `title`）。
 
 ### GlassSurface
 

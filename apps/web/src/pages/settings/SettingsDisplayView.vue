@@ -1,5 +1,5 @@
 <template>
-  <GlassPage :title="$t('displaySettings')">
+  <GlassPage>
     <a-space direction="vertical" size="large" class="w-full">
       <GlassSurface :title="$t('libraryDisplaySettings')">
         <LibraryDisplaySettings />
