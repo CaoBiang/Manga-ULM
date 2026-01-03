@@ -1,6 +1,6 @@
 from flask import jsonify, request
 from . import api
-from .. import huey, db
+from ... import huey, db
 from ...models.manga import Task
 
 @api.route('/tasks', methods=['GET'])
