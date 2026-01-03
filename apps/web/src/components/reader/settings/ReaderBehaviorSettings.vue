@@ -59,6 +59,13 @@
       </div>
     </a-form-item>
 
+    <a-form-item :label="$t('readerToolbarKeepStateOnPaging')">
+      <a-switch v-model:checked="formToolbarKeepStateOnPaging" />
+      <div class="mt-1 text-xs text-gray-500">
+        {{ $t('readerToolbarKeepStateOnPagingHelp') }}
+      </div>
+    </a-form-item>
+
     <a-space>
       <a-button type="primary" :loading="saving" @click="save">
         {{ $t('save') }}
@@ -85,6 +92,7 @@ const formSplitDefaultEnabled = ref(appSettingsStore.readerSplitDefaultEnabled)
 const formWideRatioThreshold = ref(appSettingsStore.readerWideRatioThreshold)
 const formToolbarAnimationMs = ref(appSettingsStore.readerToolbarAnimationMs)
 const formToolbarBackgroundOpacity = ref(appSettingsStore.readerToolbarBackgroundOpacity)
+const formToolbarKeepStateOnPaging = ref(appSettingsStore.readerToolbarKeepStateOnPaging)
 
 watch(
   () => appSettingsStore.readerPreloadAhead,
@@ -116,6 +124,12 @@ watch(
     formToolbarBackgroundOpacity.value = value
   }
 )
+watch(
+  () => appSettingsStore.readerToolbarKeepStateOnPaging,
+  value => {
+    formToolbarKeepStateOnPaging.value = value
+  }
+)
 
 const save = async () => {
   saving.value = true
@@ -125,7 +139,8 @@ const save = async () => {
       appSettingsStore.setReaderSplitDefaultEnabled(formSplitDefaultEnabled.value),
       appSettingsStore.setReaderWideRatioThreshold(formWideRatioThreshold.value),
       appSettingsStore.setReaderToolbarAnimationMs(formToolbarAnimationMs.value),
-      appSettingsStore.setReaderToolbarBackgroundOpacity(formToolbarBackgroundOpacity.value)
+      appSettingsStore.setReaderToolbarBackgroundOpacity(formToolbarBackgroundOpacity.value),
+      appSettingsStore.setReaderToolbarKeepStateOnPaging(formToolbarKeepStateOnPaging.value)
     ])
     message.success(t('settingsSavedSuccessfully'))
   } catch (error) {
@@ -144,7 +159,8 @@ const resetToDefault = async () => {
       appSettingsStore.setReaderSplitDefaultEnabled(false),
       appSettingsStore.setReaderWideRatioThreshold(1.0),
       appSettingsStore.setReaderToolbarAnimationMs(240),
-      appSettingsStore.setReaderToolbarBackgroundOpacity(0.72)
+      appSettingsStore.setReaderToolbarBackgroundOpacity(0.72),
+      appSettingsStore.setReaderToolbarKeepStateOnPaging(true)
     ])
     message.success(t('settingsSavedSuccessfully'))
   } catch (error) {
@@ -155,4 +171,3 @@ const resetToDefault = async () => {
   }
 }
 </script>
-

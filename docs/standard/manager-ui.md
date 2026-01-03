@@ -43,6 +43,9 @@ flowchart TD
 
 - 页面标题只在全局 `PageHeader` 中展示一次，不显示“应用名/页面名”的面包屑。
 - 页面标题来源统一为路由 `meta.titleKey`（见：`apps/web/src/router/index.js`），页面内容区不要再额外渲染同级标题（例如 `GlassPage` 的 `title`）。
+- 页面内容区如果需要展示“上下文信息”（例如文件名），应使用文件名/路径等作为内容，不要重复页面标题文案（例如“编辑文件详情”）。
+- 同一页面的同一核心动作（例如“保存更改”）只保留一个入口，避免重复按钮造成困扰。
+- 多模块页面用 `a-space direction="vertical" size="large"` 统一模块间距，保证与设置页一致。
 
 ### GlassSurface
 

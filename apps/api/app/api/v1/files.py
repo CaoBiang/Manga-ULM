@@ -330,8 +330,10 @@ def rename_file_based_on_tags(file_obj):
     base_name = os.path.basename(file_obj.file_path)
     _, ext = os.path.splitext(base_name)
     
-    # This regex will remove all bracketed tags, e.g., "[tag] file.txt" -> " file.txt"
+    # 移除文件名前缀标签，例如："[tag] file.zip" -> "file.zip"
     name_without_tags = re.sub(r'^(\[[^\]]+\]\s*)+', '', base_name).strip()
+    # 避免出现类似 ".zip.zip" 的重复扩展名：这里只保留“去扩展名后的正文”
+    name_without_tags, _ = os.path.splitext(name_without_tags)
 
     # Now, construct the new filename with the updated tags
     tags_string = "".join([f"[{tag.name}]" for tag in file_obj.tags])

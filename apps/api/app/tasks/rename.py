@@ -5,8 +5,79 @@ from ..models import File, Tag
 from .. import create_app
 
 def sanitize_filename(name):
-    """Replaces illegal characters in a filename with underscores."""
+    """将文件名中的非法字符替换为下划线。"""
     return re.sub(r'[\\/:*?"<>|]', '_', name)
+
+def _build_safe_temp_path(original_path):
+    """
+    构造一个与原文件同目录的临时文件名，用于处理“仅大小写变化”的重命名。
+    """
+    directory = os.path.dirname(original_path)
+    base, ext = os.path.splitext(os.path.basename(original_path))
+    candidate = os.path.join(directory, f"{base}.__tmp_rename__{ext}")
+    if not os.path.exists(candidate):
+        return candidate
+    suffix = 1
+    while True:
+        candidate = os.path.join(directory, f"{base}.__tmp_rename__{suffix}{ext}")
+        if not os.path.exists(candidate):
+            return candidate
+        suffix += 1
+
+def rename_single_file_inplace(file_obj, new_filename):
+    """
+    同步重命名单个文件（磁盘 + 数据库），并同步文件名标签索引。
+
+    - 仅负责修改 `file_obj.file_path` 与其关联标签，不提交事务
+    - 调用方负责 `db.session.commit()` / `db.session.rollback()`
+    """
+    if not file_obj or not getattr(file_obj, 'file_path', None):
+        raise ValueError('文件不存在或路径无效')
+
+    if not new_filename:
+        raise ValueError('新文件名不能为空')
+
+    old_path = file_obj.file_path
+    directory = os.path.dirname(old_path)
+    _, old_ext = os.path.splitext(old_path)
+
+    requested_name = os.path.basename(str(new_filename)).strip()
+    if not requested_name:
+        raise ValueError('新文件名不能为空')
+
+    requested_root, requested_ext = os.path.splitext(requested_name)
+    if requested_ext == '.':
+        raise ValueError('文件扩展名无效')
+
+    ext_to_use = requested_ext if requested_ext else old_ext
+    sanitized_root = sanitize_filename(requested_root if requested_ext else requested_name)
+    sanitized_ext = sanitize_filename(ext_to_use.lstrip('.'))
+    ext_to_use = f".{sanitized_ext}" if sanitized_ext else ''
+
+    new_path = os.path.normpath(os.path.join(directory, sanitized_root + ext_to_use))
+
+    # 完全一致则无需处理
+    if new_path == old_path:
+        return old_path
+
+    # Windows 常见为大小写不敏感文件系统：若仅大小写变化，需要绕过 exists 检查
+    same_path_ignore_case = os.path.normcase(new_path) == os.path.normcase(old_path)
+    if not same_path_ignore_case and os.path.exists(new_path):
+        raise ValueError('目标文件已存在，无法重命名')
+
+    os.makedirs(os.path.dirname(new_path), exist_ok=True)
+
+    # 仅大小写变化时，使用临时文件名中转，避免系统把新路径判定为“已存在”
+    if same_path_ignore_case and os.path.exists(new_path):
+        temp_path = _build_safe_temp_path(old_path)
+        os.rename(old_path, temp_path)
+        os.rename(temp_path, new_path)
+    else:
+        os.rename(old_path, new_path)
+
+    file_obj.file_path = new_path
+    sync_file_tag_indexes_general([file_obj])
+    return new_path
 
 def generate_new_path(template, file_obj, root_path):
     """
@@ -687,44 +758,22 @@ def tag_split_task(tag_id, new_tag_names):
 @huey.task()
 def rename_single_file_task(file_id, new_filename):
     """
-    Renames a single file.
+    重命名单个文件（后台任务）。
     """
     with db.app.app_context():
         file_to_rename = db.session.get(File, file_id)
         if not file_to_rename:
-            return "File not found"
-
-        old_path = file_to_rename.file_path
-        
-        # Sanitize the new filename
-        sanitized_filename = sanitize_filename(new_filename)
-        
-        # Get the directory and extension from the old path
-        directory = os.path.dirname(old_path)
-        _, ext = os.path.splitext(old_path)
-        
-        # Construct the new path
-        new_path = os.path.join(directory, sanitized_filename + ext)
+            socketio.emit('rename_single_error', {'error': '文件不存在', 'file_id': file_id})
+            return "文件不存在"
 
         try:
-            # Ensure destination directory exists
-            os.makedirs(os.path.dirname(new_path), exist_ok=True)
-            
-            # Rename file on filesystem
-            os.rename(old_path, new_path)
-            
-            # Update database record
-            file_to_rename.file_path = new_path
-            db.session.commit()
-
-            # Synchronize tags from the new filename
-            sync_file_tag_indexes_general([file_to_rename])
+            new_path = rename_single_file_inplace(file_to_rename, new_filename)
             db.session.commit()
             
-            socketio.emit('rename_single_complete', {'message': f'File renamed to {os.path.basename(new_path)}', 'file_id': file_id, 'new_path': new_path})
-            return f"File {file_id} renamed to {new_path}"
+            socketio.emit('rename_single_complete', {'message': f'文件已重命名为 {os.path.basename(new_path)}', 'file_id': file_id, 'new_path': new_path})
+            return f"文件 {file_id} 已重命名为 {new_path}"
             
         except Exception as e:
             db.session.rollback()
-            socketio.emit('rename_single_error', {'error': f"Failed to rename file: {e}", 'file_id': file_id})
-            return f"Failed to rename file {file_id}: {e}"
+            socketio.emit('rename_single_error', {'error': f"重命名失败：{e}", 'file_id': file_id})
+            return f"重命名失败：{e}"

@@ -18,6 +18,7 @@ const SETTINGS_KEYS = Object.freeze({
   readerWideRatioThreshold: 'ui.reader.wide_ratio_threshold',
   readerToolbarAnimationMs: 'ui.reader.toolbar.animation_ms',
   readerToolbarBackgroundOpacity: 'ui.reader.toolbar.background_opacity',
+  readerToolbarKeepStateOnPaging: 'ui.reader.toolbar.keep_state_on_paging',
   readerToolbarCenterClickToggleEnabled: 'ui.reader.toolbar.center_click_toggle_enabled',
   readerTapZones: 'ui.reader.tap_zones',
   readerUiBlurEnabled: 'ui.reader.ui.blur_enabled',
@@ -168,6 +169,7 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
   const readerWideRatioThreshold = ref(1.0)
   const readerToolbarAnimationMs = ref(240)
   const readerToolbarBackgroundOpacity = ref(0.28)
+  const readerToolbarKeepStateOnPaging = ref(true)
   const readerToolbarCenterClickToggleEnabled = ref(true)
   const readerTapZones = ref({ ...DEFAULT_READER_TAP_ZONES })
   const readerUiBlurEnabled = ref(true)
@@ -259,6 +261,9 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
 
       const toolbarBgOpacity = clampFloat(settings[SETTINGS_KEYS.readerToolbarBackgroundOpacity], { min: 0.08, max: 0.8 })
       readerToolbarBackgroundOpacity.value = toolbarBgOpacity ?? 0.28
+
+      const keepStateOnPaging = normalizeBool(settings[SETTINGS_KEYS.readerToolbarKeepStateOnPaging])
+      readerToolbarKeepStateOnPaging.value = keepStateOnPaging ?? true
 
       const centerClickToggle = normalizeBool(settings[SETTINGS_KEYS.readerToolbarCenterClickToggleEnabled])
       readerToolbarCenterClickToggleEnabled.value = centerClickToggle ?? true
@@ -417,6 +422,15 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
     await saveSetting(SETTINGS_KEYS.readerToolbarBackgroundOpacity, String(normalized))
   }
 
+  const setReaderToolbarKeepStateOnPaging = async (value) => {
+    const normalized = normalizeBool(value)
+    if (normalized === null) {
+      return
+    }
+    readerToolbarKeepStateOnPaging.value = normalized
+    await saveSetting(SETTINGS_KEYS.readerToolbarKeepStateOnPaging, normalized ? '1' : '0')
+  }
+
   const setReaderToolbarCenterClickToggleEnabled = async (value) => {
     const normalized = normalizeBool(value)
     if (normalized === null) {
@@ -495,6 +509,7 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
     readerWideRatioThreshold,
     readerToolbarAnimationMs,
     readerToolbarBackgroundOpacity,
+    readerToolbarKeepStateOnPaging,
     readerToolbarCenterClickToggleEnabled,
     readerTapZones,
     readerUiBlurEnabled,
@@ -518,6 +533,7 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
     setReaderWideRatioThreshold,
     setReaderToolbarAnimationMs,
     setReaderToolbarBackgroundOpacity,
+    setReaderToolbarKeepStateOnPaging,
     setReaderToolbarCenterClickToggleEnabled,
     setReaderTapZones,
     setReaderUiBlurEnabled,

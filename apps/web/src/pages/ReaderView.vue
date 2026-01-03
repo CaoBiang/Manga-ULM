@@ -261,6 +261,7 @@ const {
   readerWideRatioThreshold,
   readerToolbarAnimationMs,
   readerToolbarBackgroundOpacity,
+  readerToolbarKeepStateOnPaging,
   readerTapZones,
   readerUiBlurEnabled,
   readerUiBlurRadiusPx,
@@ -286,6 +287,7 @@ const fileInfo = ref({
   error: null,
   data: null
 })
+let fileInfoRequestSeq = 0
 const imageRef = ref(null)
 const isTapZonesConfiguratorOpen = ref(false)
 const tapZonesSaving = ref(false)
@@ -524,12 +526,17 @@ watch(currentPage, (newPage, oldPage) => {
   debouncedUpdateProgress()
   showRightHalf.value = false
 
-  if (activePanel.value) {
-    activePanel.value = ''
-  }
-
-  if (fileInfo.value.data && newPage !== oldPage) {
+  if (!readerToolbarKeepStateOnPaging.value) {
+    if (activePanel.value) {
+      activePanel.value = ''
+    }
+    if (fileInfo.value.data && newPage !== oldPage) {
+      fileInfo.value.data = null
+    }
+  } else if (activePanel.value === 'fileInfo' && newPage !== oldPage) {
     fileInfo.value.data = null
+    fileInfo.value.error = null
+    debouncedFetchFileInfo()
   }
 
   nextTick(() => {
@@ -542,12 +549,17 @@ const debounce = (func, delay) => {
   const debounced = (...args) => {
     clearTimeout(timeoutId)
     timeoutId = setTimeout(() => {
-      func.apply(this, args)
+      func(...args)
     }, delay)
   }
   debounced.flush = () => {
     clearTimeout(timeoutId)
+    timeoutId = null
     func()
+  }
+  debounced.cancel = () => {
+    clearTimeout(timeoutId)
+    timeoutId = null
   }
   return debounced
 }
@@ -644,7 +656,9 @@ const deleteBookmark = async bookmarkId => {
 
 const jumpToBookmark = page => {
   currentPage.value = page
-  activePanel.value = ''
+  if (!readerToolbarKeepStateOnPaging.value) {
+    activePanel.value = ''
+  }
 }
 
 const nextPage = () => {
@@ -713,18 +727,32 @@ const fetchFileInfo = async () => {
   if (!isToolbarExpanded.value) {
     return
   }
+  if (activePanel.value !== 'fileInfo') {
+    return
+  }
+  const requestSeq = (fileInfoRequestSeq += 1)
   fileInfo.value.loading = true
   fileInfo.value.error = null
   try {
     const response = await axios.get(`/api/v1/files/${fileId}/page/${currentPage.value}/details`)
+    if (requestSeq !== fileInfoRequestSeq) {
+      return
+    }
     fileInfo.value.data = response.data
   } catch (err) {
+    if (requestSeq !== fileInfoRequestSeq) {
+      return
+    }
     console.error('获取文件信息失败：', err)
     fileInfo.value.error = t('failedToLoadFileInfo')
   } finally {
-    fileInfo.value.loading = false
+    if (requestSeq === fileInfoRequestSeq) {
+      fileInfo.value.loading = false
+    }
   }
 }
+
+const debouncedFetchFileInfo = debounce(fetchFileInfo, 250)
 
 const formatBytes = (bytes, decimals = 2) => {
   if (!bytes) {
@@ -861,6 +889,7 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
   window.removeEventListener('resize', updateCollapsedToolbarWidth)
   debouncedUpdateProgress.flush()
+  debouncedFetchFileInfo.cancel()
   if (pageIndicatorResizeObserver) {
     pageIndicatorResizeObserver.disconnect()
     pageIndicatorResizeObserver = null
