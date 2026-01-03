@@ -1,6 +1,6 @@
 from flask import request, jsonify
 from . import api
-from ..tasks.rename import batch_rename_task, rename_single_file_task
+from ...tasks.rename import batch_rename_task, rename_single_file_task
 
 @api.route('/rename/batch', methods=['POST'])
 def batch_rename():

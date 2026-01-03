@@ -21,9 +21,9 @@ flowchart TD
 
 ## 模块介绍
 
-- `backend/app/infrastructure/archive_reader.py`：索引缓存、按页解压、流式输出、MIME 判定。
-- `backend/app/api/files.py`：`/files/<id>/page/<page_num>` 以流式响应返回图片，降低峰值内存。
-- `backend/app/tasks/scanner.py`：扫描与封面生成逐页处理，避免 7z 全量解压。
+- `apps/api/app/infrastructure/archive_reader.py`：索引缓存、按页解压、流式输出、MIME 判定。
+- `apps/api/app/api/files.py`：`/files/<id>/page/<page_num>` 以流式响应返回图片，降低峰值内存。
+- `apps/api/app/tasks/scanner.py`：扫描与封面生成逐页处理，避免 7z 全量解压。
 
 ## 使用建议
 

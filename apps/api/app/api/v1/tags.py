@@ -1,9 +1,9 @@
 import re
 from flask import request, jsonify
 from . import api
-from .. import db
-from ..models import Tag, TagType, TagAlias, File, FileTagMap
-from ..tasks.rename import tag_file_change_task, tag_split_task
+from ... import db
+from ...models import Tag, TagType, TagAlias, File, FileTagMap
+from ...tasks.rename import tag_file_change_task, tag_split_task
 from sqlalchemy import func, or_
 
 
@@ -71,7 +71,7 @@ def suggest_related_tags():
     limit = request.args.get('limit', 20, type=int)
 
     # Find candidate files
-    from ..models import FileTagMap
+    from ...models import FileTagMap
     subq = None
     if mode == 'all':
         # files that contain all selected tags

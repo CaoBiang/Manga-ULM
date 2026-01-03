@@ -1,7 +1,7 @@
 from flask import request, jsonify
 from . import api
-from .. import db
-from ..models import Like, File
+from ... import db
+from ...models import Like, File
 from .files import file_to_dict
 
 @api.route('/likes', methods=['GET'])

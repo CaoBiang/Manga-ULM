@@ -4,7 +4,7 @@ server {
 
     # Frontend static files
     location / {
-        root /path/to/your/project/frontend/dist;
+        root /path/to/your/project/apps/web/dist;
         try_files $uri $uri/ /index.html;
     }
 

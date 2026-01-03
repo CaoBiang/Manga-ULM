@@ -5,25 +5,25 @@ const router = createRouter({
     {
       path: '/',
       name: 'home',
-      component: () => import('../views/HomeView.vue'),
+      component: () => import('../pages/HomeView.vue'),
       meta: { keepAlive: true }
     },
     {
       path: '/library',
       name: 'library',
-      component: () => import('../views/LibraryView.vue'),
+      component: () => import('../pages/LibraryView.vue'),
       meta: { keepAlive: true, fullWidth: true }
     },
     {
       path: '/likes',
       name: 'likes',
-      component: () => import('../views/LikeView.vue'),
+      component: () => import('../pages/LikeView.vue'),
       meta: { fullWidth: true }
     },
     {
       path: '/reader/:id',
       name: 'reader',
-      component: () => import('../views/ReaderView.vue'),
+      component: () => import('../pages/ReaderView.vue'),
       props: true,
       meta: { fullScreen: true }
     },
@@ -34,52 +34,52 @@ const router = createRouter({
     {
       path: '/settings/general',
       name: 'settings-general',
-      component: () => import('../views/SettingsGeneralView.vue')
+      component: () => import('../pages/settings/SettingsGeneralView.vue')
     },
     {
       path: '/settings/library',
       name: 'settings-library',
-      component: () => import('../views/SettingsLibraryView.vue')
+      component: () => import('../pages/settings/SettingsLibraryView.vue')
     },
     {
       path: '/settings/display',
       name: 'settings-display',
-      component: () => import('../views/SettingsDisplayView.vue')
+      component: () => import('../pages/settings/SettingsDisplayView.vue')
     },
     {
       path: '/settings/reader',
       name: 'settings-reader',
-      component: () => import('../views/SettingsReaderView.vue')
+      component: () => import('../pages/settings/SettingsReaderView.vue')
     },
     {
       path: '/settings/reader-interaction',
       name: 'settings-reader-interaction',
-      component: () => import('../views/SettingsReaderInteractionView.vue')
+      component: () => import('../pages/settings/SettingsReaderInteractionView.vue')
     },
     {
       path: '/settings/tag-management',
       name: 'settings-tags',
-      component: () => import('../views/SettingsTagManagementView.vue')
+      component: () => import('../pages/settings/SettingsTagManagementView.vue')
     },
     {
       path: '/settings/tasks',
       name: 'settings-tasks',
-      component: () => import('../views/SettingsTasksView.vue')
+      component: () => import('../pages/settings/SettingsTasksView.vue')
     },
     {
       path: '/settings/advanced',
       name: 'settings-advanced',
-      component: () => import('../views/SettingsAdvancedView.vue')
+      component: () => import('../pages/settings/SettingsAdvancedView.vue')
     },
     {
       path: '/maintenance',
       name: 'maintenance',
-      component: () => import('../views/MaintenanceView.vue')
+      component: () => import('../pages/MaintenanceView.vue'),
     },
     {
       path: '/edit/:id',
       name: 'edit',
-      component: () => import('../views/EditView.vue'),
+      component: () => import('../pages/EditView.vue'),
       props: true
     }
   ]

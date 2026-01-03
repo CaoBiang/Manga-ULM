@@ -3,8 +3,8 @@ from dotenv import load_dotenv
 
 # Define the base directory of the application
 basedir = os.path.abspath(os.path.dirname(__file__))
-# This will point to the `backend` directory. We need the root.
-project_root = os.path.dirname(basedir)
+# 当前文件位于 `apps/api`，项目根目录为其上两级。
+project_root = os.path.abspath(os.path.join(basedir, '..', '..'))
 INSTANCE_PATH = os.path.join(project_root, 'instance')
 
 load_dotenv(os.path.join(basedir, '.env'))

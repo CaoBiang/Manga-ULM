@@ -1,8 +1,8 @@
 from flask import request, jsonify
 from . import api
 from .. import huey, socketio, db
-from ..models.manga import LibraryPath, Task
-from ..tasks.scanner import start_scan_task
+from ...models.manga import LibraryPath, Task
+from ...tasks.scanner import start_scan_task
 
 @api.route('/library/scan', methods=['POST'])
 def scan_library():

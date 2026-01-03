@@ -1,8 +1,8 @@
 from flask import jsonify, request
 from . import api
 from sqlalchemy import func
-from ..models import File
-from .. import db
+from ...models import File
+from ... import db
 from .files import file_to_dict
 
 @api.route('/maintenance/check-integrity', methods=['POST'])

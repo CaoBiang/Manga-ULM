@@ -24,7 +24,7 @@ flowchart LR
 
 ## 相关实现
 
-- 前端布局：`frontend/src/App.vue`
-- 页头组件：`frontend/src/components/PageHeader.vue`
-- 管理器毛玻璃样式：`frontend/src/assets/main.css`
-- 管理器复用容器：`frontend/src/components/glass/ui/GlassSurface.vue`
+- 前端布局：`apps/web/src/App.vue`
+- 页头组件：`apps/web/src/components/PageHeader.vue`
+- 管理器毛玻璃样式：`apps/web/src/assets/main.css`
+- 管理器复用容器：`apps/web/src/components/glass/ui/GlassSurface.vue`

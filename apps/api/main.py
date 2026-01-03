@@ -3,11 +3,11 @@ import click
 from flask_migrate import Migrate
 from sqlalchemy import text
 from app import create_app, db, huey
+from config import INSTANCE_PATH
 from app.models.manga import File, Tag, TagType, TagAlias, FileTagMap, Bookmark, Like, Task
 
 # Ensure the instance folder exists
-instance_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'instance')
-os.makedirs(instance_path, exist_ok=True)
+os.makedirs(INSTANCE_PATH, exist_ok=True)
 
 app = create_app(os.getenv('FLASK_CONFIG') or 'default')
 migrate = Migrate(app, db)

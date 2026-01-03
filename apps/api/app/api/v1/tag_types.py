@@ -1,7 +1,7 @@
 from flask import request, jsonify
 from . import api
-from .. import db
-from ..models import TagType
+from ... import db
+from ...models import TagType
 
 @api.route('/tag_types', methods=['GET'])
 def get_tag_types():

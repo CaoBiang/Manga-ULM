@@ -1,7 +1,12 @@
 {
-  "dependencies": {
-    "socket.io-client": "^4.8.1",
-    "vue-i18n": "^11.1.9",
-    "vue-multiselect": "^3.0.0-beta.3"
+  "name": "manga-ulm",
+  "private": true,
+  "workspaces": [
+    "apps/web"
+  ],
+  "scripts": {
+    "dev:web": "npm --workspace apps/web run dev",
+    "build:web": "npm --workspace apps/web run build",
+    "preview:web": "npm --workspace apps/web run preview"
   }
 }

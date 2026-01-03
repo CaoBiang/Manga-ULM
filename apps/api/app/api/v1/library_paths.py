@@ -1,7 +1,7 @@
 from flask import request, jsonify
 from . import api
-from .. import db
-from ..models import LibraryPath
+from ... import db
+from ...models import LibraryPath
 import os
 
 @api.route('/library_paths', methods=['GET'])

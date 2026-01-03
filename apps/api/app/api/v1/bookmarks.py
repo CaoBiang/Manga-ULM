@@ -1,7 +1,7 @@
 from flask import request, jsonify
 from . import api
-from .. import db
-from ..models import Bookmark, File
+from ... import db
+from ...models import Bookmark, File
 
 def bookmark_to_dict(bookmark):
     return {

@@ -13,7 +13,7 @@
 - `App.vue` 在“非全屏路由（管理器）”时，把变量注入到 `body`：
   - 这样弹窗/下拉/气泡等 Portal 浮层也能继承同一套毛玻璃变量。
 - 侧边栏收起时，`a-menu` 的二级菜单会以 Portal 形式挂载到 `body`（`.ant-menu-submenu-popup`），其背景也必须纳入毛玻璃 surface 体系（避免“完全透明”）。
-- 全局样式在 `frontend/src/assets/main.css` 中以 `body.app-is-manager` 为作用域，统一覆盖 AntDesign 默认外观。
+- 全局样式在 `apps/web/src/assets/main.css` 中以 `body.app-is-manager` 为作用域，统一覆盖 AntDesign 默认外观。
 - 覆盖范围包含“细节控件”：按钮（含图标按钮/文本按钮/危险按钮）、Badge、Tag 等，保证列表卡片里的红心按钮等交互点也统一为毛玻璃。
 - Badge 颜色支持多种：通过在 `a-badge` 上添加类名切换，例如 `manager-badge--blue`、`manager-badge--green`、`manager-badge--orange` 等。
 - 管理器端的按钮/搜索框会大量使用 `@ant-design/icons-vue` 图标组件，其默认的 `.anticon { vertical-align: -0.125em; }` 会导致“图标偏下”。因此必须在管理器作用域内，对按钮图标容器与输入框前后缀做统一的垂直居中处理（见下文“图标对齐”）。
@@ -33,7 +33,7 @@ flowchart TD
 
 ### GlassPage
 
-- 路径：`frontend/src/components/glass/ui/GlassPage.vue`
+- 路径：`apps/web/src/components/glass/ui/GlassPage.vue`
 - 用途：统一页面内边距与顶部标题区（可选）。
 - 用法：
   - 只需要统一边距时：不传 `title`/`subtitle`。
@@ -41,7 +41,7 @@ flowchart TD
 
 ### GlassSurface
 
-- 路径：`frontend/src/components/glass/ui/GlassSurface.vue`
+- 路径：`apps/web/src/components/glass/ui/GlassSurface.vue`
 - 用途：统一“卡片/面板/容器”的毛玻璃底、边框与阴影。
 - 关键参数：
   - `variant="panel|card|plain"`：面板/小卡片/透明容器。
@@ -76,7 +76,7 @@ flowchart TD
 解决方案（统一在全局样式中处理）：
 
 - 在 `body.app-is-manager` 作用域内，为 `.ant-menu-submenu-popup` 应用与 `Modal/Popover/Dropdown` 相同的 surface 毛玻璃样式（背景/边框/阴影/模糊）。
-- 对应代码位置：`frontend/src/assets/main.css`。
+- 对应代码位置：`apps/web/src/assets/main.css`。
 
 ## 图标对齐（必须）
 
@@ -93,4 +93,4 @@ flowchart TD
 - 仅在 `body.app-is-manager` 作用域内：
   - 将 `.ant-btn` 及其 `.ant-btn-icon` 调整为 `inline-flex` 并 `align-items: center`。
   - 在按钮图标与输入框前后缀内部，把 `.anticon` 的 `vertical-align` 重置为 `0`。
-- 对应代码位置：`frontend/src/assets/main.css`。
+- 对应代码位置：`apps/web/src/assets/main.css`。

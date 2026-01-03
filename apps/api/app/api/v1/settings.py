@@ -2,7 +2,7 @@ from flask import request, jsonify
 from . import api
 from loguru import logger
 
-from ..services.settings_service import (
+from ...services.settings_service import (
     DEFAULT_SETTINGS,
     delete_setting_override,
     get_all_settings_with_defaults,

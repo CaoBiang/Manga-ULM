@@ -35,8 +35,7 @@ flowchart TD
 
 ## 相关实现
 
-- 后端默认设置：`backend/app/services/settings_service.py`
-- 前端设置仓库：`frontend/src/store/appSettings.js`
-- 阅读器页面：`frontend/src/views/ReaderView.vue`
-- 覆盖层与配置界面：`frontend/src/components/reader/tapZones/`
-
+- 后端默认设置：`apps/api/app/services/settings_service.py`
+- 前端设置仓库：`apps/web/src/store/appSettings.js`
+- 阅读器页面：`apps/web/src/pages/ReaderView.vue`
+- 覆盖层与配置界面：`apps/web/src/components/reader/tapZones/`

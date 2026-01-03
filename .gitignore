@@ -272,9 +272,11 @@ dynamodb_local_*.log
 manga_manager.db
 
 # Project-specific
-/frontend/dist
-/frontend/.vite
-/backend/instance
+/apps/web/dist
+/apps/web/.vite
+/apps/api/instance
+/frontend/
+/backend/
 .DS_Store 
 .idea/inspectionProfiles/profiles_settings.xml
 .idea/Manga-ULM.iml

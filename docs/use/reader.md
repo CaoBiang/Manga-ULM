@@ -39,7 +39,7 @@ flowchart TD
 
 ## 相关实现
 
-- 阅读器页面：`frontend/src/views/ReaderView.vue`
-- 阅读器表格：`frontend/src/components/reader/ReaderTable.vue`
-- 阅读器控件：`frontend/src/components/reader/ui/ReaderButton.vue`、`frontend/src/components/reader/ui/ReaderInput.vue`
-- 点击区域：`frontend/src/components/reader/tapZones/ReaderTapZonesLayer.vue`、`frontend/src/components/reader/tapZones/ReaderTapZonesConfigurator.vue`
+- 阅读器页面：`apps/web/src/pages/ReaderView.vue`
+- 阅读器表格：`apps/web/src/components/reader/ReaderTable.vue`
+- 阅读器控件：`apps/web/src/components/reader/ui/ReaderButton.vue`、`apps/web/src/components/reader/ui/ReaderInput.vue`
+- 点击区域：`apps/web/src/components/reader/tapZones/ReaderTapZonesLayer.vue`、`apps/web/src/components/reader/tapZones/ReaderTapZonesConfigurator.vue`
