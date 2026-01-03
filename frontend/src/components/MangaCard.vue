@@ -618,12 +618,6 @@ const openEdit = (event) => {
   position: absolute;
   top: 8px;
   right: 8px;
-  background: rgba(255, 255, 255, 0.9);
-}
-
-.manga-card-grid__like:hover,
-.manga-card-grid__like:focus {
-  background: rgba(255, 255, 255, 0.9) !important;
 }
 
 .manga-card-grid__like:hover :deep(.anticon) {
@@ -670,12 +664,6 @@ const openEdit = (event) => {
   position: absolute;
   top: 8px;
   right: 8px;
-  background: rgba(255, 255, 255, 0.85);
-}
-
-.manga-card-list__like:hover,
-.manga-card-list__like:focus {
-  background: rgba(255, 255, 255, 0.85) !important;
 }
 
 .manga-card-list__like:hover :deep(.anticon) {

@@ -65,7 +65,8 @@
                     <span>{{ type.name }}</span>
                     <a-badge
                       :count="tagsByTypeCount[type.id] || 0"
-                      :number-style="{ backgroundColor: '#e6f4ff', color: '#1677ff' }"
+                      class="manager-badge"
+                      :class="badgeToneClass(type.id)"
                     />
                   </a-menu-item>
                 </a-menu>
@@ -172,6 +173,23 @@ const tagsByTypeCount = computed(() => {
   }
   return map
 })
+
+const badgeToneClasses = Object.freeze([
+  'manager-badge--blue',
+  'manager-badge--cyan',
+  'manager-badge--green',
+  'manager-badge--orange',
+  'manager-badge--purple',
+  'manager-badge--red'
+])
+
+const badgeToneClass = (typeId) => {
+  const id = Number(typeId)
+  if (!Number.isFinite(id)) {
+    return badgeToneClasses[0]
+  }
+  return badgeToneClasses[Math.abs(id) % badgeToneClasses.length]
+}
 
 const activeTypeKey = computed(() => (activeTypeId.value ? [String(activeTypeId.value)] : []))
 

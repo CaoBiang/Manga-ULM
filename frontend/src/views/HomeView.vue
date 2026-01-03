@@ -176,17 +176,17 @@ onActivated(() => {
               <GlassSurface variant="card" padding="sm" class="h-full">
                 <p class="text-sm font-medium text-gray-600">{{ t('statFilterByStatus') }}</p>
                 <a-space wrap class="mt-3">
-                  <a-tag
-                    v-for="item in statusSummary"
-                    :key="`status-summary-${item.key}`"
-                    :color="item.color"
-                  >
-                    {{ item.label }}
-                    <span class="ml-1 text-xs text-white/80">({{ item.count }})</span>
-                  </a-tag>
-                </a-space>
-              </GlassSurface>
-            </a-col>
+                <a-tag
+                  v-for="item in statusSummary"
+                  :key="`status-summary-${item.key}`"
+                  :color="item.color"
+                >
+                  {{ item.label }}
+                  <span class="ml-1 text-xs manager-tag__count">({{ item.count }})</span>
+                </a-tag>
+              </a-space>
+            </GlassSurface>
+          </a-col>
             <a-col :xs="24" :md="12" :xl="6">
               <GlassSurface variant="card" padding="sm" class="h-full">
                 <p class="text-sm font-medium text-gray-600">{{ t('statEngagement') }}</p>
@@ -202,18 +202,18 @@ onActivated(() => {
               <GlassSurface variant="card" padding="sm" class="h-full">
                 <p class="text-sm font-medium text-gray-600">{{ t('statTopTags') }}</p>
                 <a-space wrap class="mt-3">
-                  <a-tag
-                    v-for="tag in topTagsPreview"
-                    :key="`top-tag-${tag.id}`"
-                    color="geekblue"
-                  >
-                    {{ tag.name }}
-                    <span class="ml-1 text-xs text-white/80">({{ tag.usage_count }})</span>
-                  </a-tag>
-                  <span v-if="!topTagsPreview.length" class="text-xs text-gray-400">{{ t('statEmptyList') }}</span>
-                </a-space>
-              </GlassSurface>
-            </a-col>
+                <a-tag
+                  v-for="tag in topTagsPreview"
+                  :key="`top-tag-${tag.id}`"
+                  color="geekblue"
+                >
+                  {{ tag.name }}
+                  <span class="ml-1 text-xs manager-tag__count">({{ tag.usage_count }})</span>
+                </a-tag>
+                <span v-if="!topTagsPreview.length" class="text-xs text-gray-400">{{ t('statEmptyList') }}</span>
+              </a-space>
+            </GlassSurface>
+          </a-col>
           </a-row>
 
           <a-row v-if="hasHighlights" :gutter="[16, 16]">

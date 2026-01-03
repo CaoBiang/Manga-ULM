@@ -12,7 +12,11 @@
 - 前端启动时加载设置到 Pinia（`appSettingsStore`）。
 - `App.vue` 在“非全屏路由（管理器）”时，把变量注入到 `body`：
   - 这样弹窗/下拉/气泡等 Portal 浮层也能继承同一套毛玻璃变量。
+- 侧边栏收起时，`a-menu` 的二级菜单会以 Portal 形式挂载到 `body`（`.ant-menu-submenu-popup`），其背景也必须纳入毛玻璃 surface 体系（避免“完全透明”）。
 - 全局样式在 `frontend/src/assets/main.css` 中以 `body.app-is-manager` 为作用域，统一覆盖 AntDesign 默认外观。
+- 覆盖范围包含“细节控件”：按钮（含图标按钮/文本按钮/危险按钮）、Badge、Tag 等，保证列表卡片里的红心按钮等交互点也统一为毛玻璃。
+- Badge 颜色支持多种：通过在 `a-badge` 上添加类名切换，例如 `manager-badge--blue`、`manager-badge--green`、`manager-badge--orange` 等。
+- 管理器端的按钮/搜索框会大量使用 `@ant-design/icons-vue` 图标组件，其默认的 `.anticon { vertical-align: -0.125em; }` 会导致“图标偏下”。因此必须在管理器作用域内，对按钮图标容器与输入框前后缀做统一的垂直居中处理（见下文“图标对齐”）。
 
 ```mermaid
 flowchart TD
@@ -22,7 +26,7 @@ flowchart TD
   "读取 /api/v1/settings" --> "Pinia: appSettingsStore"
   "Pinia: appSettingsStore" --> "App.vue 注入 body CSS 变量"
   "body CSS 变量" --> "GlassSurface / GlassPage"
-  "body CSS 变量" --> "AntDesign 浮层（Modal/Popover/Dropdown）"
+  "body CSS 变量" --> "AntDesign 浮层（Modal/Popover/Dropdown/MenuPopup）"
 ```
 
 ## 组件清单
@@ -58,3 +62,35 @@ flowchart TD
 - 派生变量（如 `--manager-ui-backdrop-filter`、`--manager-ui-surface-bg`）在 CSS 中计算，业务组件不应自行拼接。
 - 所有 AntDesign 覆盖样式必须写在 `body.app-is-manager` 作用域内，避免影响阅读器全屏路由。
 
+## 侧边栏二级菜单弹层（必须）
+
+现象：
+
+- 侧边栏处于“收起状态”时，点击带子菜单的条目，会弹出二级菜单；如果弹层背景透明，会出现“文字浮在页面上”的问题。
+
+根因：
+
+- 管理器端为了让菜单融入侧边栏毛玻璃容器，会把 `.ant-menu` 背景设为透明。
+- 但收起状态下的二级菜单不是渲染在侧边栏内，而是 Portal 到 `body` 的 `.ant-menu-submenu-popup`，如果弹层容器没有 surface 背景，就会变成“完全透明”。
+
+解决方案（统一在全局样式中处理）：
+
+- 在 `body.app-is-manager` 作用域内，为 `.ant-menu-submenu-popup` 应用与 `Modal/Popover/Dropdown` 相同的 surface 毛玻璃样式（背景/边框/阴影/模糊）。
+- 对应代码位置：`frontend/src/assets/main.css`。
+
+## 图标对齐（必须）
+
+现象：
+
+- 在管理器端，`a-button` 的 `#icon` 插槽、`a-input-search` 的搜索按钮/后缀图标，可能出现“图标不居中、整体偏下”。
+
+根因：
+
+- `@ant-design/icons-vue` 注入的全局样式中，`.anticon` 默认带 `vertical-align: -0.125em;`，其设计目标是“对齐文字基线”，但在管理器端的“固定高度按钮/输入框”中会造成视觉偏移。
+
+解决方案（统一在全局样式中处理）：
+
+- 仅在 `body.app-is-manager` 作用域内：
+  - 将 `.ant-btn` 及其 `.ant-btn-icon` 调整为 `inline-flex` 并 `align-items: center`。
+  - 在按钮图标与输入框前后缀内部，把 `.anticon` 的 `vertical-align` 重置为 `0`。
+- 对应代码位置：`frontend/src/assets/main.css`。
