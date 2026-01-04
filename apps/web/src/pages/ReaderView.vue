@@ -302,7 +302,6 @@ const {
 const fileId = route.params.id
 const currentPage = ref(0)
 const totalPages = ref(0)
-const spreadPages = ref([])
 const isLoading = ref(true)
 const error = ref(null)
 const isToolbarExpanded = ref(false)
@@ -535,7 +534,7 @@ const imageUrl = computed(() => {
   return `/api/v1/files/${fileId}/page/${currentPage.value}`
 })
 
-const isCurrentPageSpread = computed(() => spreadPages.value.includes(currentPage.value))
+const isCurrentPageSpread = computed(() => isCurrentImageWide.value)
 const isCurrentPageBookmarked = computed(() =>
   bookmarks.value.some(b => b.page_number === currentPage.value)
 )
@@ -616,12 +615,6 @@ const fetchMangaDetails = async () => {
     }
     totalPages.value = fileData.total_pages
     currentPage.value = fileData.last_read_page || 0
-    try {
-      spreadPages.value = JSON.parse(fileData.spread_pages || '[]')
-    } catch (err) {
-      console.error('解析 spread_pages 失败：', err)
-      spreadPages.value = []
-    }
     preloadImages()
   } catch (err) {
     console.error('获取漫画详情失败：', err)

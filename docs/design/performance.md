@@ -10,7 +10,7 @@
 
 - 通过统一的归档读取抽象（`ArchiveReader`）建立“索引缓存”，并在读取页图时按需解压。
 - 阅读接口按页流式输出，避免一次性读取/解压整包。
-- 扫描与封面生成采用逐页解析策略，避免 `readall` 造成的峰值开销。
+- 扫描采用“增量判定 + 只读目录索引”，封面生成仅解压 1 张候选页，避免逐页解码带来的峰值开销。
 
 ```mermaid
 flowchart TD
@@ -22,8 +22,8 @@ flowchart TD
 ## 模块介绍
 
 - `apps/api/app/infrastructure/archive_reader.py`：索引缓存、按页解压、流式输出、MIME 判定。
-- `apps/api/app/api/files.py`：`/files/<id>/page/<page_num>` 以流式响应返回图片，降低峰值内存。
-- `apps/api/app/tasks/scanner.py`：扫描与封面生成逐页处理，避免 7z 全量解压。
+- `apps/api/app/api/v1/files.py`：`/files/<id>/page/<page_num>` 以流式响应返回图片，降低峰值内存。
+- `apps/api/app/tasks/scanner.py`：增量扫描、索引读取与封面生成（单页候选），避免全量解压/解码。
 
 ## 使用建议
 

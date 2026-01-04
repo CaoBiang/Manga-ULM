@@ -25,9 +25,28 @@ const sizeUnits = computed(() => [
   t('sizeUnitTB')
 ])
 
-const fallbackCover = computed(
-  () => `https://via.placeholder.com/300x400.png?text=${encodeURIComponent(t('noCoverPlaceholder'))}`
-)
+const escapeXml = (value) =>
+  String(value || '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&apos;')
+
+const fallbackCover = computed(() => {
+  const label = escapeXml(t('noCoverPlaceholder'))
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="300" height="400" viewBox="0 0 300 400">
+      <rect width="300" height="400" fill="#1f1f1f"/>
+      <rect x="18" y="18" width="264" height="364" rx="16" fill="#2a2a2a" stroke="#3a3a3a"/>
+      <text x="150" y="206" text-anchor="middle" dominant-baseline="middle"
+        fill="#9b9b9b" font-size="18" font-family="system-ui, -apple-system, Segoe UI, sans-serif">
+        ${label}
+      </text>
+    </svg>
+  `.trim()
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+})
 
 const emit = defineEmits(['metadata-updated'])
 const statusOrder = ['unread', 'in_progress', 'finished']

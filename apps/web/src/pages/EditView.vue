@@ -310,7 +310,7 @@ onMounted(fetchData)
                   <span class="break-all">{{ file.file_path }}</span>
                 </a-descriptions-item>
                 <a-descriptions-item :label="$t('hash')">
-                  <span class="break-all">{{ file.file_hash }}</span>
+                  <span class="break-all">{{ file.content_sha256 || '--' }}</span>
                 </a-descriptions-item>
               </a-descriptions>
             </GlassSurface>

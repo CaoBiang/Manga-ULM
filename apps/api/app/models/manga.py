@@ -9,18 +9,21 @@ class FileTagMap(db.Model):
 class File(db.Model):
     __tablename__ = 'files'
     id = db.Column(db.Integer, primary_key=True)
+    library_path_id = db.Column(db.Integer, db.ForeignKey('library_paths.id'), nullable=False, index=True)
     file_path = db.Column(db.Text, nullable=False, unique=True, index=True)
-    file_hash = db.Column(db.Text, nullable=False, unique=True, index=True)
-    file_size = db.Column(db.Integer)
+    file_size = db.Column(db.Integer, nullable=False)
+    file_mtime = db.Column(db.Integer, nullable=False, index=True)
+    cover_updated_at = db.Column(db.Integer, index=True)  # 封面最后生成时间（Unix 秒），用于缓存版本控制
+    content_sha256 = db.Column(db.Text, index=True)
     add_date = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     total_pages = db.Column(db.Integer)
-    spread_pages = db.Column(db.Text, default='[]')  # JSON array as a string
     last_read_page = db.Column(db.Integer, default=0)
     last_read_date = db.Column(db.DateTime)
     reading_status = db.Column(db.Text, index=True, default='unread')  # 'unread', 'in_progress', 'finished'
     is_missing = db.Column(db.Boolean, nullable=False, default=False, index=True)
     integrity_status = db.Column(db.Text, default='unknown')  # 'unknown', 'ok', 'corrupted'
     
+    library_path = db.relationship('LibraryPath', backref='files')
     tags = db.relationship('Tag', secondary='file_tag_map', back_populates='files')
     bookmarks = db.relationship('Bookmark', backref='file', lazy='dynamic')
     like_item = db.relationship('Like', backref='file', uselist=False)
@@ -77,6 +80,7 @@ class Task(db.Model):
     progress = db.Column(db.Float, default=0.0)  # 0-100
     current_file = db.Column(db.Text)  # 当前正在处理的文件
     target_path = db.Column(db.Text)  # 扫描目标路径
+    target_library_path_id = db.Column(db.Integer, db.ForeignKey('library_paths.id'), index=True)
     total_files = db.Column(db.Integer, default=0)  # 总文件数
     processed_files = db.Column(db.Integer, default=0)  # 已处理文件数
     error_message = db.Column(db.Text)  # 错误信息
@@ -109,6 +113,7 @@ class Task(db.Model):
             'progress': self.progress,
             'current_file': self.current_file,
             'target_path': self.target_path,
+            'target_library_path_id': self.target_library_path_id,
             'total_files': self.total_files,
             'processed_files': self.processed_files,
             'error_message': self.error_message,

@@ -136,12 +136,12 @@ def cancel_task(task_id):
         db.session.commit()
         
         return jsonify({
-            'message': 'Task cancelled successfully',
+            'message': '任务已取消',
             'task': task.to_dict()
         })
     else:
         return jsonify({
-            'error': 'Task cannot be cancelled',
+            'error': '任务当前状态不支持取消',
             'current_status': task.status
         }), 400
 
@@ -163,6 +163,6 @@ def cleanup_completed_tasks():
     db.session.commit()
     
     return jsonify({
-        'message': f'Cleaned up {deleted_count} old task records',
+        'message': f'已清理 {deleted_count} 条过期任务记录',
         'deleted_count': deleted_count
     }) 

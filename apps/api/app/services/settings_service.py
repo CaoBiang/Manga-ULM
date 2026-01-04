@@ -15,13 +15,18 @@ from ..models.manga import Config
 DEFAULT_SETTINGS: Dict[str, str] = {
     # 扫描
     'scan.max_workers': '12',
-    'scan.spread.ratio': '1.5',
+    'scan.hash.mode': 'full',
+    'scan.cancel_check.interval_ms': '200',
     # 封面生成
+    'scan.cover.mode': 'scan',
+    'scan.cover.regenerate_missing': '1',
     'scan.cover.max_width': '500',
     'scan.cover.target_kb': '300',
     'scan.cover.quality_start': '80',
     'scan.cover.quality_min': '10',
     'scan.cover.quality_step': '10',
+    # 封面缓存
+    'cover.cache.shard_count': '256',
     # 阅读：后端流式输出
     'reader.stream.chunk_kb': '512',
     # 通用：界面与体验
@@ -178,14 +183,33 @@ class ScanCoverSettings:
 @dataclass(frozen=True)
 class ScanSettings:
     max_workers: int
-    spread_ratio: float
+    hash_mode: str
+    cover_mode: str
+    cover_regenerate_missing: bool
+    cancel_check_interval_ms: int
     cover: ScanCoverSettings
 
 
 def get_scan_settings() -> ScanSettings:
+    raw_hash_mode = get_str_setting('scan.hash.mode', default='full').strip().lower()
+    hash_mode = raw_hash_mode if raw_hash_mode in {'full', 'off'} else 'full'
+
+    raw_cover_mode = get_str_setting('scan.cover.mode', default='scan').strip().lower()
+    cover_mode = raw_cover_mode if raw_cover_mode in {'scan', 'off'} else 'scan'
+
+    cover_regenerate_missing = get_bool_setting('scan.cover.regenerate_missing', default=True)
+    cancel_check_interval_ms = get_int_setting(
+        'scan.cancel_check.interval_ms',
+        default=200,
+        min_value=50,
+        max_value=5000,
+    )
     settings = ScanSettings(
         max_workers=get_int_setting('scan.max_workers', default=12, min_value=1, max_value=128),
-        spread_ratio=get_float_setting('scan.spread.ratio', default=1.5, min_value=1.0, max_value=5.0),
+        hash_mode=hash_mode,
+        cover_mode=cover_mode,
+        cover_regenerate_missing=cover_regenerate_missing,
+        cancel_check_interval_ms=cancel_check_interval_ms,
         cover=ScanCoverSettings(
             max_width=get_int_setting('scan.cover.max_width', default=500, min_value=64, max_value=4000),
             target_kb=get_int_setting('scan.cover.target_kb', default=300, min_value=50, max_value=5000),
@@ -202,7 +226,10 @@ def get_scan_settings() -> ScanSettings:
         )
         return ScanSettings(
             max_workers=settings.max_workers,
-            spread_ratio=settings.spread_ratio,
+            hash_mode=settings.hash_mode,
+            cover_mode=settings.cover_mode,
+            cover_regenerate_missing=settings.cover_regenerate_missing,
+            cancel_check_interval_ms=settings.cancel_check_interval_ms,
             cover=ScanCoverSettings(
                 max_width=settings.cover.max_width,
                 target_kb=settings.cover.target_kb,
@@ -212,3 +239,8 @@ def get_scan_settings() -> ScanSettings:
             ),
         )
     return settings
+
+
+def get_cover_cache_shard_count() -> int:
+    """封面缓存分片目录数量（用于避免单目录文件过多）。"""
+    return get_int_setting('cover.cache.shard_count', default=256, min_value=1, max_value=4096)

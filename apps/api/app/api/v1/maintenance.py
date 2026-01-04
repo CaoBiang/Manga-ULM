@@ -13,13 +13,16 @@ def check_integrity():
 @api.route('/maintenance/duplicates', methods=['GET'])
 def get_duplicates():
     """
-    Finds and returns groups of files with identical content (based on file_hash).
+    查找并返回内容重复的文件分组（基于 content_sha256）。
     """
     # Find all hashes that appear more than once
-    duplicate_hashes = db.session.query(File.file_hash, func.count(File.id).label('count')) \
-        .group_by(File.file_hash) \
-        .having(func.count(File.id) > 1) \
+    duplicate_hashes = (
+        db.session.query(File.content_sha256, func.count(File.id).label('count'))
+        .filter(File.content_sha256.isnot(None), File.content_sha256 != '')
+        .group_by(File.content_sha256)
+        .having(func.count(File.id) > 1)
         .all()
+    )
 
     if not duplicate_hashes:
         return jsonify([])
@@ -27,7 +30,7 @@ def get_duplicates():
     # For each duplicate hash, get the full file records
     results = []
     for hash_val, count in duplicate_hashes:
-        files = File.query.filter_by(file_hash=hash_val).all()
+        files = File.query.filter_by(content_sha256=hash_val).all()
         results.append([file_to_dict(f) for f in files])
 
     return jsonify(results)

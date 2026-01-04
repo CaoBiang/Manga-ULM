@@ -31,11 +31,9 @@ pip install -r .\apps\api\requirements.txt
 ```
 
 初始化/升级数据库（首次需要）：
-```powershell
-set FLASK_APP=main:app
-set PYTHONPATH=%cd%\apps\api
-flask db upgrade
-```
+
+- 数据库会在启动时自动初始化。
+- 若你之前运行过旧版本，可能需要删除 `instance/manga_manager*.db` 与 `instance/huey.db` 后重启（当前阶段不兼容旧数据）。
 
 启动（两条命令建议分两个窗口）：
 ```powershell
@@ -69,4 +67,5 @@ npm run dev
 - 阅读器 UI 规范：`docs/standard/reader-ui.md`
 - 阅读器使用说明：`docs/use/reader.md`
 - 性能优化说明：`docs/design/performance.md`
-
+- 图书馆扫描与封面缓存（V2 设计）：`docs/design/library-scan-v2.md`
+- 扫描与封面模块规范：`docs/standard/scanner.md`

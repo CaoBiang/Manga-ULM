@@ -1,4 +1,4 @@
-from flask import jsonify, request, Response, stream_with_context
+from flask import abort, current_app, jsonify, request, Response, send_file, stream_with_context
 from . import api
 from ...models import File, Tag
 from ... import db
@@ -13,7 +13,8 @@ from ...infrastructure.archive_reader import (
     guess_mimetype,
     iter_entry_chunks,
 )
-from ...services.settings_service import get_int_setting
+from ...services.cover_service import CoverPathConfig, get_cover_path
+from ...services.settings_service import get_cover_cache_shard_count, get_int_setting
 from ...tasks.rename import sanitize_filename
 READING_STATUS_OPTIONS = {'unread', 'in_progress', 'finished'}
 SORTABLE_COLUMNS = {
@@ -27,7 +28,7 @@ SORTABLE_COLUMNS = {
 }
 
 def file_to_dict(file_obj, is_liked=False):
-    """Converts a File object to a dictionary."""
+    """将 File 对象转换为前端使用的字典。"""
     display_name = os.path.basename(file_obj.file_path) if file_obj.file_path else ''
     parent_folder = ''
     if file_obj.file_path:
@@ -48,18 +49,19 @@ def file_to_dict(file_obj, is_liked=False):
         'file_path': file_obj.file_path,
         'display_name': display_name,
         'folder_name': parent_folder,
-        'file_hash': file_obj.file_hash,
         'file_size': file_obj.file_size,
+        'file_mtime': file_obj.file_mtime,
+        'cover_updated_at': file_obj.cover_updated_at,
+        'content_sha256': file_obj.content_sha256,
         'add_date': file_obj.add_date.isoformat() if file_obj.add_date else None,
         'total_pages': file_obj.total_pages,
-        'spread_pages': file_obj.spread_pages,
         'last_read_page': file_obj.last_read_page,
         'last_read_date': file_obj.last_read_date.isoformat() if file_obj.last_read_date else None,
         'reading_status': file_obj.reading_status,
         'progress_percent': progress_percent,
         'is_missing': file_obj.is_missing,
         'integrity_status': file_obj.integrity_status,
-        'cover_url': f'/api/v1/covers/{file_obj.file_hash}.webp',
+        'cover_url': f'/api/v1/files/{file_obj.id}/cover?v={file_obj.cover_updated_at or file_obj.file_mtime}',
         'tags': [{'id': t.id, 'name': t.name, 'type_id': t.type_id} for t in file_obj.tags],
         'tag_ids': [t.id for t in file_obj.tags]
     }
@@ -584,6 +586,26 @@ def get_file_page_details(id, page_num):
         })
     else:
         return jsonify({'error': 'Failed to extract page details from archive'}), 500
+
+
+@api.route('/files/<int:id>/cover', methods=['GET'])
+def get_file_cover(id):
+    """返回指定文件的封面图片（WebP）。"""
+    file_record = db.session.get(File, id)
+    if not file_record or file_record.is_missing:
+        return jsonify({'error': '文件不存在'}), 404
+
+    cover_base_dir = current_app.config['COVER_CACHE_PATH']
+    shard_count = get_cover_cache_shard_count()
+    cover_path = get_cover_path(CoverPathConfig(base_dir=cover_base_dir, shard_count=shard_count), file_record.id)
+
+    if not os.path.exists(cover_path):
+        abort(404)
+
+    response = send_file(cover_path, mimetype='image/webp', conditional=True)
+    # URL 已带 v=file_mtime，可视作不可变资源，允许强缓存
+    response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+    return response
 
 
 @api.route('/files/stats', methods=['GET'])

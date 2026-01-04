@@ -15,6 +15,47 @@ flowchart TD
   "删除 /api/v1/settings/<key>" --> "前端刷新设置缓存"
 ```
 
+## 扫描与封面（新增）
+
+“设置” -> “图书馆设置”中提供扫描与封面相关选项，对应的 Key 如下：
+
+### 扫描并发
+
+- `scan.max_workers`：并行扫描工作数（建议=CPU 核心数）。
+
+示例：将并行扫描工作数设为 8
+
+- Key：`scan.max_workers`
+- Value：`8`
+
+### 内容哈希（用于移动/重复识别）
+
+- `scan.hash.mode`：内容哈希模式
+  - `full`：计算 SHA-256（较慢，可识别移动/重复）
+  - `off`：关闭哈希（更快，但无法识别移动/重复）
+
+示例：关闭内容哈希（更快）
+
+- Key：`scan.hash.mode`
+- Value：`off`
+
+### 封面生成与缓存
+
+- `scan.cover.mode`：封面生成模式
+  - `scan`：扫描时生成/刷新封面
+  - `off`：不自动生成（缺失时显示占位图）
+- `scan.cover.regenerate_missing`：是否补全缺失封面（`0/1`）
+  - 当你手动删除了 `instance/covers` 时，开启该选项并重新扫描即可重建封面缓存。
+- `cover.cache.shard_count`：封面缓存分片数量（修改后需要重建封面缓存）
+
+### 封面质量与尺寸
+
+- `scan.cover.max_width`：封面最大宽度（像素）。
+- `scan.cover.target_kb`：封面目标大小（KB）。
+- `scan.cover.quality_start`：起始质量（1–100）。
+- `scan.cover.quality_min`：最小质量（1–100）。
+- `scan.cover.quality_step`：质量下降步长（1–50）。
+
 ## 阅读器外观相关（新增）
 
 阅读器页面的按钮与输入框使用“灰黑白 + 半透明 + 磨砂”的自定义风格，可在“阅读器设置”中调整：

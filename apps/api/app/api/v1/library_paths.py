@@ -4,22 +4,29 @@ from ... import db
 from ...models import LibraryPath
 import os
 
+from ...services.path_service import normalize_library_path
+
+
 @api.route('/library_paths', methods=['GET'])
 def get_library_paths():
-    """Returns a list of all library paths."""
+    """返回所有图书馆路径。"""
     paths = LibraryPath.query.order_by(LibraryPath.path).all()
     return jsonify([{'id': p.id, 'path': p.path} for p in paths])
 
 @api.route('/library_paths', methods=['POST'])
 def add_library_path():
-    """Adds a new library path."""
-    data = request.get_json()
-    path = data.get('path')
-    if not path or not os.path.isdir(path):
-        return jsonify({'error': 'A valid directory path is required'}), 400
+    """新增图书馆路径。"""
+    data = request.get_json() or {}
+    raw_path = str(data.get('path') or '').strip()
+    if not raw_path:
+        return jsonify({'error': '必须提供路径'}), 400
+
+    path = normalize_library_path(raw_path)
+    if not os.path.isdir(path):
+        return jsonify({'error': '路径无效或不是目录'}), 400
     
     if LibraryPath.query.filter_by(path=path).first():
-        return jsonify({'error': 'Path already exists in the library'}), 409
+        return jsonify({'error': '该路径已存在'}), 409
     
     new_path = LibraryPath(path=path)
     db.session.add(new_path)
@@ -28,10 +35,10 @@ def add_library_path():
 
 @api.route('/library_paths/<int:id>', methods=['DELETE'])
 def delete_library_path(id):
-    """Deletes a library path."""
+    """删除图书馆路径。"""
     path_to_delete = db.session.get(LibraryPath, id)
     if not path_to_delete:
-        return jsonify({'error': 'Path not found'}), 404
+        return jsonify({'error': '路径不存在'}), 404
     
     db.session.delete(path_to_delete)
     db.session.commit()

@@ -163,7 +163,7 @@ export const useLibraryStore = defineStore('library', () => {
     }
   }
 
-  async function startScan(path) {
+  async function startScan(libraryPathId) {
     try {
       // 清空之前的错误
       scanErrors.value = []
@@ -173,7 +173,7 @@ export const useLibraryStore = defineStore('library', () => {
       currentScanFile.value = ''
       currentScanMessageKey.value = 'initializingScanMessage'
       
-      const response = await axios.post('/api/v1/library/scan', { path })
+      const response = await axios.post('/api/v1/library/scan', { library_path_id: libraryPathId })
       taskId.value = response.data.task_id
       dbTaskId.value = response.data.db_task_id
       
@@ -270,16 +270,17 @@ export const useLibraryStore = defineStore('library', () => {
   async function fetchFiles(page = 1) {
     try {
       libraryStatus.value = 'loading'
-      const response = await axios.get(`/api/v1/library`, {
+      const response = await axios.get(`/api/v1/files`, {
         params: { page, per_page: pagination.value.per_page }
       })
       
       files.value = response.data.files || []
+      const pageInfo = response.data.pagination || {}
       pagination.value = {
-        page: response.data.page || 1,
-        per_page: response.data.per_page || 20,
-        total_pages: response.data.total_pages || 1,
-        total_items: response.data.total_items || 0
+        page: pageInfo.page || 1,
+        per_page: pageInfo.per_page || pagination.value.per_page || 20,
+        total_pages: pageInfo.total_pages || 1,
+        total_items: pageInfo.total_items || 0
       }
       
       libraryStatus.value = 'success'

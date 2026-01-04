@@ -111,7 +111,7 @@
                   type="primary"
                   size="small"
                   :disabled="libraryStore.hasActiveScanTasks"
-                  @click="startScan(item.path)"
+                  @click="startScan(item)"
                 >
                   {{ libraryStore.hasActiveScanTasks ? $t('scanning') : $t('scan') }}
                 </a-button>
@@ -166,17 +166,73 @@
 
         <a-divider class="!my-4" />
 
-        <a-form-item :label="$t('scanSpreadRatio')">
+        <a-form-item :label="$t('scanCancelCheckInterval')">
           <a-input-number
-            v-model:value="spreadRatio"
-            :min="1"
-            :max="5"
-            :step="0.1"
-            style="width: 160px"
-            @change="() => saveSetting('scan.spread.ratio', spreadRatio)"
+            v-model:value="cancelCheckIntervalMs"
+            :min="50"
+            :max="5000"
+            :step="50"
+            addon-after="ms"
+            style="width: 220px"
+            @change="() => saveSetting('scan.cancel_check.interval_ms', cancelCheckIntervalMs)"
           />
           <div class="mt-1 text-xs text-gray-500">
-            {{ $t('scanSpreadRatioHelp') }}
+            {{ $t('scanCancelCheckIntervalHelp') }}
+          </div>
+        </a-form-item>
+
+        <a-divider class="!my-4" />
+
+        <a-form-item :label="$t('scanHashMode')">
+          <a-select
+            v-model:value="hashMode"
+            style="width: 220px"
+            @change="() => saveSetting('scan.hash.mode', hashMode)"
+          >
+            <a-select-option value="full">{{ $t('scanHashModeFull') }}</a-select-option>
+            <a-select-option value="off">{{ $t('scanHashModeOff') }}</a-select-option>
+          </a-select>
+          <div class="mt-1 text-xs text-gray-500">
+            {{ $t('scanHashModeHelp') }}
+          </div>
+        </a-form-item>
+
+        <a-divider class="!my-4" />
+
+        <a-form-item :label="$t('scanCoverMode')">
+          <a-select
+            v-model:value="coverMode"
+            style="width: 220px"
+            @change="() => saveSetting('scan.cover.mode', coverMode)"
+          >
+            <a-select-option value="scan">{{ $t('scanCoverModeScan') }}</a-select-option>
+            <a-select-option value="off">{{ $t('scanCoverModeOff') }}</a-select-option>
+          </a-select>
+          <div class="mt-1 text-xs text-gray-500">
+            {{ $t('scanCoverModeHelp') }}
+          </div>
+        </a-form-item>
+
+        <a-form-item :label="$t('scanCoverRegenerateMissing')">
+          <a-switch
+            v-model:checked="coverRegenerateMissing"
+            @change="() => saveSetting('scan.cover.regenerate_missing', coverRegenerateMissing ? 1 : 0)"
+          />
+          <div class="mt-1 text-xs text-gray-500">
+            {{ $t('scanCoverRegenerateMissingHelp') }}
+          </div>
+        </a-form-item>
+
+        <a-form-item :label="$t('coverCacheShardCount')">
+          <a-input-number
+            v-model:value="coverShardCount"
+            :min="1"
+            :max="4096"
+            style="width: 220px"
+            @change="() => saveSetting('cover.cache.shard_count', coverShardCount)"
+          />
+          <div class="mt-1 text-xs text-gray-500">
+            {{ $t('coverCacheShardCountHelp') }}
           </div>
         </a-form-item>
 
@@ -277,7 +333,11 @@ const currentScanDisplay = computed(
 const libraryPaths = ref([])
 const newPath = ref('')
 const maxWorkers = ref(12)
-const spreadRatio = ref(1.5)
+const cancelCheckIntervalMs = ref(200)
+const hashMode = ref('full')
+const coverMode = ref('scan')
+const coverRegenerateMissing = ref(true)
+const coverShardCount = ref(256)
 const coverMaxWidth = ref(500)
 const coverTargetKb = ref(300)
 const coverQualityStart = ref(80)
@@ -429,13 +489,31 @@ async function fetchSettings() {
       const parsed = Number.parseInt(String(value), 10)
       return Number.isNaN(parsed) ? fallback : parsed
     }
-    const toFloat = (value, fallback) => {
-      const parsed = Number.parseFloat(String(value))
-      return Number.isNaN(parsed) ? fallback : parsed
+    const toBool = (value, fallback) => {
+      if (value === null || value === undefined || value === '') {
+        return fallback
+      }
+      if (value === true || value === false) {
+        return value
+      }
+      const raw = String(value).trim().toLowerCase()
+      if (['1', 'true', 'yes', 'y', 'on'].includes(raw)) {
+        return true
+      }
+      if (['0', 'false', 'no', 'n', 'off'].includes(raw)) {
+        return false
+      }
+      return fallback
     }
 
     maxWorkers.value = toInt(settings['scan.max_workers'], 12)
-    spreadRatio.value = toFloat(settings['scan.spread.ratio'], 1.5)
+    cancelCheckIntervalMs.value = toInt(settings['scan.cancel_check.interval_ms'], 200)
+    const rawHashMode = String(settings['scan.hash.mode'] || '').trim().toLowerCase()
+    hashMode.value = ['full', 'off'].includes(rawHashMode) ? rawHashMode : 'full'
+    const rawCoverMode = String(settings['scan.cover.mode'] || '').trim().toLowerCase()
+    coverMode.value = ['scan', 'off'].includes(rawCoverMode) ? rawCoverMode : 'scan'
+    coverRegenerateMissing.value = toBool(settings['scan.cover.regenerate_missing'], true)
+    coverShardCount.value = toInt(settings['cover.cache.shard_count'], 256)
 
     coverMaxWidth.value = toInt(settings['scan.cover.max_width'], 500)
     coverTargetKb.value = toInt(settings['scan.cover.target_kb'], 300)
@@ -458,12 +536,12 @@ async function saveSetting(key, value) {
   }
 }
 
-async function startScan(path) {
+async function startScan(item) {
   try {
-    await libraryStore.startScan(path)
-    showStatus(t('scanStartedFor', { path }))
+    await libraryStore.startScan(item.id)
+    showStatus(t('scanStartedFor', { path: item.path }))
   } catch (error) {
-    console.error(`Failed to start scan for ${path}:`, error)
+    console.error('Failed to start scan:', error)
     showStatus(error.response?.data?.error || t('failedToStartScan'), true)
   }
 }

@@ -27,11 +27,31 @@ const libraryPath = ref('')
 const isRenameMode = ref(false)
 const selectedFilesForRename = ref(new Set())
 
-const handleScan = () => {
-  if (libraryPath.value) {
-    libraryStore.startScan(libraryPath.value)
-  } else {
+const handleScan = async () => {
+  const rawPath = String(libraryPath.value || '').trim()
+  if (!rawPath) {
     message.warning(t('pleaseFillLibraryPath'))
+    return
+  }
+
+  try {
+    const listResp = await axios.get('/api/v1/library_paths')
+    const existing = (listResp.data || []).find(item => item?.path === rawPath)
+
+    if (existing?.id) {
+      await libraryStore.startScan(existing.id)
+      return
+    }
+
+    const createResp = await axios.post('/api/v1/library_paths', { path: rawPath })
+    const createdId = createResp.data?.id
+    if (!createdId) {
+      throw new Error('未能创建图书馆路径')
+    }
+    await libraryStore.startScan(createdId)
+  } catch (error) {
+    console.error('启动扫描失败：', error)
+    message.error(error.response?.data?.error || t('failedToStartScan'))
   }
 }
 
