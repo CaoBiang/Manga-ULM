@@ -8,7 +8,6 @@ import { useLibraryStore } from '@/store/library'
 
 const { t } = useI18n()
 const libraryStore = useLibraryStore()
-const socket = libraryStore.socket
 
 const props = defineProps({
   types: { type: Array, required: true }
@@ -103,9 +102,6 @@ watch(selectedTypeId, () => fetchTags(1))
 
 onMounted(() => {
   fetchTags()
-  socket.on('connect', () => console.log('Socket connected'))
-  socket.on('disconnect', () => console.log('Socket disconnected'))
-  socket.on('connect_error', (e) => console.error('Socket error:', e))
 })
 
 const getTypeName = (typeId) => props.types.find(ti => ti.id === typeId)?.name || t('none')

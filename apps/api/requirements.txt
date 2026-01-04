@@ -1,12 +1,10 @@
 Flask
 Flask-SQLAlchemy
 Flask-Migrate
-Flask-SocketIO
 python-dotenv
 huey[sqlite]
 Flask-Cors
 gunicorn
-eventlet
 rarfile
 py7zr
 Pillow

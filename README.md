@@ -1,14 +1,14 @@
 # Manga-ULM（本地漫画管理器 + 阅读器）
 
 本项目是一个本地部署的漫画管理器与漫画阅读器，采用：
-- 后端：Python + Flask（含 Socket.IO、Huey 异步任务）
+- 后端：Python + Flask（含 Huey 异步任务）
 - 前端：Vue3 + AntDesign-Vue + Pinia + i18n + Vite
 
 ## 目录结构（已优化）
 
 ```
 apps/
-  api/              # Flask API（含任务队列、WebSocket）
+  api/              # Flask API（含任务队列）
   web/              # Vue 前端（管理器与阅读器 UI）
 configs/            # Nginx 等示例配置
 docs/               # 设计/使用/规范文档

@@ -10,7 +10,7 @@ from typing import Iterable, List, Optional, Tuple
 from flask import current_app
 from loguru import logger
 
-from .. import db, huey, socketio
+from .. import db, huey
 from .. import create_app
 from ..infrastructure.archive_reader import SUPPORTED_ARCHIVE_EXTENSIONS, get_archive_entries
 from ..models.manga import File, LibraryPath, Tag, TagAlias, Task
@@ -129,12 +129,12 @@ def start_scan_task(library_path_id: int, task_db_id: Optional[int] = None) -> s
         if task_record:
             task_record.status = 'running'
             task_record.started_at = datetime.datetime.utcnow()
+            task_record.current_file = '开始扫描...'
             db.session.commit()
 
         library_path = db.session.get(LibraryPath, int(library_path_id))
         if not library_path:
             error_msg = f'扫描失败：不存在的图书馆路径 ID: {library_path_id}'
-            socketio.emit('scan_error', {'error': error_msg, 'task_id': task_db_id})
             if task_record:
                 task_record.status = 'failed'
                 task_record.error_message = error_msg
@@ -145,7 +145,6 @@ def start_scan_task(library_path_id: int, task_db_id: Optional[int] = None) -> s
         # 路径不可用时直接失败，避免“扫描完成但为 0”误导用户。
         if not os.path.isdir(library_path.path):
             error_msg = f'扫描失败：图书馆路径不可访问或不是目录: {library_path.path}'
-            socketio.emit('scan_error', {'error': error_msg, 'task_id': task_db_id})
             if task_record:
                 task_record.status = 'failed'
                 task_record.error_message = error_msg
@@ -209,11 +208,6 @@ def start_scan_task(library_path_id: int, task_db_id: Optional[int] = None) -> s
                 shard_count=get_cover_cache_shard_count(),
             )
 
-        socketio.emit(
-            'scan_progress',
-            {'progress': 0, 'current_file': '开始扫描...', 'task_id': task_db_id},
-        )
-
         try:
             discovered = list(_iter_archives(library_path.path))
             total_files = len(discovered)
@@ -269,9 +263,10 @@ def start_scan_task(library_path_id: int, task_db_id: Optional[int] = None) -> s
 
             if total_files == 0:
                 msg = '扫描完成，未找到支持的文件。'
-                socketio.emit('scan_complete', {'message': msg, 'task_id': task_db_id})
                 if task_record:
                     task_record.status = 'completed'
+                    task_record.progress = 100.0
+                    task_record.current_file = ''
                     task_record.finished_at = datetime.datetime.utcnow()
                     db.session.commit()
                 return msg
@@ -318,10 +313,6 @@ def start_scan_task(library_path_id: int, task_db_id: Optional[int] = None) -> s
 
             def update_progress(current_file: str) -> None:
                 progress = (done_units / work_total_units) * 100 if work_total_units else 100
-                socketio.emit(
-                    'scan_progress',
-                    {'progress': progress, 'current_file': current_file, 'task_id': task_db_id},
-                )
                 if task_record:
                     task_record.progress = progress
                     task_record.processed_files = processed
@@ -336,7 +327,6 @@ def start_scan_task(library_path_id: int, task_db_id: Optional[int] = None) -> s
 
             if is_cancelled():
                 msg = '扫描已取消。'
-                socketio.emit('scan_complete', {'message': msg, 'task_id': task_db_id})
                 if task_record:
                     task_record.finished_at = datetime.datetime.utcnow()
                     db.session.commit()
@@ -354,7 +344,6 @@ def start_scan_task(library_path_id: int, task_db_id: Optional[int] = None) -> s
 
                     if is_cancelled():
                         msg = '扫描已取消。'
-                        socketio.emit('scan_complete', {'message': msg, 'task_id': task_db_id})
                         if task_record:
                             task_record.finished_at = datetime.datetime.utcnow()
                             db.session.commit()
@@ -371,7 +360,6 @@ def start_scan_task(library_path_id: int, task_db_id: Optional[int] = None) -> s
                             done_units += 1
                             cover_errors += 1
                         error_msg = f'解析失败: {os.path.basename(item.file_path)} | 错误: {exc}'
-                        socketio.emit('scan_error', {'error': error_msg, 'task_id': task_db_id})
                         logger.warning(error_msg)
                         update_progress(error_msg)
                         if task_record:
@@ -449,7 +437,6 @@ def start_scan_task(library_path_id: int, task_db_id: Optional[int] = None) -> s
                             done_units += 1
                             cover_errors += 1
                         error_msg = f'写入失败: {os.path.basename(item.file_path)} | 错误: {exc}'
-                        socketio.emit('scan_error', {'error': error_msg, 'task_id': task_db_id})
                         logger.warning(error_msg)
                         update_progress(error_msg)
                         if task_record:
@@ -483,7 +470,6 @@ def start_scan_task(library_path_id: int, task_db_id: Optional[int] = None) -> s
 
                         if is_cancelled():
                             msg = '扫描已取消。'
-                            socketio.emit('scan_complete', {'message': msg, 'task_id': task_db_id})
                             if task_record:
                                 task_record.finished_at = datetime.datetime.utcnow()
                                 db.session.commit()
@@ -500,7 +486,6 @@ def start_scan_task(library_path_id: int, task_db_id: Optional[int] = None) -> s
                         if not ok:
                             cover_errors += 1
                             error_msg = f'封面生成失败: {os.path.basename(job.file_path)}'
-                            socketio.emit('scan_error', {'error': error_msg, 'task_id': task_db_id})
                             update_progress(error_msg)
                         else:
                             cover_success_ids.append(int(job.file_id))
@@ -539,15 +524,10 @@ def start_scan_task(library_path_id: int, task_db_id: Optional[int] = None) -> s
                 task_record.finished_at = datetime.datetime.utcnow()
                 db.session.commit()
 
-            socketio.emit(
-                'scan_complete',
-                {'message': f'扫描完成，已处理 {total_files} 个文件。', 'task_id': task_db_id},
-            )
             return f'扫描完成: {library_path.path}'
 
         except Exception as exc:
             error_msg = f'扫描失败: {exc}'
-            socketio.emit('scan_error', {'error': error_msg, 'task_id': task_db_id})
             if task_record:
                 task_record.status = 'failed'
                 task_record.error_message = error_msg

@@ -2,7 +2,7 @@ import re
 from flask import request, jsonify
 from . import api
 from ... import db
-from ...models import Tag, TagType, TagAlias, File, FileTagMap
+from ...models import Tag, TagType, TagAlias, File, FileTagMap, Task
 from ...tasks.rename import tag_file_change_task, tag_split_task
 from sqlalchemy import func, or_
 
@@ -550,14 +550,35 @@ def change_tag_in_files(tag_id):
     else:
         new_name = None
     
-    # 开始后台任务
+    task_name = f'删除标签: {tag.name}' if action == 'delete' else f'重命名标签: {tag.name} -> {new_name}'
+    task_type = 'delete' if action == 'delete' else 'rename'
+
+    task_record = Task(
+        name=task_name,
+        task_type=task_type,
+        status='pending',
+        progress=0.0,
+        processed_files=0,
+        total_files=0,
+    )
+    db.session.add(task_record)
+    db.session.commit()
+
     try:
-        task = tag_file_change_task(tag_id, action, new_name)
-        print(f"Started tag file change task with ID: {task.id}")
-        return jsonify({'task_id': task.id}), 202
+        task = tag_file_change_task(tag_id, action, new_name, task_db_id=task_record.id)
+        task_record.task_id = task.id
+        db.session.commit()
+        return jsonify({'message': '已提交任务，请在任务管理器中查看进度', 'task_id': task.id, 'db_task_id': task_record.id}), 202
     except Exception as e:
-        print(f"Failed to start tag file change task: {e}")
-        return jsonify({'error': f'Failed to start task: {str(e)}'}), 500 
+        db.session.rollback()
+        failed_record = db.session.get(Task, task_record.id)
+        if failed_record:
+            import datetime as _dt
+            failed_record.status = 'failed'
+            failed_record.error_message = f'提交任务失败: {str(e)}'
+            failed_record.finished_at = _dt.datetime.utcnow()
+            db.session.commit()
+        return jsonify({'error': f'提交任务失败: {str(e)}'}), 500 
 
 @api.route('/tags/<int:tag_id>/split', methods=['POST'])
 def split_tag(tag_id):
@@ -586,14 +607,32 @@ def split_tag(tag_id):
     # 去重和清理
     new_tag_names = list(set(name.strip() for name in new_tag_names))
     
-    # 开始后台任务
+    task_record = Task(
+        name=f'拆分标签: {tag.name}',
+        task_type='split',
+        status='pending',
+        progress=0.0,
+        processed_files=0,
+        total_files=0,
+    )
+    db.session.add(task_record)
+    db.session.commit()
+
     try:
-        task = tag_split_task(tag_id, new_tag_names)
-        print(f"Started tag split task with ID: {task.id}")
-        return jsonify({'task_id': task.id}), 202
+        task = tag_split_task(tag_id, new_tag_names, task_db_id=task_record.id)
+        task_record.task_id = task.id
+        db.session.commit()
+        return jsonify({'message': '已提交任务，请在任务管理器中查看进度', 'task_id': task.id, 'db_task_id': task_record.id}), 202
     except Exception as e:
-        print(f"Failed to start tag split task: {e}")
-        return jsonify({'error': f'Failed to start task: {str(e)}'}), 500 
+        db.session.rollback()
+        failed_record = db.session.get(Task, task_record.id)
+        if failed_record:
+            import datetime as _dt
+            failed_record.status = 'failed'
+            failed_record.error_message = f'提交任务失败: {str(e)}'
+            failed_record.finished_at = _dt.datetime.utcnow()
+            db.session.commit()
+        return jsonify({'error': f'提交任务失败: {str(e)}'}), 500 
 
 @api.route('/tags/<int:tag_id>/file-change/preview', methods=['POST'])
 def preview_change_tag_in_files(tag_id):

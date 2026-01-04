@@ -1,6 +1,6 @@
 from flask import jsonify, request
 from . import api
-from ... import huey, db
+from ... import db
 from ...models.manga import Task
 
 @api.route('/tasks', methods=['GET'])
@@ -95,32 +95,6 @@ def get_task_status(task_id):
         'error_message': task.error_message,
         'is_active': task.is_active
     })
-
-@api.route('/tasks/<task_id>/huey', methods=['GET'])
-def get_huey_task_status(task_id):
-    """
-    获取Huey任务状态（兼容旧接口）
-    """
-    # 先尝试从数据库获取
-    task = Task.query.filter_by(task_id=task_id).first()
-    if task:
-        return jsonify({
-            'status': task.status,
-            'progress': task.progress,
-            'current_file': task.current_file,
-            'error_message': task.error_message
-        })
-    
-    # 如果数据库中没有，则检查Huey
-    task_result = huey.result(task_id, peek=True)
-
-    if task_result is None:
-        return jsonify({'status': 'pending_or_running'})
-
-    if isinstance(task_result, Exception):
-        return jsonify({'status': 'failed', 'error': str(task_result)})
-
-    return jsonify({'status': 'completed', 'result': task_result})
 
 @api.route('/tasks/<int:task_id>/cancel', methods=['POST'])
 def cancel_task(task_id):

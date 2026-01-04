@@ -108,38 +108,30 @@
 
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useLibraryStore } from '@/store/library'
 import { useI18n } from 'vue-i18n'
-import axios from 'axios'
 
 const { t } = useI18n()
 const libraryStore = useLibraryStore()
 
-const activeTasks = ref([])
+const activeTasks = computed(() => libraryStore.activeTasks)
 const isLoading = ref(false)
 const isCancelling = ref(null)
 const errorMessage = ref('')
-let refreshInterval = null
 
-// 获取活跃任务
-async function fetchActiveTasks() {
+// 刷新任务
+async function refreshTasks() {
   try {
     isLoading.value = true
     errorMessage.value = ''
-    const response = await axios.get('/api/v1/tasks/active')
-    activeTasks.value = response.data.tasks
+    await libraryStore.checkActiveTasks()
   } catch (error) {
-    console.error('获取活跃任务失败：', error)
+    console.error('刷新任务失败：', error)
     errorMessage.value = t('failedToFetchTasks')
   } finally {
     isLoading.value = false
   }
-}
-
-// 刷新任务
-async function refreshTasks() {
-  await fetchActiveTasks()
 }
 
 // 取消任务
@@ -151,7 +143,7 @@ async function cancelTask(taskId) {
   try {
     isCancelling.value = taskId
     await libraryStore.cancelTask(taskId)
-    await fetchActiveTasks()
+    await refreshTasks()
   } catch (error) {
     console.error('取消任务失败：', error)
     errorMessage.value = t('failedToCancelTask')
@@ -234,36 +226,7 @@ function formatDuration(seconds) {
   }
 }
 
-// 监听 WebSocket 事件
-libraryStore.socket.on('task_progress', (data) => {
-  // 更新对应任务的状态
-  const task = activeTasks.value.find(t => t.id === data.task_id)
-  if (task) {
-    task.progress = data.progress
-    task.current_file = data.current_file
-    task.status = data.status || task.status
-  }
-})
-
-libraryStore.socket.on('task_complete', (data) => {
-  // 任务完成时刷新列表
-  fetchActiveTasks()
-})
-
-libraryStore.socket.on('task_error', (data) => {
-  // 任务出错时刷新列表
-  fetchActiveTasks()
-})
-
 onMounted(() => {
-  fetchActiveTasks()
-  // 每 30 秒自动刷新一次
-  refreshInterval = setInterval(fetchActiveTasks, 30000)
-})
-
-onUnmounted(() => {
-  if (refreshInterval) {
-    clearInterval(refreshInterval)
-  }
+  refreshTasks()
 })
 </script>

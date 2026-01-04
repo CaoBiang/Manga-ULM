@@ -22,7 +22,7 @@ apps/
     app/
       api/
         v1/           # HTTP API（/api/v1）
-      realtime/       # Socket.IO 事件
+      tasks/          # 后台任务（Huey）
     main.py
     serve.py
     requirements.txt
