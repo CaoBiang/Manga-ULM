@@ -2,14 +2,14 @@
 
 本项目是一个本地部署的漫画管理器与漫画阅读器，采用：
 - 后端：Python + Flask（含 Huey 异步任务）
-- 前端：Vue3 + AntDesign-Vue + Pinia + i18n + Vite
+- 前端：React 19 + Ant Design v6 + React Router + Zustand + i18n + Vite
 
 ## 目录结构（已优化）
 
 ```
 apps/
   api/              # Flask API（含任务队列）
-  web/              # Vue 前端（管理器与阅读器 UI）
+  web/              # React 前端（管理器与阅读器 UI）
 configs/            # Nginx 等示例配置
 docs/               # 设计/使用/规范文档
 instance/           # 运行时数据（数据库、缓存、备份、日志等）
@@ -19,6 +19,11 @@ start.bat           # Windows 一键启动（开发）
 说明：
 - `instance/` 是唯一运行时目录：SQLite 数据库、Huey 持久化、封面缓存、备份等都在这里。
 - 旧的 `backend/`、`frontend/` 目录如果仍残留，多半是因为 Windows 占用锁（可在关闭相关进程后手动删除）。
+- 前端迁移期会在 `apps/web/_legacy/vue` 保留旧版 Vue 实现，便于对照与逐步迁移。
+
+## Node 版本要求（前端）
+
+- `apps/web` 当前使用 Vite 7，要求 Node 满足 `^20.19.0 || >=22.12.0`。
 
 ## 快速开始（开发模式）
 
@@ -67,6 +72,7 @@ npm run dev
 - 阅读器 UI 规范：`docs/standard/reader-ui.md`
 - RESTful API 设计：`docs/design/restful-api.md`
 - API 编码规范：`docs/standard/api.md`
+- 前端迁移（Vue -> React）：`docs/design/frontend-migration-react.md`
 - 阅读器使用说明：`docs/use/reader.md`
 - 性能优化说明：`docs/design/performance.md`
 - 图书馆扫描与封面缓存（V2 设计）：`docs/design/library-scan-v2.md`

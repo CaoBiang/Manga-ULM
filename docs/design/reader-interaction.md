@@ -9,7 +9,7 @@
 ## 核心思路
 
 - 后端以 Key-Value 形式保存设置：`ui.reader.tap_zones`（值为 JSON 字符串）。
-- 前端在启动时加载设置到 Pinia（`appSettingsStore.readerTapZones`），阅读器页面直接消费该配置。
+- 前端在启动时加载设置到 Zustand（`useAppSettingsStore.readerTapZones`），阅读器页面直接消费该配置。
 - 阅读器页面使用“覆盖层”接管点击命中，将点击映射为左/中/右区域并触发动作。
 - 设置入口统一收敛到“设置” -> “阅读器设置” -> “点击区域”，不再单独拆分“阅读器交互”页面。
 
@@ -21,8 +21,8 @@ flowchart TD
   "可视化编辑（拖动分割线/选择动作）" --> "写入 ui.reader.tap_zones"
   "写入 ui.reader.tap_zones" --> "后端 Config 表持久化"
   "应用启动/刷新设置" --> "读取 /api/v1/settings"
-  "读取 /api/v1/settings" --> "Pinia: appSettingsStore.readerTapZones"
-  "Pinia: appSettingsStore.readerTapZones" --> "ReaderView 点击区域覆盖层"
+  "读取 /api/v1/settings" --> "Zustand: useAppSettingsStore.readerTapZones"
+  "Zustand: useAppSettingsStore.readerTapZones" --> "ReaderView 点击区域覆盖层"
   "ReaderView 点击区域覆盖层" --> "翻页/展开收起工具条等动作"
 ```
 
@@ -37,6 +37,8 @@ flowchart TD
 ## 相关实现
 
 - 后端默认设置：`apps/api/app/services/settings_service.py`
-- 前端设置仓库：`apps/web/src/store/appSettings.js`
-- 阅读器页面：`apps/web/src/pages/ReaderView.vue`
+- 前端设置仓库：`apps/web/src/store/appSettings.ts`（readerTapZones）
+- 阅读器入口：`apps/web/src/pages/ReaderView.tsx`（实际实现位于 `apps/web/src/pages/reader/ReaderViewPage.tsx`）
 - 覆盖层与配置界面：`apps/web/src/components/reader/tapZones/`
+- 设置入口：`apps/web/src/pages/settings/SettingsReaderView.tsx`
+- 旧版 Vue 参考实现：`apps/web/_legacy/vue/src/pages/ReaderView.vue`、`apps/web/_legacy/vue/src/components/reader/tapZones/`

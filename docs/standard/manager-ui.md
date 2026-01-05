@@ -9,22 +9,22 @@
 ## 核心思路
 
 - 管理器外观设置保存为 Key-Value：`ui.manager.ui.*`。
-- 前端启动时加载设置到 Pinia（`appSettingsStore`）。
-- `App.vue` 在“非全屏路由（管理器）”时，把变量注入到 `body`：
+- 前端启动时加载设置到 Zustand（`useAppSettingsStore`，见：`apps/web/src/store/appSettings.ts`）。
+- `ManagerLayout.tsx` 在“非全屏路由（管理器）”时，把变量注入到 `body`（见：`apps/web/src/layouts/ManagerLayout.tsx`）：
   - 这样弹窗/下拉/气泡等 Portal 浮层也能继承同一套毛玻璃变量。
-- 侧边栏收起时，`a-menu` 的二级菜单会以 Portal 形式挂载到 `body`（`.ant-menu-submenu-popup`），其背景也必须纳入毛玻璃 surface 体系（避免“完全透明”）。
+- 侧边栏收起时，`Menu` 的二级菜单会以 Portal 形式挂载到 `body`（`.ant-menu-submenu-popup`），其背景也必须纳入毛玻璃 surface 体系（避免“完全透明”）。
 - 全局样式在 `apps/web/src/assets/main.css` 中以 `body.app-is-manager` 为作用域，统一覆盖 AntDesign 默认外观。
 - 覆盖范围包含“细节控件”：按钮（含图标按钮/文本按钮/危险按钮）、Badge、Tag 等，保证列表卡片里的红心按钮等交互点也统一为毛玻璃。
-- Badge 颜色支持多种：通过在 `a-badge` 上添加类名切换，例如 `manager-badge--blue`、`manager-badge--green`、`manager-badge--orange` 等。
-- 管理器端的按钮/搜索框会大量使用 `@ant-design/icons-vue` 图标组件，其默认的 `.anticon { vertical-align: -0.125em; }` 会导致“图标偏下”。因此必须在管理器作用域内，对按钮图标容器与输入框前后缀做统一的垂直居中处理（见下文“图标对齐”）。
+- Badge 颜色支持多种：通过在 `Badge` 外层添加类名切换，例如 `manager-badge--blue`、`manager-badge--green`、`manager-badge--orange` 等。
+- 管理器端的按钮/搜索框会大量使用 `@ant-design/icons` 图标组件，其默认的 `.anticon { vertical-align: -0.125em; }` 仍可能导致“图标偏下”。因此必须在管理器作用域内，对按钮图标容器与输入框前后缀做统一的垂直居中处理（见下文“图标对齐”）。
 
 ```mermaid
 flowchart TD
   "设置页面（显示设置）" --> "写入 ui.manager.ui.*"
   "写入 ui.manager.ui.*" --> "后端 Config 表持久化"
   "应用启动" --> "读取 /api/v1/settings"
-  "读取 /api/v1/settings" --> "Pinia: appSettingsStore"
-  "Pinia: appSettingsStore" --> "App.vue 注入 body CSS 变量"
+  "读取 /api/v1/settings" --> "Zustand: useAppSettingsStore"
+  "Zustand: useAppSettingsStore" --> "ManagerLayout.tsx 注入 body CSS 变量"
   "body CSS 变量" --> "GlassSurface / GlassPage"
   "body CSS 变量" --> "AntDesign 浮层（Modal/Popover/Dropdown/MenuPopup）"
 ```
@@ -56,10 +56,10 @@ flowchart TD
 flowchart TD
   "任务状态变化（pending/running/completed/failed/cancelled）" --> "后端 Task 表记录"
   "后端 Task 表记录" --> "前端轮询 /api/v1/tasks?limit=..."
-  "前端轮询 /api/v1/tasks?limit=..." --> "Pinia: libraryStore.recentTasks"
-  "Pinia: libraryStore.recentTasks" --> "TaskManager：活跃/历史列表"
-  "Pinia: libraryStore.recentTasks" --> "侧边栏徽标（App.vue）"
-  "Pinia: libraryStore.recentTasks" --> "通知（App.vue）"
+  "前端轮询 /api/v1/tasks?limit=..." --> "Zustand: useLibraryStore.recentTasks"
+  "Zustand: useLibraryStore.recentTasks" --> "TaskManager：活跃/历史列表"
+  "Zustand: useLibraryStore.recentTasks" --> "侧边栏徽标（ManagerLayout.tsx）"
+  "Zustand: useLibraryStore.recentTasks" --> "通知（ManagerLayout.tsx）"
 ```
 
 ### 相关设置 Key（后端 Config 表）
@@ -88,30 +88,30 @@ flowchart TD
 
 ### GlassPage
 
-- 路径：`apps/web/src/components/glass/ui/GlassPage.vue`
+- 路径：`apps/web/src/components/glass/ui/GlassPage.tsx`
 - 用途：统一页面内边距与顶部标题区（可选）。
 - 用法：
   - 默认用法（推荐）：只负责统一边距，不传 `title`/`subtitle`，避免页面内容区重复出现标题。
-  - 需要在内容区再展示“模块级标题”时：传入 `title`/`subtitle`，并用 `#extra` 放右侧操作区（注意：这里不用于“页面标题”）。
+  - 需要在内容区再展示“模块级标题”时：传入 `title`/`subtitle`，并用 `extra` 放右侧操作区（注意：这里不用于“页面标题”）。
 
 ### 页面标题规范（必须）
 
 - 页面标题只在全局 `PageHeader` 中展示一次，不显示“应用名/页面名”的面包屑。
-- 页面标题来源统一为路由 `meta.titleKey`（见：`apps/web/src/router/index.js`），页面内容区不要再额外渲染同级标题（例如 `GlassPage` 的 `title`）。
+- 页面标题来源统一为路由 `handle.titleKey`（见：`apps/web/src/app/router.tsx`），页面内容区不要再额外渲染同级标题（例如 `GlassPage` 的 `title`）。
 - 页面内容区如果需要展示“上下文信息”（例如文件名），应使用文件名/路径等作为内容，不要重复页面标题文案（例如“编辑文件详情”）。
 - 同一页面的同一核心动作（例如“保存更改”）只保留一个入口，避免重复按钮造成困扰。
-- 多模块页面用 `a-space direction="vertical" size="large"` 统一模块间距，保证与设置页一致。
+- 多模块页面用 `Space direction="vertical" size="large"` 统一模块间距，保证与设置页一致。
 
 ### GlassSurface
 
-- 路径：`apps/web/src/components/glass/ui/GlassSurface.vue`
+- 路径：`apps/web/src/components/glass/ui/GlassSurface.tsx`
 - 用途：统一“卡片/面板/容器”的毛玻璃底、边框与阴影。
 - 关键参数：
   - `variant="panel|card|plain"`：面板/小卡片/透明容器。
   - `padding="none|sm|md|lg"`：统一内边距。
   - `title/subtitle`：容器标题区（可选）。
 
-## 样式变量（由 App.vue 注入到 body）
+## 样式变量（由 ManagerLayout.tsx 注入到 body）
 
 - `--manager-ui-blur-enabled`：是否启用磨砂（`0/1`）。
 - `--manager-ui-blur-radius-px`：模糊半径（像素，`0–30`）。
@@ -145,11 +145,11 @@ flowchart TD
 
 现象：
 
-- 在管理器端，`a-button` 的 `#icon` 插槽、`a-input-search` 的搜索按钮/后缀图标，可能出现“图标不居中、整体偏下”。
+- 在管理器端，`Button` 的图标、`Input.Search` 的搜索按钮/后缀图标，可能出现“图标不居中、整体偏下”。
 
 根因：
 
-- `@ant-design/icons-vue` 注入的全局样式中，`.anticon` 默认带 `vertical-align: -0.125em;`，其设计目标是“对齐文字基线”，但在管理器端的“固定高度按钮/输入框”中会造成视觉偏移。
+- `@ant-design/icons` 注入的全局样式中，`.anticon` 默认带 `vertical-align: -0.125em;`，其设计目标是“对齐文字基线”，但在管理器端的“固定高度按钮/输入框”中会造成视觉偏移。
 
 解决方案（统一在全局样式中处理）：
 

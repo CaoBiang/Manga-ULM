@@ -27,8 +27,10 @@ apps/
     serve.py
     requirements.txt
   web/
-    src/
-      pages/          # 页面（原 views）
+    _legacy/
+      vue/            # 旧版 Vue 前端（过渡期保留）
+    src/              # React 前端源码
+      pages/          # 页面
         settings/     # 设置相关页面
     vite.config.js
     package.json
@@ -53,7 +55,7 @@ graph TD
   ROOT["项目根目录"] --> START["start.bat（开发启动入口）"]
 
   APPS["apps/（应用集合）"] --> API["api/（Flask 后端）"]
-  APPS["apps/（应用集合）"] --> WEB["web/（Vue 前端）"]
+  APPS["apps/（应用集合）"] --> WEB["web/（React 前端）"]
 ```
 
 ## 运行时目录（instance）规范

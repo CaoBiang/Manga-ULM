@@ -5,11 +5,16 @@
 - 阅读器内的按钮、输入框不直接复用 AntDesign 外观，保持“灰黑白 + 半透明 + 磨砂”的一致性。
 - 控件样式由 CSS 变量驱动，并暴露为设置项，避免写死。
 
+## 迁移状态（重要）
+
+- React 版本入口：`apps/web/src/pages/ReaderView.tsx`（实际实现位于 `apps/web/src/pages/reader/ReaderViewPage.tsx`）。
+- 旧版 Vue 参考实现：`apps/web/_legacy/vue/src/pages/ReaderView.vue` 及其 `apps/web/_legacy/vue/src/components/reader/*`。
+
 ## 组件清单
 
 ### ReaderButton
 
-- 路径：`apps/web/src/components/reader/ui/ReaderButton.vue`
+- 目标路径：`apps/web/src/components/reader/ui/ReaderButton.tsx`
 - 用途：阅读器工具条、面板操作、表格内动作按钮等。
 
 推荐用法（图标按钮）：
@@ -22,18 +27,18 @@
 
 ### ReaderInput
 
-- 路径：`apps/web/src/components/reader/ui/ReaderInput.vue`
+- 目标路径：`apps/web/src/components/reader/ui/ReaderInput.tsx`
 - 用途：阅读器内的简单文本输入（如书签备注）。
 
 行为约定：
 
-- 使用 `v-model` 绑定（对应 `modelValue`）。
-- 回车提交：监听 `@pressEnter`。
+- 使用受控属性绑定：`value` + `onChange`。
+- 回车提交：暴露 `onPressEnter`（或在组件内部统一处理 `Enter` 键）。
 - 需要聚焦时：通过组件 `ref` 调用 `focus()`。
 
 ### ReaderTable
 
-- 路径：`apps/web/src/components/reader/ReaderTable.vue`
+- 目标路径：`apps/web/src/components/reader/ReaderTable.tsx`
 - 用途：阅读器面板中的轻量表格展示（如书签列表、文件信息）。
 
 约定：
@@ -45,7 +50,7 @@
 
 ### ReaderToolbar（进度控件容器）
 
-- 路径：`apps/web/src/pages/ReaderView.vue`
+- 路径：`apps/web/src/pages/reader/ReaderToolbar.tsx`
 - 用途：阅读器底部进度控件（页码/总页数 + 展开后的滑块）所在容器。
 
 约定：
@@ -116,7 +121,7 @@ flowchart TD
 
 ### ReaderTapZonesLayer
 
-- 路径：`apps/web/src/components/reader/tapZones/ReaderTapZonesLayer.vue`
+- 目标路径：`apps/web/src/components/reader/tapZones/ReaderTapZonesLayer.tsx`
 - 用途：覆盖在阅读器画面之上，将点击位置映射为左/中/右区域，并向上抛出动作事件。
 
 约定：
@@ -126,7 +131,7 @@ flowchart TD
 
 ### ReaderTapZonesConfigurator
 
-- 路径：`apps/web/src/components/reader/tapZones/ReaderTapZonesConfigurator.vue`
+- 目标路径：`apps/web/src/components/reader/tapZones/ReaderTapZonesConfigurator.tsx`
 - 用途：可视化配置点击区域的动作与范围（拖动分割线），并保存到设置中。
 
 样式约定：

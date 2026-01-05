@@ -35,7 +35,7 @@ flowchart TD
 
 ## 相关实现
 
-- 阅读器页面：`apps/web/src/pages/ReaderView.vue`
-- 阅读器表格：`apps/web/src/components/reader/ReaderTable.vue`
-- 阅读器控件：`apps/web/src/components/reader/ui/ReaderButton.vue`、`apps/web/src/components/reader/ui/ReaderInput.vue`
-- 点击区域：`apps/web/src/components/reader/tapZones/ReaderTapZonesLayer.vue`、`apps/web/src/components/reader/tapZones/ReaderTapZonesConfigurator.vue`
+- 阅读器入口：`apps/web/src/pages/ReaderView.tsx`（实际实现位于 `apps/web/src/pages/reader/ReaderViewPage.tsx`）
+- 组件目录：`apps/web/src/components/reader/*`
+- 设置页面：`apps/web/src/pages/settings/SettingsReaderView.tsx`
+- 旧版 Vue 参考实现：`apps/web/_legacy/vue/src/pages/ReaderView.vue`、`apps/web/_legacy/vue/src/components/reader/*`

@@ -10,7 +10,7 @@
 
 ```mermaid
 flowchart TD
-  "前端（Vue）" --> "HTTP（/api/v1）"
+  "前端（React）" --> "HTTP（/api/v1）"
   "HTTP（/api/v1）" --> "路由层（apps/api/app/api/v1/*）"
   "路由层（apps/api/app/api/v1/*）" --> "业务层（apps/api/app/services/*）"
   "业务层（apps/api/app/services/*）" --> "数据层（apps/api/app/models/* + db.session）"
@@ -76,4 +76,3 @@ flowchart TD
   - `PATCH "/api/v1/tasks/{id}"` + `{ "status": "cancelled" }`
 - 清理历史任务通过删除“任务历史”资源完成：
   - `DELETE "/api/v1/task-history"`
-

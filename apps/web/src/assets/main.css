@@ -441,6 +441,58 @@
   body.app-is-manager .ant-menu-item-selected {
     background: rgba(255, 255, 255, 0.3) !important;
   }
+
+  body.app-is-manager .tag-selector-panel {
+    width: 480px;
+    max-width: 80vw;
+  }
+
+  body.app-is-manager .tag-selector-panel__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    gap: 8px;
+  }
+
+  body.app-is-manager .tag-selector-panel__search {
+    margin-bottom: 12px;
+  }
+
+  body.app-is-manager .tag-selector-panel__body {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 12px;
+    max-height: 320px;
+  }
+
+  body.app-is-manager .tag-selector-panel__types {
+    border-right: 1px solid var(--manager-ui-surface-border, rgba(255, 255, 255, 0.14));
+    padding-right: 12px;
+  }
+
+  body.app-is-manager .tag-selector-panel__tags {
+    min-height: 160px;
+    max-height: 320px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+
+  body.app-is-manager .tag-selector-panel__tag {
+    padding: 4px 0;
+  }
+
+  body.app-is-manager .tag-selector-panel__footer {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--manager-ui-surface-border, rgba(255, 255, 255, 0.14));
+  }
+
+  body.app-is-manager .tag-selector-panel__menu-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
 }
 
 @layer components {
