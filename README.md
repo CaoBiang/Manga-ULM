@@ -19,7 +19,6 @@ start.bat           # Windows 一键启动（开发）
 说明：
 - `instance/` 是唯一运行时目录：SQLite 数据库、Huey 持久化、封面缓存、备份等都在这里。
 - 旧的 `backend/`、`frontend/` 目录如果仍残留，多半是因为 Windows 占用锁（可在关闭相关进程后手动删除）。
-- 前端迁移期会在 `apps/web/_legacy/vue` 保留旧版 Vue 实现，便于对照与逐步迁移。
 
 ## Node 版本要求（前端）
 
@@ -72,7 +71,7 @@ npm run dev
 - 阅读器 UI 规范：`docs/standard/reader-ui.md`
 - RESTful API 设计：`docs/design/restful-api.md`
 - API 编码规范：`docs/standard/api.md`
-- 前端迁移（Vue -> React）：`docs/design/frontend-migration-react.md`
+- 前端历史迁移说明：`docs/design/frontend-migration-react.md`
 - 阅读器使用说明：`docs/use/reader.md`
 - 性能优化说明：`docs/design/performance.md`
 - 图书馆扫描与封面缓存（V2 设计）：`docs/design/library-scan-v2.md`

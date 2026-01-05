@@ -8,7 +8,7 @@
 ## 迁移状态（重要）
 
 - React 版本入口：`apps/web/src/pages/ReaderView.tsx`（实际实现位于 `apps/web/src/pages/reader/ReaderViewPage.tsx`）。
-- 旧版 Vue 参考实现：`apps/web/_legacy/vue/src/pages/ReaderView.vue` 及其 `apps/web/_legacy/vue/src/components/reader/*`。
+- 说明：旧版 Vue 工程已从仓库中移除，后续以 React 实现为唯一来源。
 
 ## 组件清单
 

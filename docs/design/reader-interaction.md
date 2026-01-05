@@ -41,4 +41,3 @@ flowchart TD
 - 阅读器入口：`apps/web/src/pages/ReaderView.tsx`（实际实现位于 `apps/web/src/pages/reader/ReaderViewPage.tsx`）
 - 覆盖层与配置界面：`apps/web/src/components/reader/tapZones/`
 - 设置入口：`apps/web/src/pages/settings/SettingsReaderView.tsx`
-- 旧版 Vue 参考实现：`apps/web/_legacy/vue/src/pages/ReaderView.vue`、`apps/web/_legacy/vue/src/components/reader/tapZones/`

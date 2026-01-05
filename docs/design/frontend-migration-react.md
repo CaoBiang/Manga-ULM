@@ -11,12 +11,11 @@
 - React 前端入口：`apps/web/src/main.tsx`、`apps/web/src/app/App.tsx`。
 - 路由：`apps/web/src/app/router.tsx`（使用 `handle.titleKey/fullScreen` 替代 `meta`）。
 - 状态管理：Zustand（`apps/web/src/store/appSettings.ts`）。
-- 旧版 Vue 参考实现：`apps/web/_legacy/vue/`（迁移期保留，便于逐个对照组件与接口）。
+- 迁移结论：已完成迁移，仓库内不再保留旧版 Vue 工程。
 
 ```mermaid
 flowchart LR
-  "apps/web/_legacy/vue（旧版 Vue）" --> "apps/web/src（新版 React）"
-  "apps/web/src（新版 React）" --> "逐页迁移：页面 -> 组件 -> Store"
+  "apps/web/src（React 前端）" --> "页面 -> 组件 -> Store"
 ```
 
 ## AntDesign-Vue -> Ant Design（React）映射
@@ -84,4 +83,3 @@ flowchart LR
 - 所有新文案必须走 i18n；禁止写死中文/英文。
 - 所有 UI 外观参数必须可配置，并写入后端设置 Key（`ui.*`），禁止在组件里写死。
 - Mermaid 图中所有文本必须用双引号包裹。
-

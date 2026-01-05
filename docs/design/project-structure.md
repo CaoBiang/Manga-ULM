@@ -27,8 +27,6 @@ apps/
     serve.py
     requirements.txt
   web/
-    _legacy/
-      vue/            # 旧版 Vue 前端（过渡期保留）
     src/              # React 前端源码
       pages/          # 页面
         settings/     # 设置相关页面
