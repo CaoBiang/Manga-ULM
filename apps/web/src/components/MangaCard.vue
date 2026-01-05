@@ -275,7 +275,7 @@ const updateStatus = async status => {
   }
   updatingStatus.value = true
   try {
-    const response = await axios.post(`/api/v1/files/${props.manga.id}/status`, { status })
+    const response = await axios.patch(`/api/v1/files/${props.manga.id}`, { reading_status: status })
     applyServerUpdate(response.data)
   } catch (error) {
     console.error('更新阅读状态失败：', error)
@@ -308,7 +308,7 @@ const toggleLike = async event => {
 
   try {
     if (isLiked.value) {
-      await axios.post(`/api/v1/likes/${props.manga.id}`)
+      await axios.put(`/api/v1/likes/${props.manga.id}`)
     } else {
       await axios.delete(`/api/v1/likes/${props.manga.id}`)
     }

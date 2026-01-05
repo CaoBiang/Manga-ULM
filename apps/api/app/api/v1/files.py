@@ -15,7 +15,8 @@ from ...infrastructure.archive_reader import (
 )
 from ...services.cover_service import CoverPathConfig, get_cover_path
 from ...services.settings_service import get_cover_cache_shard_count, get_int_setting
-from ...tasks.rename import sanitize_filename
+from ...tasks.rename import rename_single_file_inplace, sanitize_filename
+from ...services.task_service import create_task_record, fail_task, finish_task, mark_task_running, update_task_progress
 READING_STATUS_OPTIONS = {'unread', 'in_progress', 'finished'}
 SORTABLE_COLUMNS = {
     'add_date': lambda: File.add_date,
@@ -101,7 +102,7 @@ def build_page_response(file_path, page_num):
 
 
 def parse_int_list(raw_value):
-    """Parse a comma separated list of integers."""
+    """解析逗号分隔的整数列表。"""
     if not raw_value:
         return []
     result = []
@@ -112,15 +113,17 @@ def parse_int_list(raw_value):
         try:
             result.append(int(item))
         except ValueError:
-            raise ValueError(f'Invalid integer value "{item}"')
+            raise ValueError(f'无效的整数值："{item}"')
     return result
 
 
 def parse_bool(raw_value):
-    """Parse a boolean-like string; returns True/False or None if indeterminate."""
+    """解析“类布尔值”字符串；返回 True/False，无法判断时返回 None。"""
     if raw_value is None:
         return None
-    value = raw_value.strip().lower()
+    if isinstance(raw_value, bool):
+        return raw_value
+    value = str(raw_value).strip().lower()
     if value in {'1', 'true', 'yes', 'y', 'on', 'only'}:
         return True
     if value in {'0', 'false', 'no', 'n', 'off'}:
@@ -143,7 +146,7 @@ def get_page_details_from_archive(file_path, page_num):
 @api.route('/files', methods=['GET'])
 def get_files():
     """
-    Get a paginated list of files with optional sorting and filtering.
+    获取文件分页列表（支持排序与筛选）。
     """
     page = max(1, request.args.get('page', 1, type=int))
     per_page = request.args.get('per_page', 20, type=int)
@@ -171,7 +174,7 @@ def get_files():
         return jsonify({'error': str(err)}), 400
 
     if tag_mode not in {'any', 'all'}:
-        return jsonify({'error': 'tag_mode must be either "any" or "all".'}), 400
+        return jsonify({'error': 'tag_mode 必须为 "any" 或 "all"'}), 400
 
     statuses = []
     if status_param:
@@ -182,29 +185,29 @@ def get_files():
         ]
         invalid_statuses = [status for status in statuses if status not in READING_STATUS_OPTIONS]
         if invalid_statuses:
-            return jsonify({'error': f'Invalid status value(s): {invalid_statuses}'}), 400
+            return jsonify({'error': f'无效的阅读状态：{invalid_statuses}'}), 400
 
     liked_flag = parse_bool(liked_param)
     include_missing_flag = parse_bool(include_missing_param)
     include_descendants_flag = parse_bool(include_descendants_param)
 
-    # Basic query
+    # 基础查询
     query = File.query.options(
         selectinload(File.tags),
         selectinload(File.like_item)
     )
 
-    # Filtering
+    # 筛选
     if keyword:
         for token in keyword.split():
             token_like = f'%{token}%'
             query = query.filter(File.file_path.ilike(token_like))
 
-    # Optionally expand tag filters to include descendants
+    # 可选：将标签筛选扩展为包含后代标签
     def expand_with_descendants(ids):
         if not ids:
             return []
-        # Build parent->children map once
+        # 一次性构建 parent -> children 映射
         pairs = db.session.query(Tag.id, Tag.parent_id).all()
         children_map = {}
         for tid, pid in pairs:
@@ -258,27 +261,27 @@ def get_files():
     if is_missing_param is not None:
         is_missing_flag = parse_bool(is_missing_param)
         if is_missing_flag is None:
-            return jsonify({'error': 'is_missing must be a boolean.'}), 400
+            return jsonify({'error': 'is_missing 必须为布尔值'}), 400
         query = query.filter(File.is_missing == is_missing_flag)
     else:
         # Default to not showing missing files unless explicitly requested or include_missing is true
         if include_missing_flag is not True:
             query = query.filter(File.is_missing.is_(False))
 
-    # Sorting
+    # 排序
     if sort_by == 'random':
         query = query.order_by(func.random())
     else:
         sort_factory = SORTABLE_COLUMNS.get(sort_by)
         if sort_factory is None:
-            return jsonify({'error': f'Unsupported sort_by value "{sort_by}".'}), 400
+            return jsonify({'error': f'不支持的 sort_by："{sort_by}"'}), 400
         sort_column = sort_factory()
         if sort_order == 'asc':
             query = query.order_by(sort_column.asc(), File.id.asc())
         else:
             query = query.order_by(sort_column.desc(), File.id.desc())
 
-    # Pagination
+    # 分页
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     files = pagination.items
 
@@ -310,139 +313,207 @@ def get_files():
         }
     })
 
-@api.route('/files/random', methods=['GET'])
-def get_random_file():
-    """
-    Gets a single random file from the library.
-    TODO: Add filtering capabilities based on tags, read status, etc.
-    """
-    query = File.query.filter_by(is_missing=False)
-    random_file = query.order_by(func.random()).first()
-    
-    if random_file:
-        return jsonify(file_to_dict(random_file))
-    else:
-        return jsonify({'error': 'No files in the library.'}), 404
-
 def rename_file_based_on_tags(file_obj):
     """
-    Renames a file based on its tags.
+    基于文件标签重命名文件（同步）。
     """
-    # First, remove all tags from the filename
+    # 先移除文件名前缀标签，例如："[tag] file.zip" -> "file.zip"
     base_name = os.path.basename(file_obj.file_path)
     _, ext = os.path.splitext(base_name)
     
-    # 移除文件名前缀标签，例如："[tag] file.zip" -> "file.zip"
     name_without_tags = re.sub(r'^(\[[^\]]+\]\s*)+', '', base_name).strip()
     # 避免出现类似 ".zip.zip" 的重复扩展名：这里只保留“去扩展名后的正文”
     name_without_tags, _ = os.path.splitext(name_without_tags)
 
-    # Now, construct the new filename with the updated tags
+    # 重新构造“标签前缀 + 文件正文 + 扩展名”
     tags_string = "".join([f"[{tag.name}]" for tag in file_obj.tags])
     
-    # Sanitize the final filename components
+    # 清理非法字符
     sanitized_tags = sanitize_filename(tags_string)
     sanitized_name = sanitize_filename(name_without_tags)
 
     new_filename = f"{sanitized_tags}{sanitized_name}{ext}"
     
-    # Construct the full new path
+    # 生成新路径
     directory = os.path.dirname(file_obj.file_path)
     new_path = os.path.join(directory, new_filename)
 
-    # Rename the file if the path is different
+    # 执行重命名
     if new_path != file_obj.file_path:
         try:
             os.rename(file_obj.file_path, new_path)
             file_obj.file_path = new_path
-            return True, None # Success
+            return True, None  # 成功
         except OSError as e:
-            return False, str(e) # Failure
+            return False, str(e)  # 失败
     
-    return True, None # No change needed
+    return True, None  # 无需变更
 
 
-@api.route('/files/<int:id>', methods=['GET', 'PUT'])
+@api.route('/files/<int:id>', methods=['GET', 'PUT', 'PATCH'])
 def handle_file_details(id):
-    """Gets or updates a single file's details."""
+    """获取/更新单个文件详情。"""
     file_record = File.query.get_or_404(id)
 
     if request.method == 'GET':
         return jsonify(file_to_dict(file_record))
 
-    if request.method == 'PUT':
-        data = request.get_json()
-        if not data:
-            return jsonify({'error': 'Invalid JSON'}), 400
+    data = request.get_json(silent=True) or {}
+    if not data:
+        return jsonify({'error': '请求体必须为 JSON'}), 400
 
-        # Update tags if provided
+    if request.method == 'PUT':
+        # 更新 tags（编辑页会用到）
         if 'tags' in data:
             try:
-                tag_ids = [t['id'] for t in data['tags']]
+                tag_ids = [int(t['id']) for t in data['tags']]
                 tags = Tag.query.filter(Tag.id.in_(tag_ids)).all()
                 if len(tags) != len(tag_ids):
                     found_ids = {t.id for t in tags}
                     invalid_ids = [tid for tid in tag_ids if tid not in found_ids]
-                    return jsonify({'error': f'Invalid tag IDs provided: {invalid_ids}'}), 400
-                
-                file_record.tags = tags
-            except (KeyError, TypeError):
-                 return jsonify({'error': 'Invalid format for tags. Expected a list of objects with an "id" key.'}), 400
+                    return jsonify({'error': f'无效的标签 ID：{invalid_ids}'}), 400
 
-        # Check if rename is requested
+                file_record.tags = tags
+            except (KeyError, TypeError, ValueError):
+                return jsonify({'error': 'tags 格式错误，期望为包含 id 的对象数组'}), 400
+
+        # 可选：基于 tags 自动重命名（历史功能）
         if data.get('rename_file', False):
             success, error_msg = rename_file_based_on_tags(file_record)
             if not success:
-                db.session.rollback() # Rollback tag changes if rename fails
-                return jsonify({'error': f'Failed to rename file: {error_msg}'}), 500
+                db.session.rollback()  # 重命名失败时回滚 tags 变更
+                return jsonify({'error': f'重命名失败：{error_msg}'}), 500
 
         db.session.commit()
-        
-        # Return the updated record
         return jsonify(file_to_dict(file_record))
 
-@api.route('/files/<int:id>/progress', methods=['POST'])
-def update_reading_progress(id):
-    """Updates the reading progress for a file."""
-    file_record = db.session.get(File, id)
-    if not file_record:
-        return jsonify({'error': 'File not found'}), 404
+    # PATCH：局部更新（阅读进度/状态、单文件重命名）
+    db_task_id = None
 
-    data = request.get_json()
-    if data is None or 'page' not in data:
-        return jsonify({'error': 'Missing page number in request'}), 400
-    
-    page = data['page']
-    if not isinstance(page, int) or page < 0 or page >= file_record.total_pages:
-        return jsonify({'error': 'Invalid page number'}), 400
+    if (
+        'new_filename' not in data
+        and 'reading_status' not in data
+        and 'status' not in data
+        and 'last_read_page' not in data
+        and 'page' not in data
+    ):
+        return jsonify({'error': '未提供可更新字段'}), 400
 
-    file_record.last_read_page = page
-    file_record.last_read_date = db.func.now()
+    # 1) 单文件重命名（同步执行，但写入任务记录）
+    if 'new_filename' in data:
+        new_filename = data.get('new_filename')
+        if not isinstance(new_filename, str) or not new_filename.strip():
+            return jsonify({'error': 'new_filename 必须为非空字符串'}), 400
 
-    if page == 0:
-        file_record.reading_status = 'unread'
-    elif page >= file_record.total_pages - 1:
-        file_record.reading_status = 'finished'
-    else:
-        file_record.reading_status = 'in_progress'
-        
-    db.session.commit()
-    return jsonify({'message': 'Progress updated successfully', 'status': file_record.reading_status})
+        old_path = str(file_record.file_path or '')
+        old_name = os.path.basename(old_path) if old_path else str(id)
+
+        task_record = create_task_record(
+            name=f'重命名文件: {old_name}',
+            task_type='rename',
+            status='pending',
+            target_path=old_path,
+            total_files=1,
+            processed_files=0,
+            progress=0.0,
+            current_file=old_name,
+        )
+        mark_task_running(task_record, current_file=old_name, total_files=1, processed_files=0, target_path=old_path)
+
+        try:
+            rename_single_file_inplace(file_record, new_filename.strip())
+            db.session.commit()
+            new_name = os.path.basename(str(file_record.file_path or '')) or old_name
+            update_task_progress(task_record, processed_files=1, total_files=1, current_file=new_name)
+            finish_task(task_record, status='completed')
+            db_task_id = task_record.id
+        except ValueError as exc:
+            db.session.rollback()
+            fail_task(task_record, error_message=str(exc))
+            return jsonify({'error': str(exc), 'db_task_id': task_record.id}), 400
+        except Exception as exc:
+            db.session.rollback()
+            fail_task(task_record, error_message=f'重命名失败：{exc}')
+            return jsonify({'error': f'重命名失败：{exc}', 'db_task_id': task_record.id}), 500
+
+    # 2) 阅读进度/状态（不写任务记录）
+    requested_status = data.get('reading_status')
+    if requested_status is None and 'status' in data:
+        requested_status = data.get('status')
+
+    requested_page = data.get('last_read_page')
+    if requested_page is None and 'page' in data:
+        requested_page = data.get('page')
+
+    if requested_status is not None:
+        status = str(requested_status).strip().lower()
+        if status not in READING_STATUS_OPTIONS:
+            return jsonify({'error': f'无效的阅读状态："{status}"'}), 400
+
+        page = None
+        if requested_page is not None:
+            if not isinstance(requested_page, int) or requested_page < 0:
+                return jsonify({'error': 'last_read_page 必须为非负整数'}), 400
+            if file_record.total_pages and requested_page >= int(file_record.total_pages):
+                return jsonify({'error': 'last_read_page 超出范围'}), 400
+            page = int(requested_page)
+
+        if status == 'unread':
+            file_record.reading_status = 'unread'
+            file_record.last_read_page = 0
+            file_record.last_read_date = None
+        elif status == 'finished':
+            if file_record.total_pages:
+                file_record.last_read_page = max(0, int(file_record.total_pages) - 1)
+            elif page is not None:
+                file_record.last_read_page = page
+            file_record.last_read_date = db.func.now()
+            file_record.reading_status = 'finished'
+        else:  # in_progress
+            if page is not None:
+                file_record.last_read_page = page
+            file_record.last_read_date = db.func.now()
+            # 若总页数已知且已经到末页，则自动归为 finished
+            if file_record.total_pages and int(file_record.last_read_page or 0) >= int(file_record.total_pages) - 1:
+                file_record.reading_status = 'finished'
+            else:
+                file_record.reading_status = 'in_progress'
+
+        db.session.commit()
+    elif requested_page is not None:
+        if not isinstance(requested_page, int) or requested_page < 0:
+            return jsonify({'error': 'last_read_page 必须为非负整数'}), 400
+        if file_record.total_pages and requested_page >= int(file_record.total_pages):
+            return jsonify({'error': 'last_read_page 超出范围'}), 400
+
+        file_record.last_read_page = int(requested_page)
+        file_record.last_read_date = db.func.now()
+        if file_record.total_pages and file_record.last_read_page >= int(file_record.total_pages) - 1:
+            file_record.reading_status = 'finished'
+        else:
+            file_record.reading_status = 'in_progress'
+        db.session.commit()
+
+    result = file_to_dict(file_record)
+    if db_task_id is not None:
+        result['db_task_id'] = db_task_id
+    return jsonify(result)
 
 
-@api.route('/files/bulk-tags', methods=['POST'])
+@api.route('/file-tag-batches', methods=['POST'])
 def bulk_update_file_tags():
-    """Bulk add/remove/set tags for multiple files.
-    Body:
-      - file_ids: [int, ...] (required)
-      - set_tag_ids: [int, ...] (optional; if provided, overrides add/remove)
-      - add_tag_ids: [int, ...] (optional)
-      - remove_tag_ids: [int, ...] (optional)
+    """批量为多个文件增删/覆盖标签。
+
+    请求体：
+    - file_ids: [int, ...]（必填）
+    - set_tag_ids: [int, ...]（可选，若提供则覆盖 add/remove）
+    - add_tag_ids: [int, ...]（可选）
+    - remove_tag_ids: [int, ...]（可选）
     """
     payload = request.get_json() or {}
     file_ids = payload.get('file_ids') or []
     if not isinstance(file_ids, list) or not all(isinstance(x, int) for x in file_ids) or not file_ids:
-        return jsonify({'error': 'file_ids must be a non-empty list of integers'}), 400
+        return jsonify({'error': 'file_ids 必须为非空整数数组'}), 400
 
     set_ids = payload.get('set_tag_ids')
     add_ids = payload.get('add_tag_ids') or []
@@ -453,14 +524,24 @@ def bulk_update_file_tags():
         if ids is None:
             continue
         if not isinstance(ids, list) or not all(isinstance(x, int) for x in ids):
-            return jsonify({'error': f'{name} must be a list of integers'}), 400
+            return jsonify({'error': f'{name} 必须为整数数组'}), 400
 
     # Fetch files
     files = File.query.filter(File.id.in_(file_ids)).all()
     if len(files) != len(set(file_ids)):
         found_ids = {f.id for f in files}
         missing = [fid for fid in file_ids if fid not in found_ids]
-        return jsonify({'error': f'Invalid file IDs: {missing}'}), 400
+        return jsonify({'error': f'无效的文件 ID：{missing}'}), 400
+
+    task_record = create_task_record(
+        name=f'批量修改文件标签（{len(file_ids)} 个文件）',
+        task_type='bulk_tags',
+        status='pending',
+        total_files=len(file_ids),
+        processed_files=0,
+        progress=0.0,
+        current_file='准备中...',
+    )
 
     # Determine tag set to apply
     updated = 0
@@ -470,23 +551,32 @@ def bulk_update_file_tags():
         if len(tags) != len(set(set_ids)):
             found = {t.id for t in tags}
             invalid = [tid for tid in set_ids if tid not in found]
-            return jsonify({'error': f'Invalid tag IDs in set_tag_ids: {invalid}'}), 400
+            return jsonify({'error': f'set_tag_ids 中存在无效的标签 ID：{invalid}'}), 400
+        mark_task_running(task_record, current_file='批量设置标签...', total_files=len(files), processed_files=0)
         for f in files:
             f.tags = tags
             updated += 1
+            if updated % 50 == 0 or updated == len(files):
+                update_task_progress(
+                    task_record,
+                    processed_files=updated,
+                    total_files=len(files),
+                    current_file=str(f.file_path or ''),
+                )
     else:
         add_tags = Tag.query.filter(Tag.id.in_(add_ids)).all() if add_ids else []
         if add_ids and len(add_tags) != len(set(add_ids)):
             found = {t.id for t in add_tags}
             invalid = [tid for tid in add_ids if tid not in found]
-            return jsonify({'error': f'Invalid tag IDs in add_tag_ids: {invalid}'}), 400
+            return jsonify({'error': f'add_tag_ids 中存在无效的标签 ID：{invalid}'}), 400
         remove_tags = Tag.query.filter(Tag.id.in_(remove_ids)).all() if remove_ids else []
         if remove_ids and len(remove_tags) != len(set(remove_ids)):
             found = {t.id for t in remove_tags}
             invalid = [tid for tid in remove_ids if tid not in found]
-            return jsonify({'error': f'Invalid tag IDs in remove_tag_ids: {invalid}'}), 400
+            return jsonify({'error': f'remove_tag_ids 中存在无效的标签 ID：{invalid}'}), 400
         add_by_id = {t.id: t for t in add_tags}
         remove_ids_set = {t.id for t in remove_tags}
+        mark_task_running(task_record, current_file='批量增删标签...', total_files=len(files), processed_files=0)
         for f in files:
             # Add
             for tid, t in add_by_id.items():
@@ -495,83 +585,54 @@ def bulk_update_file_tags():
             # Remove
             f.tags = [t for t in f.tags if t.id not in remove_ids_set]
             updated += 1
+            if updated % 50 == 0 or updated == len(files):
+                update_task_progress(
+                    task_record,
+                    processed_files=updated,
+                    total_files=len(files),
+                    current_file=str(f.file_path or ''),
+                )
 
-    db.session.commit()
-    return jsonify({'updated_files': updated})
+    try:
+        db.session.commit()
+        update_task_progress(task_record, processed_files=updated, total_files=len(files), current_file='')
+        finish_task(task_record, status='completed')
+        return jsonify({'updated_files': updated, 'db_task_id': task_record.id})
+    except Exception as exc:
+        db.session.rollback()
+        fail_task(task_record, error_message=f'批量修改标签失败: {str(exc)}')
+        return jsonify({'error': f'批量修改标签失败: {str(exc)}', 'db_task_id': task_record.id}), 500
 
 
-@api.route('/files/<int:id>/status', methods=['POST'])
-def update_reading_status(id):
-    """Manually updates the reading status for a file."""
-    file_record = db.session.get(File, id)
-    if not file_record:
-        return jsonify({'error': 'File not found'}), 404
-
-    data = request.get_json() or {}
-    status = data.get('status')
-    if not status:
-        return jsonify({'error': 'Missing status value'}), 400
-
-    status = status.lower()
-    if status not in READING_STATUS_OPTIONS:
-        return jsonify({'error': f'Invalid status value "{status}".'}), 400
-
-    requested_page = data.get('page')
-    new_page = None
-    if isinstance(requested_page, int):
-        new_page = max(0, requested_page)
-        if file_record.total_pages:
-            new_page = min(new_page, max(0, file_record.total_pages - 1))
-
-    if status == 'unread':
-        file_record.last_read_page = 0
-        file_record.last_read_date = None
-    elif status == 'finished':
-        if file_record.total_pages:
-            file_record.last_read_page = max(0, file_record.total_pages - 1)
-        elif new_page is not None:
-            file_record.last_read_page = new_page
-        file_record.last_read_date = db.func.now()
-    else:  # in_progress
-        if new_page is not None:
-            file_record.last_read_page = new_page
-        file_record.last_read_date = db.func.now()
-
-    file_record.reading_status = status
-    db.session.commit()
-
-    return jsonify(file_to_dict(file_record))
-
-@api.route('/files/<int:id>/page/<int:page_num>', methods=['GET'])
+@api.route('/files/<int:id>/pages/<int:page_num>', methods=['GET'])
 def get_file_page(id, page_num):
     """
-    Streams a single page image from a file.
-    Page numbers are 0-indexed.
+    按页流式返回图片内容（页码从 0 开始）。
     """
     file_record = db.session.get(File, id)
     if not file_record or file_record.is_missing:
-        return jsonify({'error': 'File not found'}), 404
+        return jsonify({'error': '文件不存在'}), 404
     
     if page_num < 0 or page_num >= file_record.total_pages:
-        return jsonify({'error': 'Page number out of range'}), 400
+        return jsonify({'error': '页码超出范围'}), 400
 
     response = build_page_response(file_record.file_path, page_num)
     if response:
         return response
 
-    return jsonify({'error': 'Failed to extract page from archive'}), 500
+    return jsonify({'error': '从压缩包读取页面失败'}), 500
 
-@api.route('/files/<int:id>/page/<int:page_num>/details', methods=['GET'])
+@api.route('/files/<int:id>/pages/<int:page_num>/metadata', methods=['GET'])
 def get_file_page_details(id, page_num):
     """
-    Gets metadata for a specific page of a file, including manga and page details.
+    获取指定页的元数据（文件名、大小等）。
     """
     file_record = db.session.get(File, id)
     if not file_record or file_record.is_missing:
-        return jsonify({'error': 'File not found'}), 404
+        return jsonify({'error': '文件不存在'}), 404
     
     if page_num < 0 or page_num >= file_record.total_pages:
-        return jsonify({'error': 'Page number out of range'}), 400
+        return jsonify({'error': '页码超出范围'}), 400
 
     page_filename, page_filesize = get_page_details_from_archive(file_record.file_path, page_num)
     
@@ -585,7 +646,7 @@ def get_file_page_details(id, page_num):
             'page_filesize': page_filesize,
         })
     else:
-        return jsonify({'error': 'Failed to extract page details from archive'}), 500
+        return jsonify({'error': '从压缩包读取页面元数据失败'}), 500
 
 
 @api.route('/files/<int:id>/cover', methods=['GET'])
@@ -608,10 +669,10 @@ def get_file_cover(id):
     return response
 
 
-@api.route('/files/stats', methods=['GET'])
+@api.route('/stats/files', methods=['GET'])
 def get_file_library_stats():
     """
-    Returns aggregate statistics for the manga library along with handy highlights.
+    返回漫画库统计信息（总量、阅读状态、喜欢、Top 标签等）。
     """
     base_filter = File.is_missing.is_(False)
 
@@ -633,7 +694,7 @@ def get_file_library_stats():
     total_size_sum = db.session.query(func.coalesce(func.sum(File.file_size), 0)).filter(base_filter).scalar() or 0
     average_page_count = float(total_page_sum) / total_items if total_items else 0
 
-    # Highlights
+    # 亮点卡片（用于首页）
     highlight_query = File.query.options(
         selectinload(File.tags),
         selectinload(File.like_item)

@@ -7,94 +7,191 @@
       </a-button>
     </div>
 
-    <a-empty
-      v-if="activeTasks.length === 0"
-      :description="$t('noActiveTasksDescription')"
+    <a-alert
+      v-if="unseenHistoryCount > 0"
+      class="mb-4"
+      type="info"
+      show-icon
+      :message="$t('taskResultsUnseen', { count: unseenHistoryCount })"
     >
-      <template #description>
-        <div class="text-center">
-          <p class="font-medium text-gray-700">{{ $t('noActiveTasks') }}</p>
-          <p class="text-sm text-gray-500">{{ $t('noActiveTasksDescription') }}</p>
-        </div>
-      </template>
-    </a-empty>
-
-    <a-space v-else direction="vertical" size="middle" class="w-full">
-      <a-card
-        v-for="task in activeTasks"
-        :key="task.id"
-        size="small"
-        :title="task.name"
-        :bordered="true"
-      >
-        <template #extra>
-          <a-space size="small" align="center">
-            <a-tag :color="getStatusMeta(task.status).tagColor">
-              {{ getStatusText(task.status) }}
-            </a-tag>
-            <a-typography-text type="secondary">{{ getTaskTypeText(task.task_type) }}</a-typography-text>
-            <a-typography-text type="secondary" v-if="task.created_at">
-              {{ formatTime(task.created_at) }}
-            </a-typography-text>
-            <a-button
-              v-if="task.is_active"
-              danger
-              size="small"
-              :loading="isCancelling === task.id"
-              @click="cancelTask(task.id)"
-            >
-              {{ isCancelling === task.id ? $t('cancelling') : $t('cancel') }}
-            </a-button>
-          </a-space>
-        </template>
-
-        <a-space direction="vertical" size="small" class="w-full">
-          <div v-if="task.progress !== null">
-            <div class="flex justify-between text-sm text-gray-500 mb-1">
-              <span>{{ $t('progress') }}</span>
-              <span>{{ Math.round(task.progress) }}%</span>
-            </div>
-            <a-progress
-              :percent="Math.round(task.progress)"
-              :status="getStatusMeta(task.status).progressStatus"
-              :stroke-color="getStatusMeta(task.status).strokeColor"
-              :show-info="false"
-            />
-          </div>
-
-          <a-descriptions
-            v-if="task.total_files > 0"
-            size="small"
-            :column="1"
-            class="bg-gray-50 rounded-md p-2"
-          >
-            <a-descriptions-item :label="$t('filesProcessed')">
-              {{ task.processed_files || 0 }} / {{ task.total_files }}
-            </a-descriptions-item>
-          </a-descriptions>
-
-          <a-typography-paragraph v-if="task.current_file" code class="!mb-0">
-            {{ task.current_file }}
-          </a-typography-paragraph>
-
-          <a-typography-paragraph v-if="task.target_path" class="!mb-0 text-gray-600">
-            <strong>{{ $t('targetPath') }}:</strong> {{ task.target_path }}
-          </a-typography-paragraph>
-
-          <a-alert
-            v-if="task.error_message"
-            type="error"
-            show-icon
-            :message="$t('error')"
-            :description="task.error_message"
-          />
-
-          <a-typography-text v-if="task.duration > 0" type="secondary">
-            {{ $t('duration') }}: {{ formatDuration(task.duration) }}
-          </a-typography-text>
+      <template #action>
+        <a-space>
+          <a-button size="small" @click="activeTab = 'history'">{{ $t('viewHistory') }}</a-button>
+          <a-button size="small" type="text" @click="markHistorySeen">{{ $t('markAsRead') }}</a-button>
         </a-space>
-      </a-card>
-    </a-space>
+      </template>
+    </a-alert>
+
+    <a-tabs v-model:activeKey="activeTab">
+      <a-tab-pane :key="'active'" :tab="`${$t('activeTasks')} (${activeTasks.length})`">
+        <a-empty
+          v-if="activeTasks.length === 0"
+          :description="$t('noActiveTasksDescription')"
+        >
+          <template #description>
+            <div class="text-center">
+              <p class="font-medium text-gray-700">{{ $t('noActiveTasks') }}</p>
+              <p class="text-sm text-gray-500">{{ $t('noActiveTasksDescription') }}</p>
+            </div>
+          </template>
+        </a-empty>
+
+        <a-space v-else direction="vertical" size="middle" class="w-full">
+          <a-card
+            v-for="task in activeTasks"
+            :key="task.id"
+            size="small"
+            :title="task.name"
+            :bordered="true"
+          >
+            <template #extra>
+              <a-space size="small" align="center">
+                <a-tag :color="getStatusMeta(task.status).tagColor">
+                  {{ getStatusText(task.status) }}
+                </a-tag>
+                <a-typography-text type="secondary">{{ getTaskTypeText(task.task_type) }}</a-typography-text>
+                <a-typography-text type="secondary" v-if="task.created_at">
+                  {{ formatTime(task.created_at) }}
+                </a-typography-text>
+                <a-button
+                  v-if="task.is_active"
+                  danger
+                  size="small"
+                  :loading="isCancelling === task.id"
+                  @click="cancelTask(task.id)"
+                >
+                  {{ isCancelling === task.id ? $t('cancelling') : $t('cancel') }}
+                </a-button>
+              </a-space>
+            </template>
+
+            <a-space direction="vertical" size="small" class="w-full">
+              <div v-if="task.progress !== null">
+                <div class="flex justify-between text-sm text-gray-500 mb-1">
+                  <span>{{ $t('progress') }}</span>
+                  <span>{{ Math.round(task.progress) }}%</span>
+                </div>
+                <a-progress
+                  :percent="Math.round(task.progress)"
+                  :status="getStatusMeta(task.status).progressStatus"
+                  :stroke-color="getStatusMeta(task.status).strokeColor"
+                  :show-info="false"
+                />
+              </div>
+
+              <a-descriptions
+                v-if="task.total_files > 0"
+                size="small"
+                :column="1"
+                class="bg-gray-50 rounded-md p-2"
+              >
+                <a-descriptions-item :label="$t('filesProcessed')">
+                  {{ task.processed_files || 0 }} / {{ task.total_files }}
+                </a-descriptions-item>
+              </a-descriptions>
+
+              <a-typography-paragraph v-if="task.current_file" code class="!mb-0">
+                {{ task.current_file }}
+              </a-typography-paragraph>
+
+              <a-typography-paragraph v-if="task.target_path" class="!mb-0 text-gray-600">
+                <strong>{{ $t('targetPath') }}:</strong> {{ task.target_path }}
+              </a-typography-paragraph>
+
+              <a-alert
+                v-if="task.error_message"
+                type="error"
+                show-icon
+                :message="$t('error')"
+                :description="task.error_message"
+              />
+
+              <a-typography-text v-if="task.duration > 0" type="secondary">
+                {{ $t('duration') }}: {{ formatDuration(task.duration) }}
+              </a-typography-text>
+            </a-space>
+          </a-card>
+        </a-space>
+      </a-tab-pane>
+
+      <a-tab-pane :key="'history'" :tab="`${$t('historyTasks')} (${historyTasks.length})`">
+        <a-empty
+          v-if="historyTasks.length === 0"
+          :description="$t('noHistoryTasksDescription')"
+        >
+          <template #description>
+            <div class="text-center">
+              <p class="font-medium text-gray-700">{{ $t('noHistoryTasks') }}</p>
+              <p class="text-sm text-gray-500">{{ $t('noHistoryTasksDescription') }}</p>
+            </div>
+          </template>
+        </a-empty>
+
+        <a-space v-else direction="vertical" size="middle" class="w-full">
+          <a-card
+            v-for="task in historyTasks"
+            :key="task.id"
+            size="small"
+            :title="task.name"
+            :bordered="true"
+          >
+            <template #extra>
+              <a-space size="small" align="center">
+                <a-tag :color="getStatusMeta(task.status).tagColor">
+                  {{ getStatusText(task.status) }}
+                </a-tag>
+                <a-typography-text type="secondary">{{ getTaskTypeText(task.task_type) }}</a-typography-text>
+                <a-typography-text type="secondary" v-if="task.finished_at || task.created_at">
+                  {{ formatTime(task.finished_at || task.created_at) }}
+                </a-typography-text>
+              </a-space>
+            </template>
+
+            <a-space direction="vertical" size="small" class="w-full">
+              <div v-if="task.progress !== null">
+                <div class="flex justify-between text-sm text-gray-500 mb-1">
+                  <span>{{ $t('progress') }}</span>
+                  <span>{{ Math.round(task.progress) }}%</span>
+                </div>
+                <a-progress
+                  :percent="Math.round(task.progress)"
+                  :status="getStatusMeta(task.status).progressStatus"
+                  :stroke-color="getStatusMeta(task.status).strokeColor"
+                  :show-info="false"
+                />
+              </div>
+
+              <a-descriptions
+                v-if="task.total_files > 0"
+                size="small"
+                :column="1"
+                class="bg-gray-50 rounded-md p-2"
+              >
+                <a-descriptions-item :label="$t('filesProcessed')">
+                  {{ task.processed_files || 0 }} / {{ task.total_files }}
+                </a-descriptions-item>
+              </a-descriptions>
+
+              <a-typography-paragraph v-if="task.target_path" class="!mb-0 text-gray-600">
+                <strong>{{ $t('targetPath') }}:</strong> {{ task.target_path }}
+              </a-typography-paragraph>
+
+              <a-alert
+                v-if="task.error_message"
+                type="error"
+                show-icon
+                :message="$t('error')"
+                :description="task.error_message"
+              />
+
+              <a-typography-text v-if="task.duration > 0" type="secondary">
+                {{ $t('duration') }}: {{ formatDuration(task.duration) }}
+              </a-typography-text>
+            </a-space>
+          </a-card>
+        </a-space>
+      </a-tab-pane>
+    </a-tabs>
 
     <a-alert
       v-if="errorMessage"
@@ -108,7 +205,7 @@
 
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useLibraryStore } from '@/store/library'
 import { useI18n } from 'vue-i18n'
 
@@ -116,9 +213,12 @@ const { t } = useI18n()
 const libraryStore = useLibraryStore()
 
 const activeTasks = computed(() => libraryStore.activeTasks)
+const historyTasks = computed(() => libraryStore.historyTasks)
+const unseenHistoryCount = computed(() => libraryStore.unseenHistoryCount)
 const isLoading = ref(false)
 const isCancelling = ref(null)
 const errorMessage = ref('')
+const activeTab = ref('active')
 
 // 刷新任务
 async function refreshTasks() {
@@ -196,6 +296,18 @@ function getTaskTypeText(taskType) {
       return t('renameTask')
     case 'backup':
       return t('backupTask')
+    case 'duplicates':
+      return t('duplicatesTask')
+    case 'missing_cleanup':
+      return t('missingCleanupTask')
+    case 'integrity':
+      return t('integrityTask')
+    case 'tag_scan':
+      return t('tagScanTask')
+    case 'merge':
+      return t('mergeTask')
+    case 'bulk_tags':
+      return t('bulkTagsTask')
     case 'split':
       return t('splitTask')
     case 'delete':
@@ -226,7 +338,20 @@ function formatDuration(seconds) {
   }
 }
 
-onMounted(() => {
-  refreshTasks()
+const markHistorySeen = () => {
+  libraryStore.markHistoryTasksSeen()
+}
+
+watch(activeTab, (value) => {
+  if (value === 'history') {
+    markHistorySeen()
+  }
+})
+
+onMounted(async () => {
+  await refreshTasks()
+  if (activeTasks.value.length === 0 && unseenHistoryCount.value > 0) {
+    activeTab.value = 'history'
+  }
 })
 </script>

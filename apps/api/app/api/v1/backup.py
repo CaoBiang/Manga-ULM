@@ -3,27 +3,43 @@ import shutil
 import datetime
 from flask import request, jsonify, current_app
 from . import api
+from ...services.task_service import create_task_record, fail_task, finish_task, mark_task_running, update_task_progress
 
-def get_backup_dir():
-    """Gets the backup directory from app config, ensuring it exists."""
-    # The backup path should be configured in config.py, e.g., os.path.join(INSTANCE_PATH, 'backups')
+def get_backup_dir(*, ensure_exists: bool = True) -> str:
+    """从应用配置中获取备份目录。"""
     backup_path = current_app.config.get('BACKUP_PATH')
     if not backup_path:
-        raise ValueError("BACKUP_PATH is not configured in the application.")
-    os.makedirs(backup_path, exist_ok=True)
+        raise ValueError('未配置 BACKUP_PATH（备份目录）')
+    if ensure_exists:
+        os.makedirs(backup_path, exist_ok=True)
     return backup_path
 
 def get_db_path():
-    """Gets the main database file path."""
+    """获取主数据库文件路径。"""
     db_path = current_app.config.get('SQLALCHEMY_DATABASE_URI')
     if not db_path or not db_path.startswith('sqlite:///'):
-        raise ValueError("Database is not a local SQLite file or is not configured.")
+        raise ValueError('数据库不是本地 SQLite 文件，或未正确配置')
     return db_path.replace('sqlite:///', '')
 
 
-@api.route('/backup/now', methods=['POST'])
-def backup_now():
-    """Creates an immediate backup of the database file."""
+def validate_backup_filename(filename: str) -> str:
+    """校验并返回合法的备份文件名（仅允许 basename）。"""
+    raw = str(filename or '').strip()
+    if not raw:
+        raise ValueError('必须提供 filename（备份文件名）')
+    if os.path.basename(raw) != raw:
+        raise ValueError('非法文件名')
+    if '..' in raw or '/' in raw or '\\' in raw:
+        raise ValueError('非法文件名')
+    if not raw.startswith('manga_manager_backup_') or not raw.endswith('.db'):
+        raise ValueError('非法备份文件名')
+    return raw
+
+
+@api.route('/backups', methods=['POST'])
+def create_backup():
+    """创建数据库备份（同步执行，但会记录到任务管理器）。"""
+    task_record = None
     try:
         backup_dir = get_backup_dir()
         db_path = get_db_path()
@@ -31,35 +47,81 @@ def backup_now():
         timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
         backup_filename = f'manga_manager_backup_{timestamp}.db'
         backup_filepath = os.path.join(backup_dir, backup_filename)
-        
+
+        task_record = create_task_record(
+            name=f'创建备份: {backup_filename}',
+            task_type='backup',
+            status='pending',
+            target_path=backup_dir,
+            total_files=1,
+            processed_files=0,
+            progress=0.0,
+            current_file=backup_filename,
+        )
+        mark_task_running(task_record, current_file=backup_filename, total_files=1, processed_files=0)
+
         shutil.copy2(db_path, backup_filepath)
-        
-        return jsonify({'message': f'Backup created successfully: {backup_filename}'}), 201
+        update_task_progress(task_record, processed_files=1, total_files=1, current_file=backup_filename)
+        finish_task(task_record, status='completed')
+
+        return jsonify({
+            'message': '备份创建成功',
+            'backup_filename': backup_filename,
+            'db_task_id': task_record.id
+        }), 201
     except Exception as e:
+        if task_record:
+            fail_task(task_record, error_message=f'创建备份失败: {str(e)}')
         return jsonify({'error': str(e)}), 500
 
-@api.route('/backup/list', methods=['GET'])
+@api.route('/backups', methods=['GET'])
 def list_backups():
-    """Lists all available backup files."""
+    """列出所有可用备份文件。"""
     try:
-        backup_dir = get_backup_dir()
-        backups = [f for f in os.listdir(backup_dir) if f.endswith('.db') and f.startswith('manga_manager_backup_')]
-        backups.sort(reverse=True) # Show newest first
-        return jsonify(backups)
+        backup_dir = get_backup_dir(ensure_exists=False)
+        if not os.path.isdir(backup_dir):
+            return jsonify({'backups': [], 'count': 0})
+
+        backups = []
+        for filename in os.listdir(backup_dir):
+            if not (filename.endswith('.db') and filename.startswith('manga_manager_backup_')):
+                continue
+            full_path = os.path.join(backup_dir, filename)
+            try:
+                stat = os.stat(full_path)
+                backups.append({
+                    'filename': filename,
+                    'size': int(stat.st_size),
+                    'mtime': int(stat.st_mtime),
+                })
+            except OSError:
+                continue
+
+        backups.sort(key=lambda x: x.get('mtime', 0), reverse=True)  # 最新的在前
+        return jsonify({'backups': backups, 'count': len(backups)})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
         
-@api.route('/backup/restore', methods=['POST'])
-def restore_backup():
-    """Restores the database from a given backup file."""
-    data = request.get_json()
-    if not data or not data.get('filename'):
-        return jsonify({'error': 'Backup filename is required.'}), 400
+@api.route('/backup-restores', methods=['POST'])
+def create_backup_restore():
+    """从指定备份文件还原数据库（同步执行，但会记录到任务管理器）。"""
+    data = request.get_json(silent=True) or {}
     
-    filename = data['filename']
-    # Security check: ensure filename is not malicious
-    if '..' in filename or filename.startswith('/'):
-        return jsonify({'error': 'Invalid filename.'}), 400
+    try:
+        filename = validate_backup_filename(data.get('filename'))
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+
+    task_record = create_task_record(
+        name=f'还原备份: {filename}',
+        task_type='backup',
+        status='pending',
+        target_path=filename,
+        total_files=1,
+        processed_files=0,
+        progress=0.0,
+        current_file=filename,
+    )
 
     try:
         backup_dir = get_backup_dir()
@@ -68,14 +130,18 @@ def restore_backup():
         backup_filepath = os.path.join(backup_dir, filename)
         
         if not os.path.exists(backup_filepath):
-            return jsonify({'error': 'Backup file not found.'}), 404
-            
-        # Here you might want to stop the main app/db access before copying
-        # For a simple desktop app, this might be acceptable, but in a real server,
-        # you'd need a more robust mechanism (e.g., maintenance mode).
-        
+            fail_task(task_record, error_message='备份文件不存在')
+            return jsonify({'error': '备份文件不存在'}), 404
+
+        mark_task_running(task_record, current_file=filename, total_files=1, processed_files=0, target_path=backup_filepath)
         shutil.copy2(backup_filepath, db_path)
-        
-        return jsonify({'message': f'Successfully restored database from {filename}. Please restart the application for changes to take effect.'})
+        update_task_progress(task_record, processed_files=1, total_files=1, current_file=filename)
+        finish_task(task_record, status='completed')
+
+        return jsonify({
+            'message': '还原完成，请重启应用以生效',
+            'db_task_id': task_record.id
+        })
     except Exception as e:
+        fail_task(task_record, error_message=f'还原备份失败: {str(e)}')
         return jsonify({'error': str(e)}), 500 

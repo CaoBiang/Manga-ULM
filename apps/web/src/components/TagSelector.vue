@@ -220,10 +220,10 @@ const loadData = async () => {
   loadError.value = ''
   try {
     const [tagsResponse, typesResponse] = await Promise.all([
-      axios.get('/api/v1/tags/all'),
-      axios.get('/api/v1/tag_types')
+      axios.get('/api/v1/tags', { params: { per_page: 0 } }),
+      axios.get('/api/v1/tag-types')
     ])
-    allTags.value = tagsResponse.data || []
+    allTags.value = tagsResponse.data?.tags || []
     allTagTypes.value = typesResponse.data || []
     ensureActiveType()
   } catch (error) {

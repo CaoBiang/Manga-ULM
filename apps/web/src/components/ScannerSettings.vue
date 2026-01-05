@@ -438,7 +438,7 @@ function cancelTask(taskId) {
 
 async function fetchLibraryPaths() {
   try {
-    const response = await axios.get('/api/v1/library_paths')
+    const response = await axios.get('/api/v1/library-paths')
     libraryPaths.value = response.data
   } catch (error) {
     console.error('Failed to fetch library paths:', error)
@@ -453,7 +453,7 @@ async function addPath() {
   }
 
   try {
-    await axios.post('/api/v1/library_paths', { path: newPath.value })
+    await axios.post('/api/v1/library-paths', { path: newPath.value })
     newPath.value = ''
     await fetchLibraryPaths()
     showStatus(t('pathAddedSuccessfully'))
@@ -469,7 +469,7 @@ function deletePath(id) {
     okType: 'danger',
     onOk: async () => {
       try {
-        await axios.delete(`/api/v1/library_paths/${id}`)
+        await axios.delete(`/api/v1/library-paths/${id}`)
         await fetchLibraryPaths()
         showStatus(t('pathRemovedSuccessfully'))
       } catch (error) {
@@ -528,7 +528,7 @@ async function fetchSettings() {
 
 async function saveSetting(key, value) {
   try {
-    await axios.post(`/api/v1/settings/${key}`, { value })
+    await axios.put(`/api/v1/settings/${key}`, { value })
     showStatus(t('settingsSavedSuccessfully'))
   } catch (error) {
     console.error(`Failed to save setting ${key}:`, error)

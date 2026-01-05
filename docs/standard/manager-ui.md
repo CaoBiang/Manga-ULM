@@ -29,6 +29,61 @@ flowchart TD
   "body CSS 变量" --> "AntDesign 浮层（Modal/Popover/Dropdown/MenuPopup）"
 ```
 
+## 任务管理器（历史任务）
+
+### 目标
+
+- 任务管理器不仅展示“正在运行的任务”，还要保留一段时间的“历史任务”，让用户能回看结果、定位失败原因。
+- 用户不需要一直停留在任务管理器页面：侧边栏徽标与通知负责“提醒”，任务管理器页面负责“回看与管理”。
+
+### 页面结构（设置 -> 任务管理器）
+
+- 上半部分：任务设置（`TaskSettings`）
+  - 控制“历史任务展示数量 / 保留天数 / 通知开关 / 侧边栏徽标开关”。
+- 下半部分：任务列表（`TaskManager`）
+  - `活跃任务`：pending/running，可取消。
+  - `历史任务`：completed/failed/cancelled，保留结果与错误信息。
+
+### 数据流与可感知设计
+
+- 数据来源：后端 `Task` 表（Huey 任务 + 状态持久化）。
+- 前端通过轮询 `/api/v1/tasks?limit=...` 拉取“最近任务”，拆分为活跃/历史两类展示。
+- “可感知”来源：
+  - 侧边栏“任务管理器”显示徽标：活跃任务显示数量；出现新任务结果时显示数量并用颜色区分失败/普通。
+  - 任务结果通知：失败默认提醒；完成提醒可选（均可在设置中关闭）。
+
+```mermaid
+flowchart TD
+  "任务状态变化（pending/running/completed/failed/cancelled）" --> "后端 Task 表记录"
+  "后端 Task 表记录" --> "前端轮询 /api/v1/tasks?limit=..."
+  "前端轮询 /api/v1/tasks?limit=..." --> "Pinia: libraryStore.recentTasks"
+  "Pinia: libraryStore.recentTasks" --> "TaskManager：活跃/历史列表"
+  "Pinia: libraryStore.recentTasks" --> "侧边栏徽标（App.vue）"
+  "Pinia: libraryStore.recentTasks" --> "通知（App.vue）"
+```
+
+### 相关设置 Key（后端 Config 表）
+
+- `ui.tasks.history.limit`：历史任务展示数量（同时影响“最近任务”拉取数量）。
+- `ui.tasks.history.retention_days`：历史任务清理保留天数（0 表示清理全部历史任务）。
+- `ui.tasks.notify.on_complete`：是否提示“任务完成”。
+- `ui.tasks.notify.on_fail`：是否提示“任务失败”。
+- `ui.tasks.badge.enabled`：侧边栏是否显示任务徽标。
+
+### 常见任务类型（task_type）
+
+- `scan`：图书馆扫描（含封面生成/增量识别）。
+- `rename`：批量重命名、单文件重命名、标签驱动的重命名。
+- `delete`：标签驱动的“从文件名删除标签”。
+- `split`：拆分标签（含文件名变更）。
+- `merge`：合并标签（合并文件关联与别名）。
+- `tag_scan`：扫描文件名中的“未定义标签”。
+- `bulk_tags`：批量修改文件的标签（数据库侧）。
+- `backup`：创建备份、还原备份（还原后通常需要重启应用生效）。
+- `duplicates`：查找重复文件（基于 `content_sha256`）。
+- `missing_cleanup`：清理“缺失文件记录”（数据库侧）。
+- `integrity`：完整性检查（缺失/可能损坏）。
+
 ## 组件清单
 
 ### GlassPage

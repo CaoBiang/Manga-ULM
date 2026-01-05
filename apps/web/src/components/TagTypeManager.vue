@@ -126,8 +126,10 @@ import { ref, watch } from 'vue'
 import axios from 'axios'
 import { useI18n } from 'vue-i18n'
 import { message, Modal } from 'ant-design-vue'
+import { useLibraryStore } from '@/store/library'
 
 const { t } = useI18n()
+const libraryStore = useLibraryStore()
 
 const props = defineProps({
   types: {
@@ -176,7 +178,7 @@ async function createType() {
   }
 
   try {
-    await axios.post('/api/v1/tag_types', {
+    await axios.post('/api/v1/tag-types', {
       name: newTypeName.value,
       sort_order: newTypeSortOrder.value
     })
@@ -196,13 +198,14 @@ async function startScan() {
   selectedTagType.value = props.types[0]?.id ?? null
 
   try {
-    const response = await axios.get('/api/v1/tags/scan-undefined-tags')
+    const response = await axios.get('/api/v1/reports/undefined-tags')
     scannedTags.value = response.data
   } catch (error) {
     console.error('Failed to scan for undefined tags:', error)
     message.error(t('errorScanningTags') + (error.response?.data?.error || ''))
   } finally {
     isLoadingScannedTags.value = false
+    libraryStore.checkActiveTasks()
   }
 }
 
@@ -235,7 +238,7 @@ function deleteType(id) {
     okType: 'danger',
     onOk: async () => {
       try {
-        await axios.delete(`/api/v1/tag_types/${id}`)
+        await axios.delete(`/api/v1/tag-types/${id}`)
         message.success(t('settingsSavedSuccessfully'))
         emit('dataChanged')
       } catch (error) {
@@ -263,7 +266,7 @@ async function saveEdit() {
   }
 
   try {
-    await axios.put(`/api/v1/tag_types/${editingTypeId.value}`, {
+    await axios.put(`/api/v1/tag-types/${editingTypeId.value}`, {
       name: editingTypeName.value,
       sort_order: editingTypeSortOrder.value
     })

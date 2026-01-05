@@ -2,3 +2,4 @@
 
 from .scanner import start_scan_task
 from .rename import batch_rename_task, tag_file_change_task, tag_split_task 
+from .maintenance import check_integrity_task

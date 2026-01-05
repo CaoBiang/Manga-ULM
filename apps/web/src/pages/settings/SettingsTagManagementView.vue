@@ -35,7 +35,7 @@ const tagTypes = ref([])
 
 const fetchTagData = async () => {
   try {
-    const response = await axios.get('/api/v1/tag_types')
+    const response = await axios.get('/api/v1/tag-types')
     tagTypes.value = response.data
   } catch (error) {
     console.error('加载标签类型失败：', error)

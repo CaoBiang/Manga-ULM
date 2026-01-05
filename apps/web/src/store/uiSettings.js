@@ -152,7 +152,7 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
     if (gridColumns) {
       const normalized = normalizeGridColumns(gridColumns)
       ops.push(
-        axios.post(`/api/v1/settings/${SETTINGS_KEYS.gridColumns}`, {
+        axios.put(`/api/v1/settings/${SETTINGS_KEYS.gridColumns}`, {
           value: JSON.stringify(normalized)
         })
       )
@@ -161,7 +161,7 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
     if (cardFields) {
       const normalized = normalizeCardFields(cardFields)
       ops.push(
-        axios.post(`/api/v1/settings/${SETTINGS_KEYS.cardFields}`, {
+        axios.put(`/api/v1/settings/${SETTINGS_KEYS.cardFields}`, {
           value: JSON.stringify(normalized)
         })
       )
@@ -170,7 +170,7 @@ export const useUiSettingsStore = defineStore('uiSettings', () => {
     if (authorTagTypeId !== undefined) {
       const normalized = clampInt(authorTagTypeId, { min: 1, max: 2147483647 })
       ops.push(
-        axios.post(`/api/v1/settings/${SETTINGS_KEYS.authorTagTypeId}`, {
+        axios.put(`/api/v1/settings/${SETTINGS_KEYS.authorTagTypeId}`, {
           value: normalized ? String(normalized) : ''
         })
       )

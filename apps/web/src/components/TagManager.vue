@@ -42,7 +42,7 @@ const loadParentSuggestions = async (query = '') => {
   if (!tagForm.value.type_id) return
   try {
     isParentLoading.value = true
-    const { data } = await axios.get('/api/v1/tags/suggest', {
+    const { data } = await axios.get('/api/v1/tag-suggestions', {
       params: { q: query, type_id: tagForm.value.type_id, limit: 20 }
     })
     parentSuggestions.value = data.filter(x => x.id !== tagForm.value.id)
@@ -197,8 +197,13 @@ const loadPreview = async () => {
   try {
     isPreviewLoading.value = true
     let endpoint, payload
-    if (fileChangeAction.value === 'split') { endpoint = `/api/v1/tags/${fileChangeTag.value.id}/split/preview`; payload = { new_tag_names: newTagNames.value } }
-    else { endpoint = `/api/v1/tags/${fileChangeTag.value.id}/file-change/preview`; payload = { action: fileChangeAction.value, new_name: fileChangeAction.value === 'rename' ? newTagName.value.trim() : undefined } }
+    if (fileChangeAction.value === 'split') {
+      endpoint = '/api/v1/tag-splits/preview'
+      payload = { tag_id: fileChangeTag.value.id, new_tag_names: newTagNames.value }
+    } else {
+      endpoint = '/api/v1/tag-file-changes/preview'
+      payload = { tag_id: fileChangeTag.value.id, action: fileChangeAction.value, new_name: fileChangeAction.value === 'rename' ? newTagName.value.trim() : undefined }
+    }
     const { data } = await axios.post(endpoint, payload)
     previewData.value = data
   } catch (e) {
@@ -213,23 +218,46 @@ const executeFileChange = async () => {
   try {
     isFileChanging.value = true
     let endpoint, payload
-    if (fileChangeAction.value === 'split') { endpoint = `/api/v1/tags/${fileChangeTag.value.id}/split`; payload = { new_tag_names: newTagNames.value } }
-    else { endpoint = `/api/v1/tags/${fileChangeTag.value.id}/file-change`; payload = { action: fileChangeAction.value, new_name: fileChangeAction.value === 'rename' ? newTagName.value.trim() : undefined } }
+    if (fileChangeAction.value === 'split') {
+      endpoint = '/api/v1/tag-splits'
+      payload = { tag_id: fileChangeTag.value.id, new_tag_names: newTagNames.value }
+    } else {
+      endpoint = '/api/v1/tag-file-changes'
+      payload = { tag_id: fileChangeTag.value.id, action: fileChangeAction.value, new_name: fileChangeAction.value === 'rename' ? newTagName.value.trim() : undefined }
+    }
     await axios.post(endpoint, payload)
     message.success(t('operationSubmittedCheckTaskManager'))
     closeFileChangeModal()
   } catch (e) {
     console.error('Failed to start operation:', e)
     message.error(t('errorStartingOperation') + (e.response?.data?.error || e.message))
-  } finally { isFileChanging.value = false }
+  } finally {
+    isFileChanging.value = false
+    libraryStore.checkActiveTasks()
+  }
 }
 const addNewTagName = () => { const n = newTagNameInput.value.trim(); if (n && !newTagNames.value.includes(n)) { newTagNames.value.push(n); newTagNameInput.value='' } }
 const removeNewTagName = (n) => { newTagNames.value = newTagNames.value.filter(x => x !== n) }
 
 // merge modal
 const openMergeModal = (tag) => { mergeSourceTag.value = tag; mergeTarget.value=null; mergeSuggestions.value=[]; showMergeModal.value = true }
-const searchMergeTargets = async (q='') => { if (!mergeSourceTag.value) return; const { data } = await axios.get('/api/v1/tags/suggest', { params: { q, type_id: mergeSourceTag.value.type_id, limit: 20 } }); mergeSuggestions.value = data.filter(x => x.id !== mergeSourceTag.value.id) }
-const executeMerge = async () => { if (!mergeSourceTag.value || !mergeTarget.value) return; try { isMerging.value = true; await axios.post(`/api/v1/tags/${mergeSourceTag.value.id}/merge`, { target_tag_id: mergeTarget.value }); message.success(t('mergeSuccess')); showMergeModal.value = false; fetchTags(currentPage.value) } catch (e) { console.error('Failed to merge:', e); message.error(t('mergeError') + (e.response?.data?.error || '')) } finally { isMerging.value = false } }
+const searchMergeTargets = async (q='') => { if (!mergeSourceTag.value) return; const { data } = await axios.get('/api/v1/tag-suggestions', { params: { q, type_id: mergeSourceTag.value.type_id, limit: 20 } }); mergeSuggestions.value = data.filter(x => x.id !== mergeSourceTag.value.id) }
+const executeMerge = async () => {
+  if (!mergeSourceTag.value || !mergeTarget.value) return
+  try {
+    isMerging.value = true
+    await axios.post('/api/v1/tag-merges', { source_tag_id: mergeSourceTag.value.id, target_tag_id: mergeTarget.value })
+    message.success(t('mergeSuccess'))
+    showMergeModal.value = false
+    fetchTags(currentPage.value)
+  } catch (e) {
+    console.error('Failed to merge:', e)
+    message.error(t('mergeError') + (e.response?.data?.error || ''))
+  } finally {
+    isMerging.value = false
+    libraryStore.checkActiveTasks()
+  }
+}
 </script>
 
 <template>

@@ -94,7 +94,7 @@ const handleRename = async () => {
   renameStatus.value = 'idle'
   renameError.value = ''
   try {
-    const response = await axios.post(`/api/v1/rename/file/${file.value.id}`, {
+    const response = await axios.patch(`/api/v1/files/${file.value.id}`, {
       new_filename: editableFilename.value
     })
 

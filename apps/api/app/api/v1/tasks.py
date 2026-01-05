@@ -1,7 +1,9 @@
+import datetime
 from flask import jsonify, request
 from . import api
 from ... import db
 from ...models.manga import Task
+from ...services.settings_service import get_int_setting
 
 @api.route('/tasks', methods=['GET'])
 def get_tasks():
@@ -45,40 +47,39 @@ def get_tasks():
         'count': len(tasks)
     })
 
-@api.route('/tasks/<int:task_id>', methods=['GET'])
-def get_task(task_id):
+@api.route('/tasks/<int:task_id>', methods=['GET', 'PATCH'])
+def handle_task(task_id):
     """
-    获取单个任务的详细信息
+    获取/更新单个任务。
+
+    PATCH 目前仅用于取消任务：
+    - { "status": "cancelled" }
     """
     task = Task.query.get_or_404(task_id)
+
+    if request.method == 'GET':
+        return jsonify(task.to_dict())
+
+    payload = request.get_json(silent=True) or {}
+    requested_status = payload.get('status')
+    if not requested_status:
+        return jsonify({'error': '必须提供 status'}), 400
+
+    requested_status = str(requested_status).strip().lower()
+    if requested_status != 'cancelled':
+        return jsonify({'error': '当前仅支持将 status 更新为 cancelled'}), 400
+
+    if task.status not in ['pending', 'running']:
+        return jsonify({
+            'error': '任务当前状态不支持取消',
+            'current_status': task.status
+        }), 400
+
+    task.status = 'cancelled'
+    task.current_file = ''
+    task.finished_at = datetime.datetime.utcnow()
+    db.session.commit()
     return jsonify(task.to_dict())
-
-@api.route('/tasks/active', methods=['GET'])
-def get_active_tasks():
-    """
-    获取所有活跃任务 (pending 和 running 状态)
-    """
-    active_tasks = Task.query.filter(Task.status.in_(['pending', 'running'])).all()
-    
-    return jsonify({
-        'tasks': [task.to_dict() for task in active_tasks],
-        'count': len(active_tasks)
-    })
-
-@api.route('/tasks/scan/active', methods=['GET'])
-def get_active_scan_tasks():
-    """
-    获取活跃的扫描任务
-    """
-    active_scan_tasks = Task.query.filter(
-        Task.task_type == 'scan',
-        Task.status.in_(['pending', 'running'])
-    ).all()
-    
-    return jsonify({
-        'tasks': [task.to_dict() for task in active_scan_tasks],
-        'count': len(active_scan_tasks)
-    })
 
 @api.route('/tasks/<int:task_id>/status', methods=['GET'])
 def get_task_status(task_id):
@@ -96,47 +97,46 @@ def get_task_status(task_id):
         'is_active': task.is_active
     })
 
-@api.route('/tasks/<int:task_id>/cancel', methods=['POST'])
-def cancel_task(task_id):
-    """
-    取消任务（标记为取消状态）
-    注意：这只会在数据库中标记任务为取消状态，不会真正停止Huey任务
-    """
-    task = Task.query.get_or_404(task_id)
-    
-    if task.status in ['pending', 'running']:
-        task.status = 'cancelled'
-        task.finished_at = db.func.now()
-        db.session.commit()
-        
-        return jsonify({
-            'message': '任务已取消',
-            'task': task.to_dict()
-        })
-    else:
-        return jsonify({
-            'error': '任务当前状态不支持取消',
-            'current_status': task.status
-        }), 400
-
-@api.route('/tasks/cleanup', methods=['POST'])
+@api.route('/task-history', methods=['DELETE'])
 def cleanup_completed_tasks():
     """
-    清理已完成的任务记录
+    清理历史任务记录（completed/failed/cancelled）。
+
+    参数（可选）：
+    - days: 保留天数（0 表示清理全部历史任务）。优先级高于设置 `ui.tasks.history.retention_days`。
     """
-    # 删除30天前的已完成任务
-    from datetime import datetime, timedelta
-    
-    cutoff_date = datetime.utcnow() - timedelta(days=30)
-    
-    deleted_count = Task.query.filter(
-        Task.status.in_(['completed', 'failed', 'cancelled']),
-        Task.finished_at < cutoff_date
-    ).delete()
-    
+    payload = request.get_json(silent=True) or {}
+    raw_days = payload.get('days', None)
+    if raw_days is None:
+        raw_days = request.args.get('days', None)
+
+    if raw_days is None or str(raw_days).strip() == '':
+        retention_days = get_int_setting(
+            'ui.tasks.history.retention_days',
+            default=30,
+            min_value=0,
+            max_value=3650,
+        )
+    else:
+        try:
+            retention_days = int(str(raw_days).strip())
+        except ValueError:
+            return jsonify({'error': 'days 必须为整数'}), 400
+        if retention_days < 0 or retention_days > 3650:
+            return jsonify({'error': 'days 必须在 0~3650 之间'}), 400
+
+    query = Task.query.filter(Task.status.in_(['completed', 'failed', 'cancelled']))
+    if retention_days > 0:
+        from datetime import datetime, timedelta
+
+        cutoff_date = datetime.utcnow() - timedelta(days=retention_days)
+        query = query.filter(Task.finished_at.isnot(None), Task.finished_at < cutoff_date)
+
+    deleted_count = query.delete(synchronize_session=False)
     db.session.commit()
-    
+
     return jsonify({
-        'message': f'已清理 {deleted_count} 条过期任务记录',
-        'deleted_count': deleted_count
-    }) 
+        'message': f'已清理 {deleted_count} 条历史任务记录',
+        'deleted_count': deleted_count,
+        'retention_days': retention_days
+    })

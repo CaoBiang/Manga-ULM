@@ -6,6 +6,7 @@ import { Modal, message } from 'ant-design-vue'
 import BackupManager from '../components/BackupManager.vue'
 import GlassPage from '@/components/glass/ui/GlassPage.vue'
 import GlassSurface from '@/components/glass/ui/GlassSurface.vue'
+import { useLibraryStore } from '@/store/library'
 
 const duplicates = ref([])
 const isLoadingDuplicates = ref(false)
@@ -15,18 +16,20 @@ const isLoadingMissing = ref(false)
 const selectedMissingFiles = ref(new Set())
 
 const { t } = useI18n()
+const libraryStore = useLibraryStore()
 
 const findDuplicates = async () => {
   isLoadingDuplicates.value = true
   duplicates.value = []
   try {
-    const response = await axios.get('/api/v1/maintenance/duplicates')
+    const response = await axios.get('/api/v1/reports/duplicate-files')
     duplicates.value = response.data
   } catch (error) {
     console.error('Failed to find duplicates:', error)
     message.error(t('errorLoadingData', { error: t('duplicateFinder') }))
   } finally {
     isLoadingDuplicates.value = false
+    libraryStore.checkActiveTasks()
   }
 }
 
@@ -59,13 +62,15 @@ const cleanupSelectedMissingFiles = () => {
     async onOk() {
       try {
         const ids = Array.from(selectedMissingFiles.value)
-        const response = await axios.post('/api/v1/maintenance/cleanup-missing', { ids })
+        const response = await axios.post('/api/v1/missing-file-cleanups', { file_ids: ids })
         message.success(response.data.message)
         selectedMissingFiles.value.clear()
         findMissingFiles()
       } catch (error) {
         console.error('Failed to cleanup missing files:', error)
         message.error(t('error'))
+      } finally {
+        libraryStore.checkActiveTasks()
       }
     }
   })

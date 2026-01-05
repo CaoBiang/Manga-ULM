@@ -62,6 +62,16 @@ DEFAULT_SETTINGS: Dict[str, str] = {
     'ui.manager.ui.surface_border_opacity': '0.14',
     'ui.manager.ui.control_bg_opacity': '0.6',
     'ui.manager.ui.control_border_opacity': '0.14',
+    # 任务：历史任务与提醒
+    # - ui.tasks.history.limit：前端拉取/展示的“最近任务”数量（包含活跃与历史）
+    # - ui.tasks.history.retention_days：清理过期任务时的保留天数
+    # - ui.tasks.notify.*：是否弹出任务结果提醒
+    # - ui.tasks.badge.enabled：侧边栏是否显示任务徽标
+    'ui.tasks.history.limit': '80',
+    'ui.tasks.history.retention_days': '30',
+    'ui.tasks.notify.on_complete': '0',
+    'ui.tasks.notify.on_fail': '1',
+    'ui.tasks.badge.enabled': '1',
 }
 
 

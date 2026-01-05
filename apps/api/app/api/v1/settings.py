@@ -18,7 +18,7 @@ def get_setting(key):
         return jsonify({key: None}), 404
     return jsonify({key: value})
 
-@api.route('/settings/<key>', methods=['POST'])
+@api.route('/settings/<key>', methods=['PUT'])
 def set_setting(key):
     """创建或更新指定设置。"""
     payload = request.get_json(silent=True) or {}

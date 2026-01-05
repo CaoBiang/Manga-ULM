@@ -531,7 +531,7 @@ const imageUrl = computed(() => {
   if (!totalPages.value) {
     return ''
   }
-  return `/api/v1/files/${fileId}/page/${currentPage.value}`
+  return `/api/v1/files/${fileId}/pages/${currentPage.value}`
 })
 
 const isCurrentPageSpread = computed(() => isCurrentImageWide.value)
@@ -547,7 +547,7 @@ const preloadImages = () => {
     const pageToLoad = currentPage.value + i
     if (pageToLoad < totalPages.value && !preloadedImages.value[pageToLoad]) {
       const img = new Image()
-      img.src = `/api/v1/files/${fileId}/page/${pageToLoad}`
+      img.src = `/api/v1/files/${fileId}/pages/${pageToLoad}`
       preloadedImages.value[pageToLoad] = img
     }
   }
@@ -598,7 +598,7 @@ const debounce = (func, delay) => {
 
 const updateProgress = async () => {
   try {
-    await axios.post(`/api/v1/files/${fileId}/progress`, { page: currentPage.value })
+    await axios.patch(`/api/v1/files/${fileId}`, { last_read_page: currentPage.value })
   } catch (err) {
     console.error('保存阅读进度失败：', err)
   }
@@ -798,7 +798,7 @@ const fetchFileInfo = async () => {
   fileInfo.value.loading = true
   fileInfo.value.error = null
   try {
-    const response = await axios.get(`/api/v1/files/${fileId}/page/${currentPage.value}/details`)
+    const response = await axios.get(`/api/v1/files/${fileId}/pages/${currentPage.value}/metadata`)
     if (requestSeq !== fileInfoRequestSeq) {
       return
     }

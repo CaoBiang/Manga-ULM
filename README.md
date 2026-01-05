@@ -65,6 +65,8 @@ npm run dev
 
 - 管理器 UI 规范：`docs/standard/manager-ui.md`
 - 阅读器 UI 规范：`docs/standard/reader-ui.md`
+- RESTful API 设计：`docs/design/restful-api.md`
+- API 编码规范：`docs/standard/api.md`
 - 阅读器使用说明：`docs/use/reader.md`
 - 性能优化说明：`docs/design/performance.md`
 - 图书馆扫描与封面缓存（V2 设计）：`docs/design/library-scan-v2.md`

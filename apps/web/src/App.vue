@@ -9,8 +9,10 @@ import {
   ToolOutlined,
   BookOutlined
 } from '@ant-design/icons-vue'
+import { notification } from 'ant-design-vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { useAppSettingsStore } from '@/store/appSettings'
+import { useLibraryStore } from '@/store/library'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -128,6 +130,154 @@ function findNavItem(key, withParent = false, items = navItems.value, parentKey 
 const isFullScreenRoute = computed(() => route.meta?.fullScreen)
 
 const appSettingsStore = useAppSettingsStore()
+const libraryStore = useLibraryStore()
+
+const taskBadgeInfo = computed(() => {
+  if (!appSettingsStore.tasksBadgeEnabled) {
+    return { visible: false, count: 0, className: '' }
+  }
+
+  const activeCount = Array.isArray(libraryStore.activeTasks) ? libraryStore.activeTasks.length : 0
+  const unseenHistory = Number(libraryStore.unseenHistoryCount ?? 0) || 0
+  const unseenFailed = Number(libraryStore.unseenFailedCount ?? 0) || 0
+
+  if (activeCount > 0) {
+    return { visible: true, count: activeCount, className: 'manager-badge--orange' }
+  }
+  if (unseenHistory > 0) {
+    return { visible: true, count: unseenHistory, className: unseenFailed > 0 ? 'manager-badge--red' : 'manager-badge--blue' }
+  }
+  return { visible: false, count: 0, className: '' }
+})
+
+const TASK_NOTIFY_CURSOR_KEY = 'manga-ulm.tasks.notify.cursor.v1'
+
+const loadNotifyCursor = () => {
+  if (typeof localStorage === 'undefined') {
+    return { cursor: { ts: 0, id: 0 }, initialized: false }
+  }
+  try {
+    const raw = localStorage.getItem(TASK_NOTIFY_CURSOR_KEY)
+    if (!raw) {
+      return { cursor: { ts: 0, id: 0 }, initialized: false }
+    }
+    const parsed = JSON.parse(raw)
+    const ts = Number(parsed?.ts)
+    const id = Number(parsed?.id)
+    if (!Number.isFinite(ts) || !Number.isFinite(id)) {
+      return { cursor: { ts: 0, id: 0 }, initialized: false }
+    }
+    return { cursor: { ts, id }, initialized: true }
+  } catch (_error) {
+    return { cursor: { ts: 0, id: 0 }, initialized: false }
+  }
+}
+
+const saveNotifyCursor = (cursor) => {
+  if (typeof localStorage === 'undefined') {
+    return
+  }
+  try {
+    localStorage.setItem(TASK_NOTIFY_CURSOR_KEY, JSON.stringify(cursor))
+  } catch (_error) {
+    // 忽略写入失败
+  }
+}
+
+const taskToCursor = (task) => {
+  const rawTime = task?.finished_at || task?.created_at || ''
+  const ts = rawTime ? Date.parse(String(rawTime)) : 0
+  const id = Number(task?.id) || 0
+  return { ts: Number.isFinite(ts) ? ts : 0, id }
+}
+
+const isAfterCursor = (cursor, baseline) => {
+  if (cursor.ts > baseline.ts) return true
+  if (cursor.ts < baseline.ts) return false
+  return cursor.id > baseline.id
+}
+
+const maxCursor = (a, b) => {
+  if (a.ts > b.ts) return a
+  if (a.ts < b.ts) return b
+  return a.id >= b.id ? a : b
+}
+
+const loadedNotifyCursor = loadNotifyCursor()
+let notifyCursor = loadedNotifyCursor.cursor
+let notifyCursorInitialized = loadedNotifyCursor.initialized
+
+const pushTaskNotification = (task) => {
+  if (!task || task.is_active) {
+    return
+  }
+
+  if (task.status === 'failed') {
+    if (!appSettingsStore.tasksNotifyOnFail) {
+      return
+    }
+    notification.error({
+      message: t('taskNotifyFailedTitle'),
+      description: task.error_message ? `${task.name}\n${task.error_message}` : task.name,
+      duration: 6,
+      onClick: () => router.push('/settings/tasks')
+    })
+    return
+  }
+
+  if (task.status === 'completed') {
+    if (!appSettingsStore.tasksNotifyOnComplete) {
+      return
+    }
+    notification.success({
+      message: t('taskNotifyCompletedTitle'),
+      description: task.name,
+      duration: 4,
+      onClick: () => router.push('/settings/tasks')
+    })
+  }
+}
+
+watch(
+  () => libraryStore.recentTasks,
+  (tasks) => {
+    const list = Array.isArray(tasks) ? tasks : []
+    const history = list.filter(item => item && !item.is_active && (item.finished_at || item.created_at))
+
+    if (!notifyCursorInitialized) {
+      if (history.length > 0) {
+        notifyCursor = history
+          .map(taskToCursor)
+          .reduce((acc, cur) => maxCursor(acc, cur), { ts: 0, id: 0 })
+        saveNotifyCursor(notifyCursor)
+      }
+      notifyCursorInitialized = true
+      return
+    }
+
+    if (history.length === 0) {
+      return
+    }
+
+    const newlyFinished = history
+      .map(task => ({ task, cursor: taskToCursor(task) }))
+      .filter(item => isAfterCursor(item.cursor, notifyCursor))
+      .sort((a, b) => {
+        if (a.cursor.ts !== b.cursor.ts) return a.cursor.ts - b.cursor.ts
+        return a.cursor.id - b.cursor.id
+      })
+
+    if (newlyFinished.length === 0) {
+      return
+    }
+
+    for (const item of newlyFinished) {
+      pushTaskNotification(item.task)
+      notifyCursor = maxCursor(notifyCursor, item.cursor)
+    }
+    saveNotifyCursor(notifyCursor)
+  }
+)
 
 const managerUiCssVars = computed(() => ({
   '--manager-ui-blur-enabled': appSettingsStore.managerUiBlurEnabled ? '1' : '0',
@@ -239,7 +389,19 @@ const theme = computed(() => ({
                 :key="child.key"
                 class="flex items-center"
               >
-                <span>{{ child.label }}</span>
+                <template v-if="child.key === 'settings-tasks' && taskBadgeInfo.visible">
+                  <a-badge
+                    :count="taskBadgeInfo.count"
+                    :overflow-count="99"
+                    :offset="[10, 0]"
+                    :class="taskBadgeInfo.className"
+                  >
+                    <span>{{ child.label }}</span>
+                  </a-badge>
+                </template>
+                <template v-else>
+                  <span>{{ child.label }}</span>
+                </template>
               </a-menu-item>
             </a-sub-menu>
             <a-menu-item

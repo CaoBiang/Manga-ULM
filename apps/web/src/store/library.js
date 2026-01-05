@@ -1,8 +1,11 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import axios from 'axios'
+import { useAppSettingsStore } from '@/store/appSettings'
 
 export const useLibraryStore = defineStore('library', () => {
+  const appSettingsStore = useAppSettingsStore()
+
   // 扫描状态：idle | pending | scanning | finished | error
   const scanProgress = ref(0)
   const scanStatus = ref('idle')
@@ -13,6 +16,9 @@ export const useLibraryStore = defineStore('library', () => {
   const taskId = ref(null)
   const dbTaskId = ref(null)
   const activeTasks = ref([])
+  const recentTasks = ref([])
+  const unseenHistoryCount = ref(0)
+  const unseenFailedCount = ref(0)
   const scanErrors = ref([])
 
   const pushScanError = ({ message = null, messageKey = null }) => {
@@ -41,7 +47,66 @@ export const useLibraryStore = defineStore('library', () => {
   let scanQueue = []
   let scanQueueHasFailure = false
 
+  const TASK_HISTORY_SEEN_CURSOR_KEY = 'manga-ulm.tasks.history.seen_cursor.v1'
+
+  const loadHistorySeenCursor = () => {
+    if (typeof localStorage === 'undefined') {
+      return { cursor: { ts: 0, id: 0 }, initialized: false }
+    }
+    try {
+      const raw = localStorage.getItem(TASK_HISTORY_SEEN_CURSOR_KEY)
+      if (!raw) {
+        return { cursor: { ts: 0, id: 0 }, initialized: false }
+      }
+      const parsed = JSON.parse(raw)
+      const ts = Number(parsed?.ts)
+      const id = Number(parsed?.id)
+      if (!Number.isFinite(ts) || !Number.isFinite(id)) {
+        return { cursor: { ts: 0, id: 0 }, initialized: false }
+      }
+      return { cursor: { ts, id }, initialized: true }
+    } catch (_error) {
+      return { cursor: { ts: 0, id: 0 }, initialized: false }
+    }
+  }
+
+  const saveHistorySeenCursor = (cursor) => {
+    if (typeof localStorage === 'undefined') {
+      return
+    }
+    try {
+      localStorage.setItem(TASK_HISTORY_SEEN_CURSOR_KEY, JSON.stringify(cursor))
+    } catch (_error) {
+      // 忽略写入失败（例如隐身模式或存储空间不足）
+    }
+  }
+
+  const loadedHistorySeenCursor = loadHistorySeenCursor()
+  let historySeenCursor = loadedHistorySeenCursor.cursor
+  let historySeenCursorInitialized = loadedHistorySeenCursor.initialized
+
+  const taskToCursor = (task) => {
+    const rawTime = task?.finished_at || task?.created_at || ''
+    const ts = rawTime ? Date.parse(String(rawTime)) : 0
+    const id = Number(task?.id) || 0
+    return { ts: Number.isFinite(ts) ? ts : 0, id }
+  }
+
+  const isAfterCursor = (cursor, baseline) => {
+    if (cursor.ts > baseline.ts) return true
+    if (cursor.ts < baseline.ts) return false
+    return cursor.id > baseline.id
+  }
+
+  const maxCursor = (a, b) => {
+    if (a.ts > b.ts) return a
+    if (a.ts < b.ts) return b
+    return a.id >= b.id ? a : b
+  }
+
   const hasActiveScanTasks = computed(() => activeTasks.value.some(task => task.task_type === 'scan' && task.is_active))
+
+  const historyTasks = computed(() => recentTasks.value.filter(task => !task?.is_active))
 
   const currentScanTask = computed(() => {
     const running = activeTasks.value.find(task => task.task_type === 'scan' && task.status === 'running')
@@ -161,8 +226,30 @@ export const useLibraryStore = defineStore('library', () => {
   // 获取活跃任务，并根据活跃情况调整轮询频率
   async function checkActiveTasks() {
     try {
-      const response = await axios.get('/api/v1/tasks/active')
-      activeTasks.value = response.data.tasks || []
+      // 任务页面需要历史任务，因此这里统一拉取“最近任务”再拆分为 active/history。
+      const limit = Math.max(10, Math.min(500, Number(appSettingsStore.tasksHistoryLimit ?? 80) || 80))
+      const response = await axios.get('/api/v1/tasks', { params: { limit } })
+      recentTasks.value = response.data.tasks || []
+      activeTasks.value = recentTasks.value.filter(task => task?.is_active)
+
+      const history = recentTasks.value.filter(task => !task?.is_active)
+
+      // 首次没有“已读游标”时，以当前最新的历史任务作为基线，避免把旧任务误判为“新结果”。
+      if (!historySeenCursorInitialized) {
+        if (history.length > 0) {
+          historySeenCursor = history
+            .map(taskToCursor)
+            .reduce((acc, cur) => maxCursor(acc, cur), { ts: 0, id: 0 })
+          saveHistorySeenCursor(historySeenCursor)
+        }
+        historySeenCursorInitialized = true
+        unseenHistoryCount.value = 0
+        unseenFailedCount.value = 0
+      } else {
+        const unseen = history.filter(task => isAfterCursor(taskToCursor(task), historySeenCursor))
+        unseenHistoryCount.value = unseen.length
+        unseenFailedCount.value = unseen.filter(task => task?.status === 'failed').length
+      }
     } catch (error) {
       console.error('获取活跃任务失败:', error)
       return
@@ -194,6 +281,27 @@ export const useLibraryStore = defineStore('library', () => {
     }
   }
 
+  // 标记历史任务为已读（用于侧边栏徽标与“新任务结果”提示）
+  const markHistoryTasksSeen = () => {
+    const history = recentTasks.value.filter(task => !task?.is_active)
+    if (history.length === 0) {
+      unseenHistoryCount.value = 0
+      unseenFailedCount.value = 0
+      return
+    }
+
+    const latest = history
+      .map(taskToCursor)
+      .reduce((acc, cur) => maxCursor(acc, cur), historySeenCursor)
+
+    historySeenCursor = latest
+    historySeenCursorInitialized = true
+    saveHistorySeenCursor(latest)
+
+    unseenHistoryCount.value = 0
+    unseenFailedCount.value = 0
+  }
+
   // 获取任务详情
   async function getTaskDetails(taskId) {
     try {
@@ -208,7 +316,9 @@ export const useLibraryStore = defineStore('library', () => {
   // 获取活跃的扫描任务
   async function getActiveScanTasks() {
     try {
-      const response = await axios.get('/api/v1/tasks/scan/active')
+      const response = await axios.get('/api/v1/tasks', {
+        params: { task_type: 'scan', active_only: true, limit: 500 }
+      })
       return response.data.tasks || []
     } catch (error) {
       console.error('获取活跃扫描任务失败:', error)
@@ -225,12 +335,14 @@ export const useLibraryStore = defineStore('library', () => {
       currentScanFile.value = ''
       currentScanMessageKey.value = 'initializingScanMessage'
 
-      const response = await axios.post('/api/v1/library/scan', { library_path_id: libraryPathId })
-      taskId.value = response.data.task_id
-      dbTaskId.value = response.data.db_task_id
+      const response = await axios.post('/api/v1/scan-jobs', { library_path_id: libraryPathId })
+      const createdTasks = response.data.tasks || []
+      const firstTask = createdTasks[0]
+      taskId.value = firstTask?.task_id || null
+      dbTaskId.value = firstTask?.id || null
 
-      if (response.data.db_task_id) {
-        await _startScanQueue([response.data.db_task_id])
+      if (dbTaskId.value) {
+        await _startScanQueue([dbTaskId.value])
       } else {
         await checkActiveTasks()
       }
@@ -256,8 +368,8 @@ export const useLibraryStore = defineStore('library', () => {
       currentScanFile.value = ''
       currentScanMessageKey.value = 'startingScanAllMessage'
 
-      const response = await axios.post('/api/v1/library/scan_all')
-      const ids = (response.data.tasks || []).map(t => t.db_task_id).filter(Boolean)
+      const response = await axios.post('/api/v1/scan-jobs', { all: true })
+      const ids = (response.data.tasks || []).map(t => t.id).filter(Boolean)
       if (ids.length) {
         await _startScanQueue(ids)
       } else {
@@ -277,7 +389,7 @@ export const useLibraryStore = defineStore('library', () => {
 
   // 取消任务
   async function cancelTask(taskId) {
-    const response = await axios.post(`/api/v1/tasks/${taskId}/cancel`)
+    const response = await axios.patch(`/api/v1/tasks/${taskId}`, { status: 'cancelled' })
     await checkActiveTasks()
     return response.data
   }
@@ -331,6 +443,10 @@ export const useLibraryStore = defineStore('library', () => {
     taskId,
     dbTaskId,
     activeTasks,
+    recentTasks,
+    historyTasks,
+    unseenHistoryCount,
+    unseenFailedCount,
     scanErrors,
 
     // 图书馆状态
@@ -347,6 +463,7 @@ export const useLibraryStore = defineStore('library', () => {
     startScanAll,
     cancelTask,
     checkActiveTasks,
+    markHistoryTasksSeen,
     getTaskDetails,
     getActiveScanTasks,
     clearErrors,
@@ -354,4 +471,3 @@ export const useLibraryStore = defineStore('library', () => {
     fetchFiles
   }
 })
-

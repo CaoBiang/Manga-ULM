@@ -147,7 +147,7 @@ const saveModal = async () => {
   }
   modalSaving.value = true
   try {
-    await axios.post(`/api/v1/settings/${modalKey.value.trim()}`, { value: modalValue.value })
+    await axios.put(`/api/v1/settings/${modalKey.value.trim()}`, { value: modalValue.value })
     message.success(t('settingsSavedSuccessfully'))
     modalOpen.value = false
     await refresh()

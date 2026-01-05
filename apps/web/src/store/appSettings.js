@@ -25,7 +25,12 @@ const SETTINGS_KEYS = Object.freeze({
   readerUiBlurRadiusPx: 'ui.reader.ui.blur_radius_px',
   readerUiControlBgOpacity: 'ui.reader.ui.control_bg_opacity',
   readerUiControlBorderOpacity: 'ui.reader.ui.control_border_opacity',
-  renameFilenameTemplate: 'rename.filename_template'
+  renameFilenameTemplate: 'rename.filename_template',
+  tasksHistoryLimit: 'ui.tasks.history.limit',
+  tasksHistoryRetentionDays: 'ui.tasks.history.retention_days',
+  tasksNotifyOnComplete: 'ui.tasks.notify.on_complete',
+  tasksNotifyOnFail: 'ui.tasks.notify.on_fail',
+  tasksBadgeEnabled: 'ui.tasks.badge.enabled'
 })
 
 const MIGRATION_FLAG_KEY = 'manga-ulm.settings_migrated.v1'
@@ -177,9 +182,14 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
   const readerUiControlBgOpacity = ref(0.46)
   const readerUiControlBorderOpacity = ref(0.16)
   const renameFilenameTemplate = ref('')
+  const tasksHistoryLimit = ref(80)
+  const tasksHistoryRetentionDays = ref(30)
+  const tasksNotifyOnComplete = ref(false)
+  const tasksNotifyOnFail = ref(true)
+  const tasksBadgeEnabled = ref(true)
 
   const saveSetting = async (key, value) => {
-    await axios.post(`/api/v1/settings/${key}`, { value })
+    await axios.put(`/api/v1/settings/${key}`, { value })
   }
 
   const resetSetting = async (key) => {
@@ -284,6 +294,21 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
       readerUiControlBorderOpacity.value = uiBorderOpacity ?? 0.16
 
       renameFilenameTemplate.value = String(settings[SETTINGS_KEYS.renameFilenameTemplate] ?? '')
+
+      const historyLimit = clampInt(settings[SETTINGS_KEYS.tasksHistoryLimit], { min: 10, max: 500 })
+      tasksHistoryLimit.value = historyLimit ?? 80
+
+      const retentionDays = clampInt(settings[SETTINGS_KEYS.tasksHistoryRetentionDays], { min: 0, max: 3650 })
+      tasksHistoryRetentionDays.value = retentionDays ?? 30
+
+      const notifyOnComplete = normalizeBool(settings[SETTINGS_KEYS.tasksNotifyOnComplete])
+      tasksNotifyOnComplete.value = notifyOnComplete ?? false
+
+      const notifyOnFail = normalizeBool(settings[SETTINGS_KEYS.tasksNotifyOnFail])
+      tasksNotifyOnFail.value = notifyOnFail ?? true
+
+      const badgeEnabled = normalizeBool(settings[SETTINGS_KEYS.tasksBadgeEnabled])
+      tasksBadgeEnabled.value = badgeEnabled ?? true
 
       loaded.value = true
     } catch (error) {
@@ -487,6 +512,51 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
     await saveSetting(SETTINGS_KEYS.renameFilenameTemplate, renameFilenameTemplate.value)
   }
 
+  const setTasksHistoryLimit = async (value) => {
+    const normalized = clampInt(value, { min: 10, max: 500 })
+    if (normalized === null) {
+      return
+    }
+    tasksHistoryLimit.value = normalized
+    await saveSetting(SETTINGS_KEYS.tasksHistoryLimit, String(normalized))
+  }
+
+  const setTasksHistoryRetentionDays = async (value) => {
+    const normalized = clampInt(value, { min: 0, max: 3650 })
+    if (normalized === null) {
+      return
+    }
+    tasksHistoryRetentionDays.value = normalized
+    await saveSetting(SETTINGS_KEYS.tasksHistoryRetentionDays, String(normalized))
+  }
+
+  const setTasksNotifyOnComplete = async (value) => {
+    const normalized = normalizeBool(value)
+    if (normalized === null) {
+      return
+    }
+    tasksNotifyOnComplete.value = normalized
+    await saveSetting(SETTINGS_KEYS.tasksNotifyOnComplete, normalized ? '1' : '0')
+  }
+
+  const setTasksNotifyOnFail = async (value) => {
+    const normalized = normalizeBool(value)
+    if (normalized === null) {
+      return
+    }
+    tasksNotifyOnFail.value = normalized
+    await saveSetting(SETTINGS_KEYS.tasksNotifyOnFail, normalized ? '1' : '0')
+  }
+
+  const setTasksBadgeEnabled = async (value) => {
+    const normalized = normalizeBool(value)
+    if (normalized === null) {
+      return
+    }
+    tasksBadgeEnabled.value = normalized
+    await saveSetting(SETTINGS_KEYS.tasksBadgeEnabled, normalized ? '1' : '0')
+  }
+
   const busy = computed(() => loading.value)
 
   return {
@@ -517,6 +587,11 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
     readerUiControlBgOpacity,
     readerUiControlBorderOpacity,
     renameFilenameTemplate,
+    tasksHistoryLimit,
+    tasksHistoryRetentionDays,
+    tasksNotifyOnComplete,
+    tasksNotifyOnFail,
+    tasksBadgeEnabled,
     ensureLoaded,
     setLanguage,
     setLibraryViewMode,
@@ -541,6 +616,11 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
     setReaderUiControlBgOpacity,
     setReaderUiControlBorderOpacity,
     setRenameFilenameTemplate,
+    setTasksHistoryLimit,
+    setTasksHistoryRetentionDays,
+    setTasksNotifyOnComplete,
+    setTasksNotifyOnFail,
+    setTasksBadgeEnabled,
     saveSetting,
     resetSetting
   }

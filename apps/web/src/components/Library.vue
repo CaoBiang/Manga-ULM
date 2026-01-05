@@ -35,7 +35,7 @@ const handleScan = async () => {
   }
 
   try {
-    const listResp = await axios.get('/api/v1/library_paths')
+    const listResp = await axios.get('/api/v1/library-paths')
     const existing = (listResp.data || []).find(item => item?.path === rawPath)
 
     if (existing?.id) {
@@ -43,7 +43,7 @@ const handleScan = async () => {
       return
     }
 
-    const createResp = await axios.post('/api/v1/library_paths', { path: rawPath })
+    const createResp = await axios.post('/api/v1/library-paths', { path: rawPath })
     const createdId = createResp.data?.id
     if (!createdId) {
       throw new Error('未能创建图书馆路径')
@@ -57,9 +57,10 @@ const handleScan = async () => {
 
 const pickRandomManga = async () => {
   try {
-    const response = await axios.get('/api/v1/files/random');
-    if (response.data) {
-      router.push({ name: 'reader', params: { id: response.data.id } })
+    const response = await axios.get('/api/v1/files', { params: { sort_by: 'random', per_page: 1 } })
+    const picked = response.data?.files?.[0]
+    if (picked) {
+      router.push({ name: 'reader', params: { id: picked.id } })
     } else {
       message.info(t('noMangaToPick'))
     }
@@ -99,7 +100,7 @@ const startBatchRename = async () => {
 
   try {
     const file_ids = Array.from(selectedFilesForRename.value)
-    await axios.post('/api/v1/rename/batch', {
+    await axios.post('/api/v1/rename-jobs', {
       file_ids,
       template,
       root_path: libraryPath.value

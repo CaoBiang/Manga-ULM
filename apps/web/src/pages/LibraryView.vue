@@ -253,7 +253,7 @@ const fetchStats = async (force = false) => {
 
   statsLoading.value = true
   try {
-    const response = await axios.get('/api/v1/files/stats')
+    const response = await axios.get('/api/v1/stats/files')
     libraryStats.value = response.data
     statsFetched = true
   } catch (error) {

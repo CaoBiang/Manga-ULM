@@ -7,13 +7,13 @@ import os
 from ...services.path_service import normalize_library_path
 
 
-@api.route('/library_paths', methods=['GET'])
+@api.route('/library-paths', methods=['GET'])
 def get_library_paths():
     """返回所有图书馆路径。"""
     paths = LibraryPath.query.order_by(LibraryPath.path).all()
     return jsonify([{'id': p.id, 'path': p.path} for p in paths])
 
-@api.route('/library_paths', methods=['POST'])
+@api.route('/library-paths', methods=['POST'])
 def add_library_path():
     """新增图书馆路径。"""
     data = request.get_json() or {}
@@ -33,7 +33,7 @@ def add_library_path():
     db.session.commit()
     return jsonify({'id': new_path.id, 'path': new_path.path}), 201
 
-@api.route('/library_paths/<int:id>', methods=['DELETE'])
+@api.route('/library-paths/<int:id>', methods=['DELETE'])
 def delete_library_path(id):
     """删除图书馆路径。"""
     path_to_delete = db.session.get(LibraryPath, id)

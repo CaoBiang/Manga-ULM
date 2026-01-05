@@ -1,12 +1,11 @@
 from flask import request, jsonify
 from . import api
 from ... import db
-from ...models import File, Task
-from ...tasks.rename import batch_rename_task, rename_single_file_inplace
-from .files import file_to_dict
+from ...models import Task
+from ...tasks.rename import batch_rename_task
 
-@api.route('/rename/batch', methods=['POST'])
-def batch_rename():
+@api.route('/rename-jobs', methods=['POST'])
+def create_rename_job():
     """
     启动“批量重命名”后台任务（基于模板 + 文件ID列表）。
     """
@@ -56,33 +55,3 @@ def batch_rename():
             failed_record.finished_at = _dt.datetime.utcnow()
             db.session.commit()
         return jsonify({'error': f'提交任务失败: {str(e)}'}), 500
-
-@api.route('/rename/file/<int:file_id>', methods=['POST'])
-def rename_file(file_id):
-    """
-    同步重命名单个文件（用于“编辑文件详情”页，立即生效）。
-
-    说明：
-    - 批量重命名走后台任务（`/rename/batch`）
-    - 单文件重命名应同步执行，否则在未启动 worker 时会出现“提示成功但实际没改”的误导
-    """
-    data = request.get_json() or {}
-    new_filename = data.get('new_filename')
-    if not new_filename:
-        return jsonify({'error': 'new_filename 为必填项'}), 400
-
-    file_record = db.session.get(File, file_id)
-    if not file_record:
-        return jsonify({'error': '文件不存在'}), 404
-
-    try:
-        rename_single_file_inplace(file_record, new_filename)
-        db.session.commit()
-    except ValueError as e:
-        db.session.rollback()
-        return jsonify({'error': str(e)}), 400
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': f'重命名失败：{e}'}), 500
-
-    return jsonify(file_to_dict(file_record)), 200

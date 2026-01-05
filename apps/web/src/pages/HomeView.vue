@@ -92,7 +92,7 @@ const fetchStats = async (force = false) => {
   statsLoading.value = true
   statsError.value = ''
   try {
-    const response = await axios.get('/api/v1/files/stats')
+    const response = await axios.get('/api/v1/stats/files')
     libraryStats.value = response.data
     lastUpdated.value = new Date().toISOString()
   } catch (error) {
