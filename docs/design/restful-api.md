@@ -101,7 +101,7 @@ sequenceDiagram
 - `GET "/api/v1/files/{id}"`：详情
 - `PUT "/api/v1/files/{id}"`：更新（主要用于 tags 编辑）
 - `PATCH "/api/v1/files/{id}"`：局部更新（阅读进度/状态、单文件重命名）
-- `GET "/api/v1/files/{id}/pages/{page}"`：页面图片流（页码从 0 开始）
+- `GET "/api/v1/files/{id}/pages/{page}"`：页面图片（页码从 0 开始；可选缩放参数：`max_side_px`/`format`/`quality`/`resample`）
 - `GET "/api/v1/files/{id}/pages/{page}/metadata"`：页面元数据
 - `GET "/api/v1/files/{id}/cover"`：封面
 - `GET "/api/v1/stats/files"`：统计信息

@@ -65,6 +65,9 @@
 - 组件职责：`ReaderToolbar` 只负责渲染与事件上抛，不直接修改“面板打开/关闭”等业务状态；相关状态由 `ReaderViewPage` 统一管理（参考 `apps/web/src/pages/reader/hooks/useReaderToolbarUi.ts`）。
 - 翻页行为必须“纯粹”：只能改变 `currentPage`，禁止隐式触发工具条的 `收起/展开/面板` 状态变化（例如翻页自动关闭面板导致工具条突然缩小）。
 - 若“文件信息”面板处于打开状态，翻页后必须自动刷新面板内容，且要避免并发请求导致旧页信息覆盖新页信息。
+- 分辨率面板：工具条必须提供“分辨率”按钮与面板，用于快速切换页图渲染分辨率（`ui.reader.image.max_side_px`）。
+- 预设来源：面板中的预设列表必须来自设置 `ui.reader.image.max_side_presets`，禁止在组件内写死。
+- 生效方式：切换分辨率后必须立刻刷新当前页显示（通过更新页图 URL 参数触发重新加载），并保证与“预加载前后页”逻辑使用同一套参数。
 
 #### 三态与过渡动效（必须）
 
@@ -120,6 +123,11 @@ flowchart TD
 
 - `ui.reader.toolbar.background_opacity`
 - `ui.reader.toolbar.keep_state_on_paging`
+- `ui.reader.image.max_side_px`
+- `ui.reader.image.max_side_presets`
+- `ui.reader.image.render.format`
+- `ui.reader.image.render.quality`
+- `ui.reader.image.render.resample`
 - `ui.reader.ui.blur_enabled`
 - `ui.reader.ui.blur_radius_px`
 - `ui.reader.ui.control_bg_opacity`

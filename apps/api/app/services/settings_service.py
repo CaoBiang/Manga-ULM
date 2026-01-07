@@ -43,6 +43,27 @@ DEFAULT_SETTINGS: Dict[str, str] = {
     'ui.reader.toolbar.center_click_toggle_enabled': '1',
     # 阅读：点击区域（左/中/右）
     'ui.reader.tap_zones': '{"version":1,"boundaries":{"left":0.3,"right":0.7},"actions":{"left":"prev_page","middle":"toggle_toolbar","right":"next_page"}}',
+    # 阅读：按需缩放（降低高分辨率页面的加载与渲染压力）
+    # - max_side_px：0 表示原图；>0 表示限制图片“最长边像素”
+    'ui.reader.image.max_side_px': '0',
+    # 预设列表（用于工具条快速切换），值为 JSON 数组，允许包含 0（原图）
+    'ui.reader.image.max_side_presets': '[0,1280,1600,2000,2400]',
+    # 渲染输出参数（仅在 max_side_px > 0 时生效）
+    # - format：webp/jpeg/png/auto
+    # - quality：1-100（对 webp/jpeg 生效）
+    # - resample：nearest/bilinear/bicubic/lanczos
+    'ui.reader.image.render.format': 'webp',
+    'ui.reader.image.render.quality': '82',
+    'ui.reader.image.render.resample': 'bilinear',
+    # 渲染性能调优（可在高级设置中覆盖）
+    'ui.reader.image.render.optimize': '0',
+    'ui.reader.image.render.webp_method': '0',
+    # 浏览器缓存（用于让“预加载前后页”真正生效，避免重复缩放/解压）
+    'ui.reader.image.cache.enabled': '1',
+    'ui.reader.image.cache.max_age_s': '31536000',
+    'ui.reader.image.cache.immutable': '1',
+    # 预加载与预渲染（前端会用它做节流与并发控制）
+    'ui.reader.image.preload.concurrency': '2',
     # 重命名
     'rename.filename_template': '',
     # 图书馆：网格列数（按断点）

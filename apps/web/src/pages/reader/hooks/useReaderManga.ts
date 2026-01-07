@@ -5,6 +5,8 @@ import { http } from '@/api/http'
 type MangaFile = {
   id: number
   file_path: string
+  file_size: number
+  file_mtime: number
   total_pages: number
   last_read_page: number | null
 }
@@ -54,10 +56,21 @@ export type ReaderMangaState = {
 
 export const useReaderManga = ({
   fileId,
-  preloadAhead
+  preloadAhead,
+  preloadConcurrency,
+  isCurrentImageLoaded,
+  renderOptions
 }: {
   fileId: string | undefined
   preloadAhead: number
+  preloadConcurrency: number
+  isCurrentImageLoaded: boolean
+  renderOptions: {
+    maxSidePx: number
+    format: string
+    quality: number
+    resample: string
+  }
 }): ReaderMangaState => {
   const { t } = useTranslation()
 
@@ -65,6 +78,7 @@ export const useReaderManga = ({
   const [totalPages, setTotalPages] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
+  const [fileVersion, setFileVersion] = useState('')
 
   const currentPageRef = useRef(currentPage)
   useEffect(() => {
@@ -72,6 +86,37 @@ export const useReaderManga = ({
   }, [currentPage])
 
   const preloadedImagesRef = useRef<Record<number, HTMLImageElement>>({})
+  const preloadTokenRef = useRef(0)
+
+  const renderQuery = useMemo(() => {
+    const maxSidePx = Math.max(0, Math.floor(Number(renderOptions?.maxSidePx ?? 0)) || 0)
+    const format = String(renderOptions?.format ?? 'webp')
+      .trim()
+      .toLowerCase()
+    const quality = Math.max(1, Math.min(100, Math.floor(Number(renderOptions?.quality ?? 82)) || 82))
+    const resample = String(renderOptions?.resample ?? 'lanczos')
+      .trim()
+      .toLowerCase()
+
+    const params = new URLSearchParams()
+    params.set('max_side_px', String(maxSidePx))
+    params.set('format', format)
+    params.set('quality', String(quality))
+    params.set('resample', resample)
+    if (fileVersion) {
+      params.set('v', fileVersion)
+    }
+    return params.toString()
+  }, [fileVersion, renderOptions?.format, renderOptions?.maxSidePx, renderOptions?.quality, renderOptions?.resample])
+
+  const buildPageUrl = useCallback(
+    (page: number) => {
+      if (!fileId) return ''
+      const baseUrl = `/api/v1/files/${fileId}/pages/${page}`
+      return renderQuery ? `${baseUrl}?${renderQuery}` : baseUrl
+    },
+    [fileId, renderQuery]
+  )
 
   const clampPage = useCallback(
     (page: number) => {
@@ -99,9 +144,11 @@ export const useReaderManga = ({
       if (!fileData) {
         throw new Error(t('mangaNotFound'))
       }
+      const version = `${Number(fileData.file_mtime || 0)}-${Number(fileData.file_size || 0)}`
       const pageCount = Number(fileData.total_pages || 0)
       const last = Number(fileData.last_read_page || 0)
       setTotalPages(pageCount)
+      setFileVersion(version)
       setCurrentPageInternal(pageCount ? Math.min(pageCount - 1, Math.max(0, last)) : 0)
     } catch (err) {
       console.error('获取漫画详情失败：', err)
@@ -116,6 +163,7 @@ export const useReaderManga = ({
     setTotalPages(0)
     setIsLoading(true)
     setError('')
+    setFileVersion('')
     preloadedImagesRef.current = {}
     if (!fileId) {
       setIsLoading(false)
@@ -123,6 +171,11 @@ export const useReaderManga = ({
     }
     refresh().catch(() => {})
   }, [fileId, refresh])
+
+  useEffect(() => {
+    // 切换渲染参数后，清空预加载缓存，避免复用旧 URL 对应的图片对象。
+    preloadedImagesRef.current = {}
+  }, [fileId, renderQuery])
 
   const updateProgress = useCallback(() => {
     if (!fileId) return
@@ -148,23 +201,76 @@ export const useReaderManga = ({
     if (!fileId) return
     if (!totalPages) return
 
-    const ahead = Math.max(0, Number(preloadAhead) || 0)
-    if (!ahead) return
+    const around = Math.max(0, Number(preloadAhead) || 0)
+    if (!around) return
+    if (!isCurrentImageLoaded) return
 
-    for (let i = 1; i <= ahead; i += 1) {
-      const pageToLoad = currentPageRef.current + i
-      if (pageToLoad < totalPages && !preloadedImagesRef.current[pageToLoad]) {
+    // 说明：缩放渲染会占用 CPU，若同时并发预加载太多页会明显拖慢“当前页”的出图速度。
+    // 这里做两件事：
+    // 1) 仅在当前页加载完成后再启动预加载；
+    // 2) 通过并发上限对请求做节流，让预加载“悄悄跑在后台”。
+    preloadTokenRef.current += 1
+    const token = preloadTokenRef.current
+
+    const resolvedConcurrency = Math.max(1, Math.min(6, Math.floor(Number(preloadConcurrency) || 1)))
+
+    const pages: number[] = []
+    // 优先预加载后续页（翻页最常见），再补全前面页（便于回退）。
+    for (let i = 1; i <= around; i += 1) {
+      pages.push(currentPageRef.current + i)
+    }
+    for (let i = 1; i <= around; i += 1) {
+      pages.push(currentPageRef.current - i)
+    }
+
+    const seen = new Set<number>()
+    const queue = pages.filter((page) => {
+      if (page < 0 || page >= totalPages) return false
+      if (seen.has(page)) return false
+      seen.add(page)
+      return !preloadedImagesRef.current[page]
+    })
+
+    if (!queue.length) return
+
+    let inFlight = 0
+    let cancelled = false
+
+    const pump = () => {
+      if (cancelled) return
+      if (preloadTokenRef.current !== token) return
+
+      while (inFlight < resolvedConcurrency && queue.length) {
+        const nextPage = queue.shift()
+        if (nextPage === undefined) break
+
+        inFlight += 1
         const img = new Image()
-        img.src = `/api/v1/files/${fileId}/pages/${pageToLoad}`
-        preloadedImagesRef.current[pageToLoad] = img
+        const done = () => {
+          inFlight -= 1
+          pump()
+        }
+        img.onload = done
+        img.onerror = done
+        img.src = buildPageUrl(nextPage)
+        preloadedImagesRef.current[nextPage] = img
       }
     }
-  }, [currentPage, fileId, preloadAhead, totalPages])
+
+    const kickoffId = window.setTimeout(() => {
+      pump()
+    }, 120)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(kickoffId)
+    }
+  }, [buildPageUrl, currentPage, fileId, isCurrentImageLoaded, preloadAhead, preloadConcurrency, totalPages])
 
   const imageUrl = useMemo(() => {
     if (!fileId || !totalPages) return ''
-    return `/api/v1/files/${fileId}/pages/${currentPage}`
-  }, [currentPage, fileId, totalPages])
+    return buildPageUrl(currentPage)
+  }, [buildPageUrl, currentPage, fileId, totalPages])
 
   return {
     currentPage,
@@ -176,4 +282,3 @@ export const useReaderManga = ({
     refresh
   }
 }
-

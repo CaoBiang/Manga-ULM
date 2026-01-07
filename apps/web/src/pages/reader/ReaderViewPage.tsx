@@ -1,6 +1,6 @@
 import { ArrowLeftOutlined } from '@ant-design/icons'
 import { Alert, Spin, Tag, message } from 'antd'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 import ReaderTapZonesConfigurator from '@/components/reader/tapZones/ReaderTapZonesConfigurator'
@@ -39,12 +39,32 @@ export default function ReaderViewPage() {
   const readerToolbarKeepStateOnPaging = useAppSettingsStore((state) => state.readerToolbarKeepStateOnPaging)
   const readerToolbarCenterClickToggleEnabled = useAppSettingsStore((state) => state.readerToolbarCenterClickToggleEnabled)
   const readerTapZones = useAppSettingsStore((state) => state.readerTapZones)
+  const readerImageMaxSidePx = useAppSettingsStore((state) => state.readerImageMaxSidePx)
+  const readerImageMaxSidePresets = useAppSettingsStore((state) => state.readerImageMaxSidePresets)
+  const readerImageRenderFormat = useAppSettingsStore((state) => state.readerImageRenderFormat)
+  const readerImageRenderQuality = useAppSettingsStore((state) => state.readerImageRenderQuality)
+  const readerImageRenderResample = useAppSettingsStore((state) => state.readerImageRenderResample)
+  const readerImagePreloadConcurrency = useAppSettingsStore((state) => state.readerImagePreloadConcurrency)
   const setReaderTapZones = useAppSettingsStore((state) => state.setReaderTapZones)
+  const setReaderImageMaxSidePx = useAppSettingsStore((state) => state.setReaderImageMaxSidePx)
 
   const [collapsedToolbarWidthPx, setCollapsedToolbarWidthPx] = useState<number | null>(null)
   const { style: toolbarStyleVars } = useReaderStyleVars(collapsedToolbarWidthPx)
 
-  const { currentPage, totalPages, isLoading, error, imageUrl, setCurrentPage, refresh } = useReaderManga({ fileId: id, preloadAhead: readerPreloadAhead })
+  const [isCurrentImageLoaded, setIsCurrentImageLoaded] = useState(false)
+
+  const { currentPage, totalPages, isLoading, error, imageUrl, setCurrentPage, refresh } = useReaderManga({
+    fileId: id,
+    preloadAhead: readerPreloadAhead,
+    preloadConcurrency: readerImagePreloadConcurrency,
+    isCurrentImageLoaded,
+    renderOptions: {
+      maxSidePx: readerImageMaxSidePx,
+      format: readerImageRenderFormat,
+      quality: readerImageRenderQuality,
+      resample: readerImageRenderResample
+    }
+  })
   const { bookmarks: bookmarkList, refresh: refreshBookmarks, isBookmarked, add: addBookmark, update: updateBookmark, remove: removeBookmark } =
     useReaderBookmarks(id)
   const { loading: fileInfoLoading, error: fileInfoError, data: fileInfoData, reset: resetFileInfo, fetch: fetchFileInfo } = useReaderFileInfo(id)
@@ -163,6 +183,16 @@ export default function ReaderViewPage() {
     setIsPagingEnabled((prev) => !prev)
     setShowRightHalf(false)
   }, [])
+
+  const changeResolution = useCallback(
+    (maxSidePx: number) => {
+      setReaderImageMaxSidePx(maxSidePx).catch((err) => {
+        console.error('保存阅读器分辨率设置失败：', err)
+        message.error(t('failedToSaveSettings'))
+      })
+    },
+    [setReaderImageMaxSidePx, t]
+  )
 
   const handleBookmarkButtonClick = useCallback(async () => {
     if (isBookmarked(currentPage)) {
@@ -377,9 +407,14 @@ export default function ReaderViewPage() {
       const ratio = img.naturalHeight > 0 ? img.naturalWidth / img.naturalHeight : 1
       const threshold = Number(readerWideRatioThreshold || 1.0) || 1.0
       setIsCurrentImageWide(ratio >= threshold)
+      setIsCurrentImageLoaded(true)
     },
     [readerWideRatioThreshold]
   )
+
+  useLayoutEffect(() => {
+    setIsCurrentImageLoaded(false)
+  }, [imageUrl])
 
   const sizeUnits = useMemo(() => [t('sizeUnitB'), t('sizeUnitKB'), t('sizeUnitMB'), t('sizeUnitGB'), t('sizeUnitTB')], [t])
   const fileInfoRows = useMemo(() => {
@@ -483,6 +518,9 @@ export default function ReaderViewPage() {
         setEditBookmarkNote={setEditBookmarkNote}
         onSaveEditedBookmark={() => saveEditedBookmark().catch(() => {})}
         onCancelEditBookmark={cancelEditBookmark}
+        imageMaxSidePx={readerImageMaxSidePx}
+        imageMaxSidePresets={readerImageMaxSidePresets}
+        onChangeImageMaxSidePx={changeResolution}
         fileInfo={{ loading: fileInfoLoading, error: fileInfoError, rows: fileInfoRows }}
         onRetryFileInfo={() => fetchFileInfo(currentPage).catch(() => {})}
       />

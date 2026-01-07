@@ -2,9 +2,12 @@ from flask import abort, current_app, jsonify, request, Response, send_file, str
 from . import api
 from ...models import File, Tag
 from ... import db
+import io
 import os
 import re
+import hashlib
 from loguru import logger
+from PIL import Image, ImageOps
 from sqlalchemy.orm import selectinload
 from sqlalchemy.sql.expression import func
 from ...infrastructure.archive_reader import (
@@ -12,9 +15,10 @@ from ...infrastructure.archive_reader import (
     get_entry_metadata as get_cached_entry_metadata,
     guess_mimetype,
     iter_entry_chunks,
+    read_entry_stream,
 )
 from ...services.cover_service import CoverPathConfig, get_cover_path
-from ...services.settings_service import get_cover_cache_shard_count, get_int_setting
+from ...services.settings_service import get_bool_setting, get_cover_cache_shard_count, get_int_setting, get_str_setting
 from ...tasks.rename import rename_single_file_inplace, sanitize_filename
 from ...services.task_service import create_task_record, fail_task, finish_task, mark_task_running, update_task_progress
 READING_STATUS_OPTIONS = {'unread', 'in_progress', 'finished'}
@@ -79,11 +83,116 @@ def file_to_dict(file_obj, is_liked=False):
 
 def build_page_response(file_path, page_num):
     """
-    按页流式返回图片，避免整本或整页一次性堆入内存。
+    按页返回图片。
+
+    - 默认：流式输出原图，避免整本或整页一次性堆入内存。
+    - 可选：根据参数对页面做缩放渲染（用于降低加载成本/缓解摩尔纹）。
     """
     entry = get_entry_by_index(file_path, page_num)
     if entry is None:
         return None
+
+    # 说明：前端会把设置拼到查询参数里，确保“切换分辨率/质量”可以立刻刷新当前页。
+    # 未传参数时仍保持老行为（原图流式输出）。
+    max_side_px_raw = request.args.get('max_side_px')
+    format_raw = request.args.get('format')
+    quality_raw = request.args.get('quality')
+    resample_raw = request.args.get('resample')
+
+    default_max_side_px = get_int_setting('ui.reader.image.max_side_px', default=0, min_value=0, max_value=20000)
+    default_format = get_str_setting('ui.reader.image.render.format', default='webp')
+    default_quality = get_int_setting('ui.reader.image.render.quality', default=82, min_value=1, max_value=100)
+    default_resample = get_str_setting('ui.reader.image.render.resample', default='bilinear')
+    default_optimize = get_bool_setting('ui.reader.image.render.optimize', default=False)
+    default_webp_method = get_int_setting('ui.reader.image.render.webp_method', default=0, min_value=0, max_value=6)
+
+    cache_enabled = get_bool_setting('ui.reader.image.cache.enabled', default=True)
+    cache_max_age_s = get_int_setting('ui.reader.image.cache.max_age_s', default=31536000, min_value=0, max_value=31536000)
+    cache_immutable = get_bool_setting('ui.reader.image.cache.immutable', default=True)
+
+    def parse_int(raw_value):
+        if raw_value is None or raw_value == '':
+            return None
+        try:
+            return int(str(raw_value).strip())
+        except ValueError:
+            return None
+
+    max_side_px = parse_int(max_side_px_raw)
+    if max_side_px is None:
+        max_side_px = default_max_side_px
+    max_side_px = max(0, min(20000, int(max_side_px)))
+
+    output_format = str(format_raw or default_format or 'webp').strip().lower()
+    quality = parse_int(quality_raw)
+    if quality is None:
+        quality = default_quality
+    quality = max(1, min(100, int(quality)))
+
+    resample_name = str(resample_raw or default_resample or 'lanczos').strip().lower()
+
+    optimize = parse_bool(request.args.get('optimize'))
+    if optimize is None:
+        optimize = default_optimize
+
+    webp_method = parse_int(request.args.get('webp_method'))
+    if webp_method is None:
+        webp_method = default_webp_method
+    webp_method = max(0, min(6, int(webp_method)))
+
+    # ETag：基于文件签名 + 页码 + 渲染参数，避免重复缩放/解压。
+    # - 即使开启 immutable 缓存，该 ETag 也可用于更保守的缓存策略（或调试）。
+    try:
+        stat = os.stat(file_path)
+        file_sig = f'{int(stat.st_mtime)}-{int(stat.st_size)}'
+    except Exception:
+        file_sig = '0-0'
+
+    etag_source = '|'.join(
+        [
+            file_sig,
+            str(page_num),
+            str(entry.name or ''),
+            str(entry.size or ''),
+            str(max_side_px),
+            str(output_format),
+            str(quality),
+            str(resample_name),
+            str(int(optimize)),
+            str(webp_method),
+        ]
+    )
+    etag_value = f'W/"{hashlib.sha1(etag_source.encode("utf-8")).hexdigest()}"'
+    if request.headers.get('If-None-Match') == etag_value:
+        response = Response(status=304)
+        response.headers['ETag'] = etag_value
+        if cache_enabled and cache_max_age_s > 0:
+            response.headers['Cache-Control'] = f'private, max-age={cache_max_age_s}{", immutable" if cache_immutable else ""}'
+        else:
+            response.headers['Cache-Control'] = 'no-store'
+        return response
+
+    if max_side_px > 0:
+        rendered = render_page_image(
+            file_path,
+            entry,
+            max_side_px=max_side_px,
+            output_format=output_format,
+            quality=quality,
+            resample=resample_name,
+            optimize=optimize,
+            webp_method=webp_method,
+        )
+        if rendered is not None:
+            data, mimetype = rendered
+            response = Response(data, mimetype=mimetype, direct_passthrough=True)
+            response.headers['Content-Length'] = str(len(data))
+            response.headers['ETag'] = etag_value
+            if cache_enabled and cache_max_age_s > 0:
+                response.headers['Cache-Control'] = f'private, max-age={cache_max_age_s}{", immutable" if cache_immutable else ""}'
+            else:
+                response.headers['Cache-Control'] = 'no-store'
+            return response
 
     mimetype = guess_mimetype(entry.name)
     content_length = entry.size
@@ -96,9 +205,110 @@ def build_page_response(file_path, page_num):
     response = Response(stream_with_context(generate()), mimetype=mimetype, direct_passthrough=True)
     if content_length:
         response.headers['Content-Length'] = str(content_length)
-    # 避免浏览器缓存过期图片，交给前端自行控制
-    response.headers['Cache-Control'] = 'no-store'
+    response.headers['ETag'] = etag_value
+    if cache_enabled and cache_max_age_s > 0:
+        response.headers['Cache-Control'] = f'private, max-age={cache_max_age_s}{", immutable" if cache_immutable else ""}'
+    else:
+        response.headers['Cache-Control'] = 'no-store'
     return response
+
+
+def render_page_image(file_path, entry, *, max_side_px: int, output_format: str, quality: int, resample: str, optimize: bool, webp_method: int):
+    """
+    将页面图片缩放后再返回（用于降低传输与渲染压力）。
+
+    返回： (bytes, mimetype) 或 None（表示回退到原图流式输出）。
+    """
+    if max_side_px <= 0:
+        return None
+
+    stream = read_entry_stream(file_path, entry)
+    if stream is None:
+        return None
+
+    resampling = getattr(Image, 'Resampling', Image)
+    resample_map = {
+        'nearest': resampling.NEAREST,
+        'bilinear': resampling.BILINEAR,
+        'bicubic': resampling.BICUBIC,
+        'lanczos': resampling.LANCZOS,
+    }
+    resample_filter = resample_map.get(str(resample or '').strip().lower(), resampling.LANCZOS)
+
+    def normalize_output_format(value: str, original: str | None) -> str:
+        v = str(value or '').strip().lower()
+        if v in {'jpg', 'jpeg'}:
+            return 'JPEG'
+        if v == 'png':
+            return 'PNG'
+        if v == 'webp':
+            return 'WEBP'
+        if v in {'auto', '', 'origin', 'original'}:
+            if original and str(original).upper() in {'JPEG', 'PNG', 'WEBP'}:
+                return str(original).upper()
+            return 'WEBP'
+        return 'WEBP'
+
+    def mimetype_for_format(fmt: str) -> str:
+        fmt = str(fmt or '').upper()
+        if fmt == 'PNG':
+            return 'image/png'
+        if fmt == 'WEBP':
+            return 'image/webp'
+        return 'image/jpeg'
+
+    def prepare_for_jpeg(image: Image.Image) -> Image.Image:
+        if image.mode == 'RGB' or image.mode == 'L':
+            return image
+        if image.mode in {'RGBA', 'LA'}:
+            background = Image.new('RGB', image.size, (255, 255, 255))
+            alpha = image.split()[-1]
+            background.paste(image, mask=alpha)
+            return background
+        if image.mode == 'P':
+            rgba = image.convert('RGBA')
+            background = Image.new('RGB', rgba.size, (255, 255, 255))
+            background.paste(rgba, mask=rgba.split()[-1])
+            return background
+        return image.convert('RGB')
+
+    try:
+        stream.seek(0)
+        with Image.open(stream) as img:
+            # JPEG 可以使用 draft 降低解码分辨率，避免超大图完整解码带来的卡顿。
+            try:
+                if getattr(img, 'format', None) == 'JPEG':
+                    img.draft('RGB', (max_side_px, max_side_px))
+            except Exception:
+                pass
+
+            # 修正可能存在的 EXIF 旋转信息，避免缩放后方向错误。
+            img = ImageOps.exif_transpose(img)
+
+            if max(img.width, img.height) <= max_side_px:
+                return None
+
+            fmt = normalize_output_format(output_format, getattr(img, 'format', None))
+            img.thumbnail((max_side_px, max_side_px), resample=resample_filter)
+
+            out = io.BytesIO()
+            save_kwargs = {}
+            if fmt == 'JPEG':
+                save_kwargs = {'quality': int(quality), 'optimize': bool(optimize)}
+            elif fmt == 'WEBP':
+                save_kwargs = {'quality': int(quality), 'method': int(webp_method)}
+            elif fmt == 'PNG':
+                save_kwargs = {'optimize': bool(optimize)}
+
+            image_to_save = img
+            if fmt == 'JPEG':
+                image_to_save = prepare_for_jpeg(img)
+
+            image_to_save.save(out, format=fmt, **save_kwargs)
+            return out.getvalue(), mimetype_for_format(fmt)
+    except Exception as exc:
+        logger.warning('渲染缩放页面失败: {} | 条目: {} | 错误: {}', file_path, getattr(entry, 'name', ''), exc)
+        return None
 
 
 def parse_int_list(raw_value):

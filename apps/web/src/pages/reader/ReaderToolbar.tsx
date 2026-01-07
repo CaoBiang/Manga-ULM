@@ -1,4 +1,4 @@
-import { BookOutlined, BorderOutlined, ColumnWidthOutlined, DeleteOutlined, EditOutlined, InfoCircleOutlined, UnorderedListOutlined } from '@ant-design/icons'
+import { BookOutlined, BorderOutlined, ColumnWidthOutlined, DeleteOutlined, EditOutlined, InfoCircleOutlined, PictureOutlined, UnorderedListOutlined } from '@ant-design/icons'
 import { Result, Slider, Spin, Tooltip, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import type { CSSProperties } from 'react'
@@ -42,6 +42,10 @@ export type ReaderToolbarProps = {
   onSaveEditedBookmark: () => void
   onCancelEditBookmark: () => void
 
+  imageMaxSidePx: number
+  imageMaxSidePresets: number[]
+  onChangeImageMaxSidePx: (maxSidePx: number) => void
+
   fileInfo: { loading: boolean; error: string; rows: FileInfoRow[] }
   onRetryFileInfo: () => void
 }
@@ -71,6 +75,9 @@ export default function ReaderToolbar({
   setEditBookmarkNote,
   onSaveEditedBookmark,
   onCancelEditBookmark,
+  imageMaxSidePx,
+  imageMaxSidePresets,
+  onChangeImageMaxSidePx,
   fileInfo,
   onRetryFileInfo
 }: ReaderToolbarProps) {
@@ -289,6 +296,20 @@ export default function ReaderToolbar({
                 />
               </Tooltip>
 
+              <Tooltip title={t('readerResolution')}>
+                <ReaderButton
+                  shape="circle"
+                  active={activePanel === 'resolution'}
+                  className="reader-view__toolbar-action reader-view__glass-control"
+                  ariaLabel={t('readerResolution')}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onTogglePanel('resolution')
+                  }}
+                  icon={<PictureOutlined />}
+                />
+              </Tooltip>
+
               <Tooltip title={t('readerTapZonesConfigTitle')}>
                 <ReaderButton
                   shape="circle"
@@ -349,6 +370,32 @@ export default function ReaderToolbar({
                       {t('save')}
                     </ReaderButton>
                   </div>
+                </>
+              ) : null}
+
+              {activePanel === 'resolution' ? (
+                <>
+                  <Typography.Text strong>{t('readerResolution')}</Typography.Text>
+                  <div className="reader-view__resolution-presets">
+                    {imageMaxSidePresets.map((preset) => {
+                      const isSelected = imageMaxSidePx === preset
+                      const label = preset <= 0 ? t('readerResolutionOriginal') : `${preset}px`
+                      return (
+                        <ReaderButton
+                          key={preset}
+                          size="sm"
+                          variant={isSelected ? 'primary' : 'default'}
+                          active={isSelected}
+                          onClick={() => onChangeImageMaxSidePx(preset)}
+                        >
+                          {label}
+                        </ReaderButton>
+                      )
+                    })}
+                  </div>
+                  <Typography.Text type="secondary" className="reader-view__resolution-help">
+                    {t('readerResolutionHelp')}
+                  </Typography.Text>
                 </>
               ) : null}
 

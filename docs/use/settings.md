@@ -71,6 +71,32 @@ flowchart TD
 - Key：`ui.reader.ui.blur_enabled`
 - Value：`0`
 
+## 阅读器分辨率（新增）
+
+用于在高分辨率漫画上降低加载与渲染压力，并可作为缓解摩尔纹的手段。阅读器在请求页图时会携带缩放参数，让后端按需缩放并重新编码。
+
+- `ui.reader.image.max_side_px`：页面最长边像素（`0` 表示原图）。
+- `ui.reader.image.max_side_presets`：工具条快捷预设（JSON 数组，必须包含 `0` 表示原图）。
+- `ui.reader.image.render.format`：缩放输出格式（`webp/jpeg/png/auto`）。
+- `ui.reader.image.render.quality`：输出质量（`1–100`，仅对 `webp/jpeg` 生效）。
+- `ui.reader.image.render.resample`：重采样算法（`nearest/bilinear/bicubic/lanczos`）。
+- `ui.reader.image.render.optimize`：是否启用编码优化（`0/1`，开启后体积更小但更慢）。
+- `ui.reader.image.render.webp_method`：WebP 编码方法（`0–6`，数值越大越清晰但更慢）。
+- `ui.reader.image.preload.concurrency`：预加载并发数（`1–6`，数值越大预处理越快但更吃 CPU）。
+- `ui.reader.image.cache.enabled`：是否启用页图缓存（`0/1`）。
+- `ui.reader.image.cache.max_age_s`：页图缓存最大时长（秒）。
+- `ui.reader.image.cache.immutable`：是否标记为 immutable（`0/1`，用于提升浏览器缓存命中）。
+
+注意：当 `ui.reader.image.max_side_px=0` 时，后端直接返回原图，`format/quality/resample` 不生效。
+
+示例：将阅读器分辨率限制为 1600px，并配置工具条预设
+
+- Key：`ui.reader.image.max_side_px`
+- Value：`1600`
+
+- Key：`ui.reader.image.max_side_presets`
+- Value：`[0,1200,1600,2000]`
+
 ## 漫画管理器外观相关（新增）
 
 漫画管理器（非阅读器）页面统一使用毛玻璃风格，可在“设置” -> “显示设置”中调整：

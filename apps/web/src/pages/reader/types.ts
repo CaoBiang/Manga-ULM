@@ -1,2 +1,1 @@
-export type ReaderPanelKey = '' | 'bookmarks' | 'addBookmark' | 'editBookmark' | 'fileInfo'
-
+export type ReaderPanelKey = '' | 'bookmarks' | 'addBookmark' | 'editBookmark' | 'fileInfo' | 'resolution'

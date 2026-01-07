@@ -20,6 +20,12 @@ const SETTINGS_KEYS = Object.freeze({
   readerToolbarKeepStateOnPaging: 'ui.reader.toolbar.keep_state_on_paging',
   readerToolbarCenterClickToggleEnabled: 'ui.reader.toolbar.center_click_toggle_enabled',
   readerTapZones: 'ui.reader.tap_zones',
+  readerImageMaxSidePx: 'ui.reader.image.max_side_px',
+  readerImageMaxSidePresets: 'ui.reader.image.max_side_presets',
+  readerImageRenderFormat: 'ui.reader.image.render.format',
+  readerImageRenderQuality: 'ui.reader.image.render.quality',
+  readerImageRenderResample: 'ui.reader.image.render.resample',
+  readerImagePreloadConcurrency: 'ui.reader.image.preload.concurrency',
   readerUiBlurEnabled: 'ui.reader.ui.blur_enabled',
   readerUiBlurRadiusPx: 'ui.reader.ui.blur_radius_px',
   readerUiControlBgOpacity: 'ui.reader.ui.control_bg_opacity',
@@ -36,6 +42,8 @@ export type Language = 'zh' | 'en'
 export type LibraryViewMode = 'grid' | 'list'
 export type ReaderTapZoneAction = 'none' | 'prev_page' | 'next_page' | 'toggle_toolbar' | 'expand_toolbar' | 'collapse_toolbar'
 export type ReaderTapZoneKey = 'left' | 'middle' | 'right'
+export type ReaderImageRenderFormat = 'webp' | 'jpeg' | 'png' | 'auto'
+export type ReaderImageRenderResample = 'nearest' | 'bilinear' | 'bicubic' | 'lanczos'
 
 export type ReaderTapZonesConfig = {
   version: 1
@@ -97,6 +105,12 @@ export type AppSettingsState = {
   readerToolbarKeepStateOnPaging: boolean
   readerToolbarCenterClickToggleEnabled: boolean
   readerTapZones: ReaderTapZonesConfig
+  readerImageMaxSidePx: number
+  readerImageMaxSidePresets: number[]
+  readerImageRenderFormat: ReaderImageRenderFormat
+  readerImageRenderQuality: number
+  readerImageRenderResample: ReaderImageRenderResample
+  readerImagePreloadConcurrency: number
   readerUiBlurEnabled: boolean
   readerUiBlurRadiusPx: number
   readerUiControlBgOpacity: number
@@ -131,6 +145,12 @@ export type AppSettingsState = {
   setReaderToolbarKeepStateOnPaging: (value: boolean) => Promise<void>
   setReaderToolbarCenterClickToggleEnabled: (value: boolean) => Promise<void>
   setReaderTapZones: (value: unknown) => Promise<void>
+  setReaderImageMaxSidePx: (value: number) => Promise<void>
+  setReaderImageMaxSidePresets: (value: unknown) => Promise<void>
+  setReaderImageRenderFormat: (value: ReaderImageRenderFormat) => Promise<void>
+  setReaderImageRenderQuality: (value: number) => Promise<void>
+  setReaderImageRenderResample: (value: ReaderImageRenderResample) => Promise<void>
+  setReaderImagePreloadConcurrency: (value: number) => Promise<void>
   setReaderUiBlurEnabled: (value: boolean) => Promise<void>
   setReaderUiBlurRadiusPx: (value: number) => Promise<void>
   setReaderUiControlBgOpacity: (value: number) => Promise<void>
@@ -241,6 +261,49 @@ const normalizeReaderTapZones = (rawConfig: unknown): ReaderTapZonesConfig => {
   }
 }
 
+const normalizeReaderImageRenderFormat = (value: unknown): ReaderImageRenderFormat => {
+  const raw = String(value ?? '').trim().toLowerCase()
+  if (raw === 'auto') return 'auto'
+  if (raw === 'png') return 'png'
+  if (raw === 'webp') return 'webp'
+  if (raw === 'jpg' || raw === 'jpeg') return 'jpeg'
+  return 'webp'
+}
+
+const normalizeReaderImageRenderResample = (value: unknown): ReaderImageRenderResample => {
+  const raw = String(value ?? '').trim().toLowerCase()
+  if (raw === 'nearest') return 'nearest'
+  if (raw === 'bilinear') return 'bilinear'
+  if (raw === 'bicubic') return 'bicubic'
+  if (raw === 'lanczos') return 'lanczos'
+  return 'lanczos'
+}
+
+const normalizeReaderImageMaxSidePresets = (rawValue: unknown): number[] => {
+  let raw: unknown[] = []
+  if (Array.isArray(rawValue)) {
+    raw = rawValue
+  } else if (typeof rawValue === 'string') {
+    const text = rawValue.trim()
+    if (text) {
+      try {
+        const parsed = JSON.parse(text)
+        raw = Array.isArray(parsed) ? parsed : text.split(',')
+      } catch (_error) {
+        raw = text.split(',')
+      }
+    }
+  }
+  const unique = new Set<number>()
+  unique.add(0)
+  for (const item of raw) {
+    const normalized = clampInt(item, { min: 0, max: 20000 })
+    if (normalized === null) continue
+    unique.add(normalized)
+  }
+  return Array.from(unique).sort((a, b) => a - b)
+}
+
 const defaults = Object.freeze({
   language: 'zh' as Language,
   libraryViewMode: 'grid' as LibraryViewMode,
@@ -260,6 +323,12 @@ const defaults = Object.freeze({
   readerToolbarKeepStateOnPaging: true,
   readerToolbarCenterClickToggleEnabled: true,
   readerTapZones: DEFAULT_READER_TAP_ZONES,
+  readerImageMaxSidePx: 0,
+  readerImageMaxSidePresets: [0, 1280, 1600, 2000, 2400],
+  readerImageRenderFormat: 'webp' as ReaderImageRenderFormat,
+  readerImageRenderQuality: 82,
+  readerImageRenderResample: 'bilinear' as ReaderImageRenderResample,
+  readerImagePreloadConcurrency: 2,
   readerUiBlurEnabled: true,
   readerUiBlurRadiusPx: 12,
   readerUiControlBgOpacity: 0.46,
@@ -297,6 +366,12 @@ export const useAppSettingsStore = create<AppSettingsState>((set, get) => ({
   readerToolbarKeepStateOnPaging: defaults.readerToolbarKeepStateOnPaging,
   readerToolbarCenterClickToggleEnabled: defaults.readerToolbarCenterClickToggleEnabled,
   readerTapZones: defaults.readerTapZones,
+  readerImageMaxSidePx: defaults.readerImageMaxSidePx,
+  readerImageMaxSidePresets: defaults.readerImageMaxSidePresets,
+  readerImageRenderFormat: defaults.readerImageRenderFormat,
+  readerImageRenderQuality: defaults.readerImageRenderQuality,
+  readerImageRenderResample: defaults.readerImageRenderResample,
+  readerImagePreloadConcurrency: defaults.readerImagePreloadConcurrency,
   readerUiBlurEnabled: defaults.readerUiBlurEnabled,
   readerUiBlurRadiusPx: defaults.readerUiBlurRadiusPx,
   readerUiControlBgOpacity: defaults.readerUiControlBgOpacity,
@@ -355,6 +430,16 @@ export const useAppSettingsStore = create<AppSettingsState>((set, get) => ({
       const tapZonesRaw = safeParseJson(settings[SETTINGS_KEYS.readerTapZones], defaults.readerTapZones)
       const readerTapZones = normalizeReaderTapZones(tapZonesRaw)
 
+      const readerImageMaxSidePx = clampInt(settings[SETTINGS_KEYS.readerImageMaxSidePx], { min: 0, max: 20000 }) ?? defaults.readerImageMaxSidePx
+      const maxSidePresetsRaw = safeParseJson(settings[SETTINGS_KEYS.readerImageMaxSidePresets], defaults.readerImageMaxSidePresets)
+      const readerImageMaxSidePresets = normalizeReaderImageMaxSidePresets(maxSidePresetsRaw)
+      const readerImageRenderFormat = normalizeReaderImageRenderFormat(settings[SETTINGS_KEYS.readerImageRenderFormat] ?? defaults.readerImageRenderFormat)
+      const readerImageRenderQuality =
+        clampInt(settings[SETTINGS_KEYS.readerImageRenderQuality], { min: 1, max: 100 }) ?? defaults.readerImageRenderQuality
+      const readerImageRenderResample = normalizeReaderImageRenderResample(settings[SETTINGS_KEYS.readerImageRenderResample] ?? defaults.readerImageRenderResample)
+      const readerImagePreloadConcurrency =
+        clampInt(settings[SETTINGS_KEYS.readerImagePreloadConcurrency], { min: 1, max: 6 }) ?? defaults.readerImagePreloadConcurrency
+
       const readerUiBlurEnabled = normalizeBool(settings[SETTINGS_KEYS.readerUiBlurEnabled]) ?? defaults.readerUiBlurEnabled
       const readerUiBlurRadiusPx = clampInt(settings[SETTINGS_KEYS.readerUiBlurRadiusPx], { min: 0, max: 30 }) ?? defaults.readerUiBlurRadiusPx
       const readerUiControlBgOpacity =
@@ -391,6 +476,12 @@ export const useAppSettingsStore = create<AppSettingsState>((set, get) => ({
         readerToolbarKeepStateOnPaging,
         readerToolbarCenterClickToggleEnabled,
         readerTapZones,
+        readerImageMaxSidePx,
+        readerImageMaxSidePresets,
+        readerImageRenderFormat,
+        readerImageRenderQuality,
+        readerImageRenderResample,
+        readerImagePreloadConcurrency,
         readerUiBlurEnabled,
         readerUiBlurRadiusPx,
         readerUiControlBgOpacity,
@@ -567,6 +658,51 @@ export const useAppSettingsStore = create<AppSettingsState>((set, get) => ({
     const normalized = normalizeReaderTapZones(value)
     set({ readerTapZones: normalized })
     await get().saveSetting(SETTINGS_KEYS.readerTapZones, JSON.stringify(normalized))
+  },
+
+  setReaderImageMaxSidePx: async (value: number) => {
+    const normalized = clampInt(value, { min: 0, max: 20000 })
+    if (normalized === null) {
+      return
+    }
+    set({ readerImageMaxSidePx: normalized })
+    await get().saveSetting(SETTINGS_KEYS.readerImageMaxSidePx, String(normalized))
+  },
+
+  setReaderImageMaxSidePresets: async (value: unknown) => {
+    const normalized = normalizeReaderImageMaxSidePresets(value)
+    set({ readerImageMaxSidePresets: normalized })
+    await get().saveSetting(SETTINGS_KEYS.readerImageMaxSidePresets, JSON.stringify(normalized))
+  },
+
+  setReaderImageRenderFormat: async (value: ReaderImageRenderFormat) => {
+    const normalized = normalizeReaderImageRenderFormat(value)
+    set({ readerImageRenderFormat: normalized })
+    await get().saveSetting(SETTINGS_KEYS.readerImageRenderFormat, normalized)
+  },
+
+  setReaderImageRenderQuality: async (value: number) => {
+    const normalized = clampInt(value, { min: 1, max: 100 })
+    if (normalized === null) {
+      return
+    }
+    set({ readerImageRenderQuality: normalized })
+    await get().saveSetting(SETTINGS_KEYS.readerImageRenderQuality, String(normalized))
+  },
+
+  setReaderImageRenderResample: async (value: ReaderImageRenderResample) => {
+    const normalized = normalizeReaderImageRenderResample(value)
+    set({ readerImageRenderResample: normalized })
+    await get().saveSetting(SETTINGS_KEYS.readerImageRenderResample, normalized)
+  },
+
+  setReaderImagePreloadConcurrency: async (value: number) => {
+    const normalized = clampInt(value, { min: 1, max: 6 })
+    if (normalized === null) {
+      return
+    }
+    set({ readerImagePreloadConcurrency: normalized })
+    await get().saveSetting(SETTINGS_KEYS.readerImagePreloadConcurrency, String(normalized))
   },
 
   setReaderUiBlurEnabled: async (value: boolean) => {
