@@ -49,6 +49,9 @@ export const useReaderStyleVars = (collapsedToolbarWidthPx: number | null): Read
     const bgActive = Math.min(0.96, bgOpacity + 0.14)
     const borderHover = Math.min(0.6, borderOpacity + 0.06)
 
+    const tableBgOpacity = Math.min(0.92, bgOpacity + 0.26)
+    const tableBorderOpacity = Math.min(0.32, borderOpacity + 0.04)
+
     const toolbarBgOpacity = normalizeToolbarBackground
     const toolbarBgHoverOpacity = Math.min(0.95, toolbarBgOpacity + 0.08)
     const toolbarBgActiveOpacity = Math.min(0.98, toolbarBgOpacity + 0.12)
@@ -64,6 +67,8 @@ export const useReaderStyleVars = (collapsedToolbarWidthPx: number | null): Read
     const collapsedWidth = collapsedToolbarWidthPx ? `${collapsedToolbarWidthPx}px` : 'fit-content'
 
     return {
+      '--reader-ui-table-bg': `rgba(18, 18, 18, ${tableBgOpacity})`,
+      '--reader-ui-table-border': `rgba(255, 255, 255, ${tableBorderOpacity})`,
       '--reader-toolbar-bg': `rgba(18, 18, 18, ${toolbarBgOpacity})`,
       '--reader-toolbar-bg-hover': `rgba(18, 18, 18, ${toolbarBgHoverOpacity})`,
       '--reader-toolbar-bg-active': `rgba(18, 18, 18, ${toolbarBgActiveOpacity})`,
@@ -114,4 +119,3 @@ export const useReaderStyleVars = (collapsedToolbarWidthPx: number | null): Read
     style: cssVars as unknown as CSSProperties
   }
 }
-

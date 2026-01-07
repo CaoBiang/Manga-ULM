@@ -261,6 +261,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  --reader-ui-control-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
 }
 
 .reader-view .ant-typography.ant-typography-secondary {
@@ -291,37 +292,52 @@
   gap: 2px;
 }
 
-.reader-table {
-  --reader-table-bg: rgba(255, 255, 255, 0.03);
-  --reader-table-border: rgba(255, 255, 255, 0.1);
+.reader-view .reader-table {
+  --reader-table-bg: var(--reader-ui-table-bg, rgba(18, 18, 18, 0.72));
+  --reader-table-border: var(--reader-ui-table-border, rgba(255, 255, 255, 0.2));
   --reader-table-separator: var(--reader-table-border);
   --reader-table-head-bg: rgba(255, 255, 255, 0.06);
-  --reader-table-hover-bg: rgba(255, 255, 255, 0.07);
+  --reader-table-hover-bg: rgba(255, 255, 255, 0.08);
   --reader-table-text: rgba(255, 255, 255, 0.92);
   --reader-table-text-muted: rgba(255, 255, 255, 0.72);
 
   background: transparent;
 }
 
-.reader-table .ant-table {
+.reader-view .reader-table .ant-table {
   background: transparent;
   color: var(--reader-table-text);
 }
 
-.reader-table .ant-table-container {
+.reader-view .reader-table .ant-table-container {
   border: 1px solid var(--reader-table-border);
   border-radius: 12px;
   overflow: hidden;
   background: var(--reader-table-bg);
 }
 
-.reader-table .ant-table-thead > tr > th {
+.reader-view .reader-table .ant-table-content,
+.reader-view .reader-table .ant-table-body {
+  background: transparent;
+}
+
+.reader-view .reader-table .ant-empty,
+.reader-view .reader-table .ant-empty-image,
+.reader-view .reader-table .ant-empty-description {
+  background: transparent;
+}
+
+.reader-view .reader-table .ant-table-thead > tr > th {
   background: var(--reader-table-head-bg);
   color: var(--reader-table-text);
   border-bottom: 1px solid var(--reader-table-separator) !important;
 }
 
-.reader-table .ant-table-tbody > tr > td {
+.reader-view .reader-table .ant-table-thead > tr > th.reader-table__header-center {
+  text-align: center;
+}
+
+.reader-view .reader-table .ant-table-tbody > tr > td {
   background: transparent;
   color: var(--reader-table-text);
   border-top: 1px solid var(--reader-table-separator) !important;
@@ -329,30 +345,30 @@
   transition: background 140ms ease;
 }
 
-.reader-table .ant-table-tbody > tr:last-child > td {
+.reader-view .reader-table .ant-table-tbody > tr:last-child > td {
   border-bottom: none !important;
 }
 
-.reader-table .ant-table-tbody > tr.ant-table-placeholder > td {
+.reader-view .reader-table .ant-table-tbody > tr.ant-table-placeholder > td {
   background: transparent;
 }
 
-.reader-table .ant-table-tbody > tr.ant-table-placeholder:hover > td {
+.reader-view .reader-table .ant-table-tbody > tr.ant-table-placeholder:hover > td {
   background: var(--reader-table-hover-bg) !important;
 }
 
-.reader-table .ant-table-tbody > tr.ant-table-row:hover > td,
-.reader-table .ant-table-tbody > tr.ant-table-row-hover > td,
-.reader-table .ant-table-tbody > tr > td.ant-table-cell-row-hover {
+.reader-view .reader-table .ant-table-tbody > tr.ant-table-row:hover > td,
+.reader-view .reader-table .ant-table-tbody > tr.ant-table-row-hover > td,
+.reader-view .reader-table .ant-table-tbody > tr > td.ant-table-cell-row-hover {
   background: var(--reader-table-hover-bg) !important;
 }
 
-.reader-table .ant-typography,
-.reader-table .ant-typography.ant-typography-secondary {
+.reader-view .reader-table .ant-typography,
+.reader-view .reader-table .ant-typography.ant-typography-secondary {
   color: var(--reader-table-text);
 }
 
-.reader-table .ant-empty-description {
+.reader-view .reader-table .ant-empty-description {
   color: var(--reader-table-text-muted);
 }
 

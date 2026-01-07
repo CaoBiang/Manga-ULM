@@ -44,6 +44,9 @@
 约定：
 
 - 表头必须使用 i18n，禁止写死字符串。
+- 空态必须显示明确提示：通过 `emptyText` 传入文案，组件内部统一渲染 AntD `Empty.PRESENTED_IMAGE_SIMPLE`（禁止出现“空数据但面板看起来全白/无内容”）。
+- 表格底色与边框必须由 `ReaderTable` 通过 AntD `ConfigProvider` 主题注入（令 AntD 生成样式源头就变为阅读器配色），并允许通过阅读器页面注入 `--reader-ui-table-bg` 与 `--reader-ui-table-border` 进一步控制，确保在亮色漫画页背景下仍有足够对比度。
+- 书签列表为空时，允许用“一行占位数据”代替空态占位区域，避免出现大块空白区域（占位行禁止响应“跳转/编辑/删除”等交互）。
 - 书签表格列顺序固定为：`页码` / `备注` / `操作`。
 - 书签表格的“页码”列内容只显示数字（例如 `"22"`），不显示 `"第"` 等前缀。
 - 书签表格的“操作”列固定包含：`编辑` / `删除` 两个圆形图标按钮。
@@ -56,7 +59,10 @@
 约定：
 
 - 进度控件容器的“毛玻璃底”应与“返回按钮”的毛玻璃底一致：底色、阴影统一复用 `--reader-toolbar-control-*` 与 `--reader-ui-control-backdrop-filter`，避免出现两套磨砂视觉。
+- 面板态（如“添加书签”）内的输入框/按钮不应出现外发黑色阴影，避免半透明容器内产生“脏边”；建议在面板容器覆盖 `--reader-ui-control-shadow` 为 `"0 0 0 0 rgba(0, 0, 0, 0)"`（不要用 `"none"`）。
 - 进度控件容器仅在“收起态”允许悬浮变暗（用于提示可点击展开）；“展开态”不应因为鼠标悬浮而变暗，避免产生错误的可交互暗示。
+- 状态约束：只要工具条处于“收起态”，就必须视为处于“无面板态”（即 `activePanel` 必须为空，面板渲染条件必须是 `"isExpanded && activePanel"`）。
+- 组件职责：`ReaderToolbar` 只负责渲染与事件上抛，不直接修改“面板打开/关闭”等业务状态；相关状态由 `ReaderViewPage` 统一管理（参考 `apps/web/src/pages/reader/hooks/useReaderToolbarUi.ts`）。
 - 翻页行为必须“纯粹”：只能改变 `currentPage`，禁止隐式触发工具条的 `收起/展开/面板` 状态变化（例如翻页自动关闭面板导致工具条突然缩小）。
 - 若“文件信息”面板处于打开状态，翻页后必须自动刷新面板内容，且要避免并发请求导致旧页信息覆盖新页信息。
 
@@ -99,6 +105,8 @@ stateDiagram-v2
 - `--reader-ui-control-bg-active`：按下背景色。
 - `--reader-ui-control-border`：边框颜色（带透明度）。
 - `--reader-ui-control-border-hover`：悬停边框颜色。
+- `--reader-ui-control-shadow`：按钮/输入框外发阴影；如需“干净背景”（例如书签面板内），建议使用 `"0 0 0 0 rgba(0, 0, 0, 0)"`，不要用 `"none"`。
+- `--reader-ui-focus-ring`：键盘聚焦描边（focus ring），例如 `"0 0 0 2px rgba(255, 255, 255, 0.16)"`。
 
 ```mermaid
 flowchart TD

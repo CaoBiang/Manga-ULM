@@ -6,11 +6,13 @@ import { useNavigate, useParams } from 'react-router-dom'
 import ReaderTapZonesConfigurator from '@/components/reader/tapZones/ReaderTapZonesConfigurator'
 import ReaderTapZonesLayer from '@/components/reader/tapZones/ReaderTapZonesLayer'
 import ReaderButton from '@/components/reader/ui/ReaderButton'
-import ReaderToolbar, { type ReaderPanelKey } from '@/pages/reader/ReaderToolbar'
+import ReaderToolbar from '@/pages/reader/ReaderToolbar'
 import { type BookmarkRecord, useReaderBookmarks } from '@/pages/reader/hooks/useReaderBookmarks'
 import { useReaderFileInfo } from '@/pages/reader/hooks/useReaderFileInfo'
 import { useReaderManga } from '@/pages/reader/hooks/useReaderManga'
 import { useReaderStyleVars } from '@/pages/reader/hooks/useReaderStyleVars'
+import { useReaderToolbarUi } from '@/pages/reader/hooks/useReaderToolbarUi'
+import type { ReaderPanelKey } from '@/pages/reader/types'
 import { DEFAULT_READER_TAP_ZONES, type ReaderTapZoneAction, type ReaderTapZoneKey, type ReaderTapZonesConfig } from '@/store/appSettings'
 import { useAppSettingsStore } from '@/store/appSettings'
 
@@ -51,8 +53,7 @@ export default function ReaderViewPage() {
   const [isCurrentImageWide, setIsCurrentImageWide] = useState(false)
   const [showRightHalf, setShowRightHalf] = useState(false)
 
-  const [isToolbarExpanded, setIsToolbarExpanded] = useState(false)
-  const [activePanel, setActivePanel] = useState<ReaderPanelKey>('')
+  const { state: toolbarUi, actions: toolbarUiActions } = useReaderToolbarUi()
 
   const [newBookmarkNote, setNewBookmarkNote] = useState('')
   const [editingBookmarkId, setEditingBookmarkId] = useState<number | null>(null)
@@ -64,6 +65,27 @@ export default function ReaderViewPage() {
 
   const fileInfoDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const prevPageRef = useRef<number | null>(null)
+  const prevToolbarExpandedRef = useRef<boolean>(toolbarUi.expanded)
+
+  const clearFileInfoDebounce = useCallback(() => {
+    if (fileInfoDebounceRef.current) {
+      clearTimeout(fileInfoDebounceRef.current)
+      fileInfoDebounceRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    const prev = prevToolbarExpandedRef.current
+    if (prev && !toolbarUi.expanded) {
+      // 工具条从“展开/面板态”切回“收起态”时，必须同步关闭所有面板相关状态，避免残留 UI。
+      setEditingBookmarkId(null)
+      setEditBookmarkNote('')
+      setNewBookmarkNote('')
+      resetFileInfo()
+      clearFileInfoDebounce()
+    }
+    prevToolbarExpandedRef.current = toolbarUi.expanded
+  }, [clearFileInfoDebounce, resetFileInfo, toolbarUi.expanded])
 
   useEffect(() => {
     if (typeof document === 'undefined') return
@@ -97,35 +119,27 @@ export default function ReaderViewPage() {
 
     setShowRightHalf(false)
 
-    if (fileInfoDebounceRef.current) {
-      clearTimeout(fileInfoDebounceRef.current)
-      fileInfoDebounceRef.current = null
-    }
+    clearFileInfoDebounce()
 
     if (!readerToolbarKeepStateOnPaging) {
-      if (activePanel) {
-        setActivePanel('')
-      }
+      toolbarUiActions.closePanel()
       resetFileInfo()
       return
     }
 
-    if (activePanel === 'fileInfo') {
+    if (toolbarUi.activePanel === 'fileInfo') {
       resetFileInfo()
       fileInfoDebounceRef.current = setTimeout(() => {
         fetchFileInfo(currentPage).catch(() => {})
       }, 250)
     }
-  }, [activePanel, currentPage, fetchFileInfo, readerToolbarKeepStateOnPaging, resetFileInfo])
+  }, [clearFileInfoDebounce, currentPage, fetchFileInfo, readerToolbarKeepStateOnPaging, resetFileInfo, toolbarUi.activePanel, toolbarUiActions])
 
   useEffect(() => {
     return () => {
-      if (fileInfoDebounceRef.current) {
-        clearTimeout(fileInfoDebounceRef.current)
-        fileInfoDebounceRef.current = null
-      }
+      clearFileInfoDebounce()
     }
-  }, [])
+  }, [clearFileInfoDebounce])
 
   const isSplitActive = useMemo(() => isPagingEnabled && isCurrentImageWide, [isCurrentImageWide, isPagingEnabled])
 
@@ -151,41 +165,39 @@ export default function ReaderViewPage() {
   }, [])
 
   const handleBookmarkButtonClick = useCallback(async () => {
-    setIsToolbarExpanded(true)
     if (isBookmarked(currentPage)) {
-      setActivePanel('bookmarks')
+      toolbarUiActions.setActivePanel('bookmarks')
       refreshBookmarks().catch(() => {})
       message.info(t('bookmarkAlreadyExists'))
       return
     }
     setNewBookmarkNote('')
-    setActivePanel('addBookmark')
-  }, [currentPage, isBookmarked, refreshBookmarks, t])
+    toolbarUiActions.setActivePanel('addBookmark')
+  }, [currentPage, isBookmarked, refreshBookmarks, t, toolbarUiActions])
 
   const saveNewBookmark = useCallback(async () => {
     try {
       await addBookmark({ pageNumber: currentPage, note: newBookmarkNote || null })
       message.success(t('bookmarkSaved'))
       setNewBookmarkNote('')
-      setActivePanel('')
+      toolbarUiActions.closePanel()
     } catch (err) {
       console.error('保存书签失败：', err)
       message.error((err as any)?.message || t('failedToSaveBookmark'))
     }
-  }, [addBookmark, currentPage, newBookmarkNote, t])
+  }, [addBookmark, currentPage, newBookmarkNote, t, toolbarUiActions])
 
   const startEditBookmark = useCallback((record: BookmarkRecord) => {
-    setIsToolbarExpanded(true)
     setEditingBookmarkId(record.id)
     setEditBookmarkNote(record.note || '')
-    setActivePanel('editBookmark')
-  }, [])
+    toolbarUiActions.setActivePanel('editBookmark')
+  }, [toolbarUiActions])
 
   const cancelEditBookmark = useCallback(() => {
     setEditingBookmarkId(null)
     setEditBookmarkNote('')
-    setActivePanel('bookmarks')
-  }, [])
+    toolbarUiActions.setActivePanel('bookmarks')
+  }, [toolbarUiActions])
 
   const saveEditedBookmark = useCallback(async () => {
     if (!editingBookmarkId) {
@@ -197,13 +209,13 @@ export default function ReaderViewPage() {
       message.success(t('bookmarkUpdated'))
       setEditingBookmarkId(null)
       setEditBookmarkNote('')
-      setActivePanel('bookmarks')
+      toolbarUiActions.setActivePanel('bookmarks')
       refreshBookmarks().catch(() => {})
     } catch (err) {
       console.error('更新书签失败：', err)
       message.error((err as any)?.response?.data?.error || t('failedToUpdateBookmark'))
     }
-  }, [cancelEditBookmark, editBookmarkNote, editingBookmarkId, refreshBookmarks, t, updateBookmark])
+  }, [cancelEditBookmark, editBookmarkNote, editingBookmarkId, refreshBookmarks, t, toolbarUiActions, updateBookmark])
 
   const deleteBookmark = useCallback(
     (bookmarkId: number) => {
@@ -223,27 +235,24 @@ export default function ReaderViewPage() {
     (pageNumber: number) => {
       setCurrentPage(pageNumber)
       if (!readerToolbarKeepStateOnPaging) {
-        setActivePanel('')
+        toolbarUiActions.closePanel()
       }
     },
-    [readerToolbarKeepStateOnPaging, setCurrentPage]
+    [readerToolbarKeepStateOnPaging, setCurrentPage, toolbarUiActions]
   )
 
   const togglePanel = useCallback(
     (panel: ReaderPanelKey) => {
-      setIsToolbarExpanded(true)
-      if (activePanel === panel) {
-        setActivePanel('')
-        return
-      }
-      setActivePanel(panel)
+      const isClosing = toolbarUi.activePanel === panel
+      toolbarUiActions.togglePanel(panel)
+      if (isClosing) return
       if (panel === 'bookmarks') {
         refreshBookmarks().catch(() => {})
       } else if (panel === 'fileInfo') {
         fetchFileInfo(currentPage).catch(() => {})
       }
     },
-    [activePanel, currentPage, fetchFileInfo, refreshBookmarks]
+    [currentPage, fetchFileInfo, refreshBookmarks, toolbarUi.activePanel, toolbarUiActions]
   )
 
   const handleToolbarTogglePanel = useCallback(
@@ -275,18 +284,18 @@ export default function ReaderViewPage() {
         return
       }
       if (action === 'toggle_toolbar') {
-        setIsToolbarExpanded((prev) => !prev)
+        toolbarUiActions.toggleExpanded()
         return
       }
       if (action === 'expand_toolbar') {
-        setIsToolbarExpanded(true)
+        toolbarUiActions.setExpanded(true)
         return
       }
       if (action === 'collapse_toolbar') {
-        setIsToolbarExpanded(false)
+        toolbarUiActions.setExpanded(false)
       }
     },
-    [isTapZonesConfiguratorOpen, nextPage, prevPage, readerToolbarCenterClickToggleEnabled]
+    [isTapZonesConfiguratorOpen, nextPage, prevPage, readerToolbarCenterClickToggleEnabled, toolbarUiActions]
   )
 
   useEffect(() => {
@@ -322,12 +331,12 @@ export default function ReaderViewPage() {
         return
       }
       if (event.key === 'Escape') {
-        if (activePanel) {
-          setActivePanel('')
+        if (toolbarUi.activePanel) {
+          toolbarUiActions.closePanel()
           return
         }
-        if (isToolbarExpanded) {
-          setIsToolbarExpanded(false)
+        if (toolbarUi.expanded) {
+          toolbarUiActions.setExpanded(false)
           return
         }
         navigate(-1)
@@ -338,7 +347,7 @@ export default function ReaderViewPage() {
     return () => {
       window.removeEventListener('keydown', handleKeydown)
     }
-  }, [activePanel, handleBookmarkButtonClick, isToolbarExpanded, navigate, nextPage, prevPage, togglePagingMode, togglePanel])
+  }, [handleBookmarkButtonClick, navigate, nextPage, prevPage, togglePagingMode, togglePanel, toolbarUi.activePanel, toolbarUi.expanded, toolbarUiActions])
 
   const openTapZonesConfigurator = useCallback(() => {
     setTapZonesDraft(JSON.parse(JSON.stringify(readerTapZones || DEFAULT_READER_TAP_ZONES)))
@@ -453,11 +462,11 @@ export default function ReaderViewPage() {
         style={toolbarStyleVars}
         currentPage={currentPage}
         totalPages={totalPages}
-        isExpanded={isToolbarExpanded}
-        setExpanded={setIsToolbarExpanded}
-        activePanel={activePanel}
-        setActivePanel={setActivePanel}
+        isExpanded={toolbarUi.expanded}
+        onExpand={() => toolbarUiActions.setExpanded(true)}
+        activePanel={toolbarUi.activePanel}
         onTogglePanel={handleToolbarTogglePanel}
+        onClosePanel={() => toolbarUiActions.closePanel()}
         isPagingEnabled={isPagingEnabled}
         onTogglePaging={togglePagingMode}
         onOpenTapZonesConfigurator={openTapZonesConfigurator}

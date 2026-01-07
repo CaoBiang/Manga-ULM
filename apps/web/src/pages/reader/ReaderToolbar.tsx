@@ -8,20 +8,20 @@ import ReaderTable from '@/components/reader/ReaderTable'
 import ReaderButton from '@/components/reader/ui/ReaderButton'
 import ReaderInput, { type ReaderInputHandle } from '@/components/reader/ui/ReaderInput'
 import type { BookmarkRecord } from '@/pages/reader/hooks/useReaderBookmarks'
-
-export type ReaderPanelKey = '' | 'bookmarks' | 'addBookmark' | 'editBookmark' | 'fileInfo'
+import type { ReaderPanelKey } from '@/pages/reader/types'
 
 export type FileInfoRow = { key: string; label: string; filename: string; filesize: string }
+type BookmarkTableRow = BookmarkRecord & { __placeholder?: true }
 
 export type ReaderToolbarProps = {
   style: CSSProperties
   currentPage: number
   totalPages: number
   isExpanded: boolean
-  setExpanded: (expanded: boolean) => void
+  onExpand: () => void
   activePanel: ReaderPanelKey
-  setActivePanel: (panel: ReaderPanelKey) => void
   onTogglePanel: (panel: ReaderPanelKey) => void
+  onClosePanel: () => void
   isPagingEnabled: boolean
   onTogglePaging: () => void
   onOpenTapZonesConfigurator: () => void
@@ -51,10 +51,10 @@ export default function ReaderToolbar({
   currentPage,
   totalPages,
   isExpanded,
-  setExpanded,
+  onExpand,
   activePanel,
-  setActivePanel,
   onTogglePanel,
+  onClosePanel,
   isPagingEnabled,
   onTogglePaging,
   onOpenTapZonesConfigurator,
@@ -113,27 +113,31 @@ export default function ReaderToolbar({
     }
   }, [activePanel])
 
-  const bookmarkColumns: ColumnsType<BookmarkRecord> = useMemo(
+  const bookmarkColumns: ColumnsType<BookmarkTableRow> = useMemo(
     () => [
       {
         title: t('pageNumber'),
         dataIndex: 'page_number',
         key: 'page',
         width: 110,
-        render: (value: number) => <strong>{Number(value) + 1}</strong>
+        align: 'center',
+        render: (_value: number, record) => (record.__placeholder ? <span className="reader-view__table-note">--</span> : <strong>{record.page_number + 1}</strong>)
       },
       {
         title: t('note'),
         dataIndex: 'note',
         key: 'note',
-        render: (value: string | null) => <span className="reader-view__table-note">{value || '--'}</span>
+        onHeaderCell: () => ({ className: 'reader-table__header-center' }),
+        render: (_value: string | null, record) =>
+          record.__placeholder ? <Typography.Text type="secondary">{record.note || ''}</Typography.Text> : <span className="reader-view__table-note">{record.note || '--'}</span>
       },
       {
         title: t('actions'),
         key: 'action',
         width: 96,
         align: 'center',
-        render: (_value: unknown, record: BookmarkRecord) => (
+        render: (_value: unknown, record: BookmarkTableRow) =>
+          record.__placeholder ? null : (
           <div className="reader-view__bookmark-actions">
             <ReaderButton
               shape="circle"
@@ -165,6 +169,11 @@ export default function ReaderToolbar({
     [onDeleteBookmark, onStartEditBookmark, t]
   )
 
+  const bookmarkRows: BookmarkTableRow[] = useMemo(() => {
+    if (bookmarks.length) return bookmarks
+    return [{ id: -1, page_number: 0, note: t('noBookmarks'), __placeholder: true }]
+  }, [bookmarks, t])
+
   const fileInfoColumns: ColumnsType<FileInfoRow> = useMemo(
     () => [
       {
@@ -188,6 +197,8 @@ export default function ReaderToolbar({
     []
   )
 
+  const isPanelVisible = isExpanded && Boolean(activePanel)
+
   return (
     <div className="reader-view__toolbar" onClick={(event) => event.stopPropagation()}>
       <div
@@ -195,7 +206,7 @@ export default function ReaderToolbar({
         style={style}
         onClick={() => {
           if (!isExpanded) {
-            setExpanded(true)
+            onExpand()
           }
         }}
       >
@@ -294,8 +305,8 @@ export default function ReaderToolbar({
           </div>
         </div>
 
-        <div className="reader-view__panel" aria-hidden={!activePanel}>
-          {activePanel ? (
+        <div className="reader-view__panel" aria-hidden={!isPanelVisible}>
+          {isPanelVisible ? (
             <div className="reader-view__panel-section">
               {activePanel === 'addBookmark' ? (
                 <>
@@ -309,7 +320,7 @@ export default function ReaderToolbar({
                     className="reader-view__bookmark-input"
                   />
                   <div className="reader-view__panel-actions">
-                    <ReaderButton variant="ghost" onClick={() => setActivePanel('')}>
+                    <ReaderButton variant="ghost" onClick={onClosePanel}>
                       {t('cancel')}
                     </ReaderButton>
                     <ReaderButton variant="primary" onClick={onSaveNewBookmark}>
@@ -342,13 +353,15 @@ export default function ReaderToolbar({
               ) : null}
 
               {activePanel === 'bookmarks' ? (
-                <ReaderTable<BookmarkRecord>
+                <ReaderTable<BookmarkTableRow>
                   columns={bookmarkColumns}
-                  dataSource={bookmarks}
+                  dataSource={bookmarkRows}
                   rowKey={(record) => record.id}
-                  emptyText={t('noBookmarks')}
                   onRow={(record) => ({
-                    onClick: () => onJumpToBookmark(record.page_number)
+                    onClick: () => {
+                      if (record.__placeholder) return
+                      onJumpToBookmark(record.page_number)
+                    }
                   })}
                 />
               ) : null}
