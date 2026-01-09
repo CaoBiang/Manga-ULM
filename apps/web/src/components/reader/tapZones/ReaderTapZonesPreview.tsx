@@ -1,24 +1,27 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { DEFAULT_READER_TAP_ZONES, type ReaderTapZoneAction, type ReaderTapZoneKey, type ReaderTapZonesConfig } from '@/store/appSettings'
-
-const MIN_ZONE_WIDTH_RATIO = 0.08
+import { buildTapZoneBoundaries, calcMinZoneWidthRatio, resolveCenterTapZoneIndex, type TapZoneSplitAxis } from '@/components/reader/tapZones/tapZonesUtils'
+import { DEFAULT_READER_TAP_ZONES, type ReaderTapZoneAction, type ReaderTapZonesConfig } from '@/store/appSettings'
 
 export type ReaderTapZonesPreviewProps = {
   value: ReaderTapZonesConfig
   onChange: (value: ReaderTapZonesConfig) => void
-  selectedZone: ReaderTapZoneKey
-  onSelectedZoneChange: (value: ReaderTapZoneKey) => void
+  selectedZone: number
+  onSelectedZoneChange: (value: number) => void
   overlay?: boolean
   showLabels?: boolean
 }
 
 type DragState = {
-  handle: 'left' | 'right'
+  axis: TapZoneSplitAxis
+  splitIndex: number
   startX: number
-  startLeft: number
-  startRight: number
+  startY: number
+  startXSplits: number[]
+  startYSplits: number[]
 }
+
+type DraggingState = { axis: TapZoneSplitAxis; splitIndex: number } | null
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
@@ -36,7 +39,8 @@ export default function ReaderTapZonesPreview({
   const dragStateRef = useRef<DragState | null>(null)
   const valueRef = useRef<ReaderTapZonesConfig>(value)
   const onChangeRef = useRef(onChange)
-  const updateBoundariesRef = useRef<(nextLeft: number, nextRight: number) => void>(() => {})
+  const updateSplitRef = useRef<(axis: TapZoneSplitAxis, splitIndex: number, nextValue: number) => void>(() => {})
+  const [dragging, setDragging] = useState<DraggingState>(null)
 
   useEffect(() => {
     valueRef.current = value
@@ -46,25 +50,40 @@ export default function ReaderTapZonesPreview({
     onChangeRef.current = onChange
   }, [onChange])
 
-  const resolvedSelectedZone = (['left', 'middle', 'right'] as const).includes(selectedZone) ? selectedZone : 'middle'
+  const actions = Array.isArray(value?.actions) ? value.actions : DEFAULT_READER_TAP_ZONES.actions
+  const xSplits = Array.isArray(value?.xSplits) ? value.xSplits : DEFAULT_READER_TAP_ZONES.xSplits
+  const ySplits = Array.isArray(value?.ySplits) ? value.ySplits : DEFAULT_READER_TAP_ZONES.ySplits
 
-  const boundaries = value?.boundaries ?? DEFAULT_READER_TAP_ZONES.boundaries
-  const actions = value?.actions ?? DEFAULT_READER_TAP_ZONES.actions
+  const colCount = Math.max(1, xSplits.length + 1)
+  const rowCount = Math.max(1, ySplits.length + 1)
+  const zoneCount = Math.max(1, colCount * rowCount)
 
-  const leftRatio = Number((boundaries as any)?.left ?? DEFAULT_READER_TAP_ZONES.boundaries.left)
-  const rightRatio = Number((boundaries as any)?.right ?? DEFAULT_READER_TAP_ZONES.boundaries.right)
+  const centerZoneIndex = useMemo(() => resolveCenterTapZoneIndex(xSplits, ySplits), [xSplits, ySplits])
+  const resolvedSelectedZone = Number.isFinite(selectedZone) && selectedZone >= 0 && selectedZone < zoneCount ? selectedZone : centerZoneIndex
 
-  const leftPercent = Math.round(leftRatio * 100)
-  const rightPercent = Math.round(rightRatio * 100)
+  const xBoundaries = useMemo(() => buildTapZoneBoundaries(xSplits), [xSplits])
+  const yBoundaries = useMemo(() => buildTapZoneBoundaries(ySplits), [ySplits])
 
-  const zoneStyles = useMemo(
-    () => ({
-      left: { left: '0%', width: `${Math.max(0, leftRatio) * 100}%` },
-      middle: { left: `${Math.max(0, leftRatio) * 100}%`, width: `${Math.max(0, rightRatio - leftRatio) * 100}%` },
-      right: { left: `${Math.max(0, rightRatio) * 100}%`, width: `${Math.max(0, 1 - rightRatio) * 100}%` }
-    }),
-    [leftRatio, rightRatio]
-  )
+  const zones = useMemo(() => {
+    const list: { index: number; left: number; top: number; width: number; height: number }[] = []
+    for (let row = 0; row < rowCount; row += 1) {
+      for (let col = 0; col < colCount; col += 1) {
+        const index = row * colCount + col
+        const left = Number(xBoundaries[col] ?? 0)
+        const right = Number(xBoundaries[col + 1] ?? 1)
+        const top = Number(yBoundaries[row] ?? 0)
+        const bottom = Number(yBoundaries[row + 1] ?? 1)
+        list.push({
+          index,
+          left,
+          top,
+          width: Math.max(0, right - left),
+          height: Math.max(0, bottom - top)
+        })
+      }
+    }
+    return list
+  }, [colCount, rowCount, xBoundaries, yBoundaries])
 
   const actionLabel = (action: ReaderTapZoneAction) => {
     const key = String(action || '').trim().toLowerCase()
@@ -76,19 +95,34 @@ export default function ReaderTapZonesPreview({
     return t('readerTapActionNone')
   }
 
-  updateBoundariesRef.current = (nextLeft: number, nextRight: number) => {
-    const left = clamp(nextLeft, MIN_ZONE_WIDTH_RATIO, 1 - MIN_ZONE_WIDTH_RATIO)
-    const right = clamp(nextRight, MIN_ZONE_WIDTH_RATIO, 1 - MIN_ZONE_WIDTH_RATIO)
-    if (left >= right) return
-    if (left < MIN_ZONE_WIDTH_RATIO || 1 - right < MIN_ZONE_WIDTH_RATIO || right - left < MIN_ZONE_WIDTH_RATIO) return
-
+  updateSplitRef.current = (axis: TapZoneSplitAxis, splitIndex: number, nextValue: number) => {
     const current = valueRef.current || DEFAULT_READER_TAP_ZONES
-    onChangeRef.current({
-      ...(current || DEFAULT_READER_TAP_ZONES),
-      version: 1,
-      boundaries: { left, right },
-      actions: { ...(current.actions || DEFAULT_READER_TAP_ZONES.actions) }
-    })
+    const currentActions = Array.isArray(current?.actions) ? current.actions : DEFAULT_READER_TAP_ZONES.actions
+    const currentXSplits = Array.isArray(current?.xSplits) ? current.xSplits : DEFAULT_READER_TAP_ZONES.xSplits
+    const currentYSplits = Array.isArray(current?.ySplits) ? current.ySplits : DEFAULT_READER_TAP_ZONES.ySplits
+
+    if (axis === 'x') {
+      if (splitIndex < 0 || splitIndex >= currentXSplits.length) return
+      const minWidthRatio = calcMinZoneWidthRatio(currentXSplits.length + 1)
+      const leftBoundary = splitIndex === 0 ? 0 : Number(currentXSplits[splitIndex - 1] ?? 0)
+      const rightBoundary = splitIndex === currentXSplits.length - 1 ? 1 : Number(currentXSplits[splitIndex + 1] ?? 1)
+      const clamped = clamp(nextValue, leftBoundary + minWidthRatio, rightBoundary - minWidthRatio)
+
+      const nextXSplits = currentXSplits.slice()
+      nextXSplits[splitIndex] = clamped
+      onChangeRef.current({ version: 3, xSplits: nextXSplits, ySplits: currentYSplits.slice(), actions: currentActions.slice() })
+      return
+    }
+
+    if (splitIndex < 0 || splitIndex >= currentYSplits.length) return
+    const minHeightRatio = calcMinZoneWidthRatio(currentYSplits.length + 1)
+    const topBoundary = splitIndex === 0 ? 0 : Number(currentYSplits[splitIndex - 1] ?? 0)
+    const bottomBoundary = splitIndex === currentYSplits.length - 1 ? 1 : Number(currentYSplits[splitIndex + 1] ?? 1)
+    const clamped = clamp(nextValue, topBoundary + minHeightRatio, bottomBoundary - minHeightRatio)
+
+    const nextYSplits = currentYSplits.slice()
+    nextYSplits[splitIndex] = clamped
+    onChangeRef.current({ version: 3, xSplits: currentXSplits.slice(), ySplits: nextYSplits, actions: currentActions.slice() })
   }
 
   const handlePointerMove = useCallback((event: PointerEvent) => {
@@ -96,106 +130,107 @@ export default function ReaderTapZonesPreview({
     const dragState = dragStateRef.current
     if (!dragState || !host || typeof host.getBoundingClientRect !== 'function') return
     const rect = host.getBoundingClientRect()
-    if (!rect.width) return
+    if (!rect.width || !rect.height) return
 
-    const dxRatio = (event.clientX - dragState.startX) / rect.width
-    if (dragState.handle === 'left') {
-      updateBoundariesRef.current(dragState.startLeft + dxRatio, dragState.startRight)
-    } else {
-      updateBoundariesRef.current(dragState.startLeft, dragState.startRight + dxRatio)
+    if (dragState.axis === 'x') {
+      const dxRatio = (event.clientX - dragState.startX) / rect.width
+      updateSplitRef.current(dragState.axis, dragState.splitIndex, dragState.startXSplits[dragState.splitIndex] + dxRatio)
+      return
     }
+
+    const dyRatio = (event.clientY - dragState.startY) / rect.height
+    updateSplitRef.current(dragState.axis, dragState.splitIndex, dragState.startYSplits[dragState.splitIndex] + dyRatio)
   }, [])
 
   const handlePointerUp = useCallback(() => {
     window.removeEventListener('pointermove', handlePointerMove)
     window.removeEventListener('pointerup', handlePointerUp)
     dragStateRef.current = null
+    setDragging(null)
   }, [handlePointerMove])
 
   useEffect(() => {
     return () => handlePointerUp()
   }, [handlePointerUp])
 
-  const handlePointerDown = (handle: 'left' | 'right') => (event: React.PointerEvent<HTMLDivElement>) => {
+  const handlePointerDown = (axis: TapZoneSplitAxis, splitIndex: number) => (event: React.PointerEvent<HTMLDivElement>) => {
     event.preventDefault()
     event.stopPropagation()
+
+    const current = valueRef.current || DEFAULT_READER_TAP_ZONES
+    const currentXSplits = Array.isArray(current?.xSplits) ? current.xSplits : DEFAULT_READER_TAP_ZONES.xSplits
+    const currentYSplits = Array.isArray(current?.ySplits) ? current.ySplits : DEFAULT_READER_TAP_ZONES.ySplits
+
     dragStateRef.current = {
-      handle,
+      axis,
+      splitIndex,
       startX: event.clientX,
-      startLeft: leftRatio,
-      startRight: rightRatio
+      startY: event.clientY,
+      startXSplits: currentXSplits.slice(),
+      startYSplits: currentYSplits.slice()
     }
+    setDragging({ axis, splitIndex })
     window.addEventListener('pointermove', handlePointerMove)
     window.addEventListener('pointerup', handlePointerUp)
   }
 
+  const zoneTitle = (zoneIndex: number) => t('readerTapZoneIndex', { index: zoneIndex + 1 })
+
   return (
     <div ref={previewRef} className={`reader-tap-zones-preview${overlay ? ' is-overlay' : ''}`}>
-      <div
-        className={`reader-tap-zones-preview__zone reader-tap-zones-preview__zone--left${resolvedSelectedZone === 'left' ? ' is-selected' : ''}`}
-        style={zoneStyles.left}
-        onClick={(event) => {
-          event.stopPropagation()
-          onSelectedZoneChange('left')
-        }}
-      >
-        {showLabels ? (
-          <div className="reader-tap-zones-preview__label">
-            <div className="reader-tap-zones-preview__label-title">{t('readerTapZoneLeft')}</div>
-            <div className="reader-tap-zones-preview__label-sub">{actionLabel((actions as any)?.left ?? 'none')}</div>
+      {zones.map((zone) => {
+        const isSelected = zone.index === resolvedSelectedZone
+        const shouldShowLabel = showLabels && (zoneCount <= 4 || isSelected)
+        return (
+          <div
+            key={zone.index}
+            className={`reader-tap-zones-preview__zone${isSelected ? ' is-selected' : ''}`}
+            style={{
+              left: `${zone.left * 100}%`,
+              top: `${zone.top * 100}%`,
+              width: `${zone.width * 100}%`,
+              height: `${zone.height * 100}%`
+            }}
+            onClick={(event) => {
+              event.stopPropagation()
+              onSelectedZoneChange(zone.index)
+            }}
+          >
+            {shouldShowLabel ? (
+              <div className="reader-tap-zones-preview__label">
+                <div className="reader-tap-zones-preview__label-title">{zoneTitle(zone.index)}</div>
+                <div className="reader-tap-zones-preview__label-sub">{actionLabel((actions as any)?.[zone.index] ?? 'none')}</div>
+              </div>
+            ) : null}
           </div>
-        ) : null}
-      </div>
+        )
+      })}
 
-      <div
-        className={`reader-tap-zones-preview__zone reader-tap-zones-preview__zone--middle${resolvedSelectedZone === 'middle' ? ' is-selected' : ''}`}
-        style={zoneStyles.middle}
-        onClick={(event) => {
-          event.stopPropagation()
-          onSelectedZoneChange('middle')
-        }}
-      >
-        {showLabels ? (
-          <div className="reader-tap-zones-preview__label">
-            <div className="reader-tap-zones-preview__label-title">{t('readerTapZoneMiddle')}</div>
-            <div className="reader-tap-zones-preview__label-sub">{actionLabel((actions as any)?.middle ?? 'none')}</div>
-          </div>
-        ) : null}
-      </div>
+      {(Array.isArray(xSplits) ? xSplits : []).map((ratio, splitIndex) => (
+        <div
+          key={`x-${splitIndex}`}
+          className={`reader-tap-zones-preview__handle reader-tap-zones-preview__handle--vertical${
+            dragging?.axis === 'x' && dragging.splitIndex === splitIndex ? ' is-dragging' : ''
+          }`}
+          style={{ left: `${Number(ratio || 0) * 100}%` }}
+          onPointerDown={handlePointerDown('x', splitIndex)}
+        >
+          <div className="reader-tap-zones-preview__handle-line" />
+        </div>
+      ))}
 
-      <div
-        className={`reader-tap-zones-preview__zone reader-tap-zones-preview__zone--right${resolvedSelectedZone === 'right' ? ' is-selected' : ''}`}
-        style={zoneStyles.right}
-        onClick={(event) => {
-          event.stopPropagation()
-          onSelectedZoneChange('right')
-        }}
-      >
-        {showLabels ? (
-          <div className="reader-tap-zones-preview__label">
-            <div className="reader-tap-zones-preview__label-title">{t('readerTapZoneRight')}</div>
-            <div className="reader-tap-zones-preview__label-sub">{actionLabel((actions as any)?.right ?? 'none')}</div>
-          </div>
-        ) : null}
-      </div>
-
-      <div
-        className="reader-tap-zones-preview__handle reader-tap-zones-preview__handle--left"
-        style={{ left: `${leftPercent}%` }}
-        onPointerDown={handlePointerDown('left')}
-      >
-        <div className="reader-tap-zones-preview__handle-line" />
-        <div className="reader-tap-zones-preview__handle-knob" />
-      </div>
-
-      <div
-        className="reader-tap-zones-preview__handle reader-tap-zones-preview__handle--right"
-        style={{ left: `${rightPercent}%` }}
-        onPointerDown={handlePointerDown('right')}
-      >
-        <div className="reader-tap-zones-preview__handle-line" />
-        <div className="reader-tap-zones-preview__handle-knob" />
-      </div>
+      {(Array.isArray(ySplits) ? ySplits : []).map((ratio, splitIndex) => (
+        <div
+          key={`y-${splitIndex}`}
+          className={`reader-tap-zones-preview__handle reader-tap-zones-preview__handle--horizontal${
+            dragging?.axis === 'y' && dragging.splitIndex === splitIndex ? ' is-dragging' : ''
+          }`}
+          style={{ top: `${Number(ratio || 0) * 100}%` }}
+          onPointerDown={handlePointerDown('y', splitIndex)}
+        >
+          <div className="reader-tap-zones-preview__handle-line" />
+        </div>
+      ))}
     </div>
   )
 }

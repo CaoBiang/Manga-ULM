@@ -1,12 +1,11 @@
 import { CloseOutlined } from '@ant-design/icons'
-import { Select, Slider } from 'antd'
+import { Select } from 'antd'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import ReaderButton from '@/components/reader/ui/ReaderButton'
 import ReaderTapZonesPreview from '@/components/reader/tapZones/ReaderTapZonesPreview'
-import { DEFAULT_READER_TAP_ZONES, type ReaderTapZoneAction, type ReaderTapZoneKey, type ReaderTapZonesConfig } from '@/store/appSettings'
-
-const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
+import { buildTapZoneBoundaries, removeTapZone, resolveCenterTapZoneIndex, resolveTapZoneRowCol, splitTapZone } from '@/components/reader/tapZones/tapZonesUtils'
+import ReaderButton from '@/components/reader/ui/ReaderButton'
+import { DEFAULT_READER_TAP_ZONES, type ReaderTapZoneAction, type ReaderTapZonesConfig } from '@/store/appSettings'
 
 export type ReaderTapZonesConfiguratorProps = {
   open: boolean
@@ -26,12 +25,13 @@ export default function ReaderTapZonesConfigurator({
   onSave
 }: ReaderTapZonesConfiguratorProps) {
   const { t } = useTranslation()
-  const [selectedZone, setSelectedZone] = useState<ReaderTapZoneKey>('middle')
+  const [selectedZone, setSelectedZone] = useState<number>(0)
 
   useEffect(() => {
-    if (open) {
-      setSelectedZone('middle')
-    }
+    if (!open) return
+    const xSplits = Array.isArray(value?.xSplits) ? value.xSplits : DEFAULT_READER_TAP_ZONES.xSplits
+    const ySplits = Array.isArray(value?.ySplits) ? value.ySplits : DEFAULT_READER_TAP_ZONES.ySplits
+    setSelectedZone(resolveCenterTapZoneIndex(xSplits, ySplits))
   }, [open])
 
   const actionOptions = useMemo(
@@ -46,37 +46,49 @@ export default function ReaderTapZonesConfigurator({
     [t]
   )
 
-  const zoneLabel = (zoneKey: ReaderTapZoneKey) => {
-    if (zoneKey === 'left') return t('readerTapZoneLeft')
-    if (zoneKey === 'right') return t('readerTapZoneRight')
-    return t('readerTapZoneMiddle')
-  }
+  const xSplits = Array.isArray(value?.xSplits) ? value.xSplits : DEFAULT_READER_TAP_ZONES.xSplits
+  const ySplits = Array.isArray(value?.ySplits) ? value.ySplits : DEFAULT_READER_TAP_ZONES.ySplits
+  const actions = Array.isArray(value?.actions) ? value.actions : DEFAULT_READER_TAP_ZONES.actions
 
-  const boundaries = value?.boundaries ?? DEFAULT_READER_TAP_ZONES.boundaries
-  const actions = value?.actions ?? DEFAULT_READER_TAP_ZONES.actions
-  const leftRatio = Number((boundaries as any)?.left ?? DEFAULT_READER_TAP_ZONES.boundaries.left)
-  const rightRatio = Number((boundaries as any)?.right ?? DEFAULT_READER_TAP_ZONES.boundaries.right)
+  const colCount = Math.max(1, xSplits.length + 1)
+  const rowCount = Math.max(1, ySplits.length + 1)
+  const zoneCount = Math.max(1, colCount * rowCount)
+  const resolvedSelectedZone = selectedZone >= 0 && selectedZone < zoneCount ? selectedZone : 0
 
-  const widthTexts = useMemo(() => {
-    const left = Math.round(leftRatio * 100)
-    const middle = Math.round((rightRatio - leftRatio) * 100)
-    const right = Math.round((1 - rightRatio) * 100)
-    return { left, middle, right }
-  }, [leftRatio, rightRatio])
+  const currentConfig = useMemo<ReaderTapZonesConfig>(
+    () => ({ version: 3, xSplits: xSplits.slice(), ySplits: ySplits.slice(), actions: actions.slice() }),
+    [actions, xSplits, ySplits]
+  )
 
-  const setBoundaries = (left: number, right: number) => {
-    const minZoneWidth = 0.08
-    const normalizedLeft = clamp(left, minZoneWidth, 1 - minZoneWidth)
-    const normalizedRight = clamp(right, minZoneWidth, 1 - minZoneWidth)
-    if (normalizedLeft >= normalizedRight) return
-    if (normalizedLeft < minZoneWidth || 1 - normalizedRight < minZoneWidth || normalizedRight - normalizedLeft < minZoneWidth) return
+  const splitXResult = useMemo(() => splitTapZone(currentConfig, resolvedSelectedZone, 'x'), [currentConfig, resolvedSelectedZone])
+  const splitYResult = useMemo(() => splitTapZone(currentConfig, resolvedSelectedZone, 'y'), [currentConfig, resolvedSelectedZone])
+  const mergeXResult = useMemo(() => removeTapZone(currentConfig, resolvedSelectedZone, 'x'), [currentConfig, resolvedSelectedZone])
+  const mergeYResult = useMemo(() => removeTapZone(currentConfig, resolvedSelectedZone, 'y'), [currentConfig, resolvedSelectedZone])
 
-    onChange({
-      ...(value || DEFAULT_READER_TAP_ZONES),
-      version: 1,
-      boundaries: { left: normalizedLeft, right: normalizedRight },
-      actions: { ...(actions || DEFAULT_READER_TAP_ZONES.actions) }
-    })
+  const zoneLabel = (zoneIndex: number) => t('readerTapZoneIndex', { index: zoneIndex + 1 })
+
+  const selectedZoneAction = (actions as any)?.[resolvedSelectedZone] ?? 'none'
+
+  const sizes = useMemo(() => {
+    const xBoundaries = buildTapZoneBoundaries(xSplits)
+    const yBoundaries = buildTapZoneBoundaries(ySplits)
+    const list: { width: number; height: number }[] = []
+    for (let row = 0; row < rowCount; row += 1) {
+      for (let col = 0; col < colCount; col += 1) {
+        const width = Math.round(Math.max(0, Number(xBoundaries[col + 1] ?? 1) - Number(xBoundaries[col] ?? 0)) * 100)
+        const height = Math.round(Math.max(0, Number(yBoundaries[row + 1] ?? 1) - Number(yBoundaries[row] ?? 0)) * 100)
+        list.push({ width, height })
+      }
+    }
+    return list
+  }, [colCount, rowCount, xSplits, ySplits])
+
+  const selectedRowCol = useMemo(() => resolveTapZoneRowCol(resolvedSelectedZone, colCount), [colCount, resolvedSelectedZone])
+
+  const applyZoneResult = (result: { config: ReaderTapZonesConfig; nextSelectedZone: number } | null) => {
+    if (!result) return
+    onChange(result.config)
+    setSelectedZone(result.nextSelectedZone)
   }
 
   if (!open) {
@@ -88,79 +100,59 @@ export default function ReaderTapZonesConfigurator({
       <div className="reader-tap-zones-config__backdrop" onClick={(event) => event.stopPropagation()} />
 
       <div className="reader-tap-zones-config__canvas" onClick={(event) => event.stopPropagation()}>
-        <ReaderTapZonesPreview
-          value={value}
-          onChange={onChange}
-          selectedZone={selectedZone}
-          onSelectedZoneChange={setSelectedZone}
-          overlay
-          showLabels
-        />
+        <ReaderTapZonesPreview value={value} onChange={onChange} selectedZone={selectedZone} onSelectedZoneChange={setSelectedZone} overlay showLabels />
       </div>
 
       <div className="reader-tap-zones-config__panel" onClick={(event) => event.stopPropagation()}>
         <div className="reader-tap-zones-config__panel-title">{t('readerTapZonesConfigTitle')}</div>
 
         <div className="reader-tap-zones-config__panel-row">
-          <div className="reader-tap-zones-config__panel-label">{zoneLabel(selectedZone)}</div>
+          <div className="reader-tap-zones-config__panel-label">{zoneLabel(resolvedSelectedZone)}</div>
           <Select
             className="reader-tap-zones-config__select"
-            value={(actions as any)?.[selectedZone] ?? 'none'}
+            value={selectedZoneAction}
             onChange={(next: string) => {
-              const nextValue: ReaderTapZonesConfig = {
-                ...(value || DEFAULT_READER_TAP_ZONES),
-                actions: { ...(actions || DEFAULT_READER_TAP_ZONES.actions), [selectedZone]: next as ReaderTapZoneAction }
-              }
-              onChange(nextValue)
+              const nextActions = actions.slice()
+              nextActions[resolvedSelectedZone] = next as ReaderTapZoneAction
+              onChange({ version: 3, xSplits: xSplits.slice(), ySplits: ySplits.slice(), actions: nextActions })
             }}
             options={actionOptions}
             popupClassName="reader-tap-zones-config__dropdown"
           />
         </div>
 
-        <div className="reader-tap-zones-config__panel-row reader-tap-zones-config__panel-row--sizes">
-          <div className="reader-tap-zones-config__size">
-            <div className="reader-tap-zones-config__size-label">{t('readerTapZoneLeft')}</div>
-            <div className="reader-tap-zones-config__size-value">{widthTexts.left}%</div>
-          </div>
-          <div className="reader-tap-zones-config__size">
-            <div className="reader-tap-zones-config__size-label">{t('readerTapZoneMiddle')}</div>
-            <div className="reader-tap-zones-config__size-value">{widthTexts.middle}%</div>
-          </div>
-          <div className="reader-tap-zones-config__size">
-            <div className="reader-tap-zones-config__size-label">{t('readerTapZoneRight')}</div>
-            <div className="reader-tap-zones-config__size-value">{widthTexts.right}%</div>
+        <div className="reader-tap-zones-config__panel-row reader-tap-zones-config__panel-row--zones">
+          <div className="reader-tap-zones-config__panel-label">{t('readerTapZonesGridSummary', { cols: colCount, rows: rowCount, count: zoneCount })}</div>
+          <div className="reader-tap-zones-config__zone-actions">
+            <ReaderButton variant="ghost" size="sm" disabled={saving || !mergeXResult} onClick={() => applyZoneResult(mergeXResult)}>
+              {t('readerTapZonesMergeColumns')}
+            </ReaderButton>
+            <ReaderButton variant="ghost" size="sm" disabled={saving || !splitXResult} onClick={() => applyZoneResult(splitXResult)}>
+              {t('readerTapZonesSplitColumns')}
+            </ReaderButton>
+            <ReaderButton variant="ghost" size="sm" disabled={saving || !mergeYResult} onClick={() => applyZoneResult(mergeYResult)}>
+              {t('readerTapZonesMergeRows')}
+            </ReaderButton>
+            <ReaderButton variant="ghost" size="sm" disabled={saving || !splitYResult} onClick={() => applyZoneResult(splitYResult)}>
+              {t('readerTapZonesSplitRows')}
+            </ReaderButton>
           </div>
         </div>
 
-        <div className="reader-tap-zones-config__panel-row reader-tap-zones-config__panel-row--sliders">
-          <div className="reader-tap-zones-config__slider-block">
-            <div className="reader-tap-zones-config__slider-label">{t('readerTapZonesLeftWidth')}</div>
-            <Slider
-              value={widthTexts.left}
-              min={8}
-              max={84}
-              step={1}
-              tooltip={{ open: false }}
-              onChange={(percent) => {
-                const nextLeft = clamp(Number(percent) / 100, 0.08, 0.92)
-                setBoundaries(nextLeft, rightRatio)
-              }}
-            />
-          </div>
-          <div className="reader-tap-zones-config__slider-block">
-            <div className="reader-tap-zones-config__slider-label">{t('readerTapZonesRightWidth')}</div>
-            <Slider
-              value={widthTexts.right}
-              min={8}
-              max={84}
-              step={1}
-              tooltip={{ open: false }}
-              onChange={(percent) => {
-                const nextRight = 1 - clamp(Number(percent) / 100, 0.08, 0.92)
-                setBoundaries(leftRatio, nextRight)
-              }}
-            />
+        <div className="reader-tap-zones-config__panel-row reader-tap-zones-config__panel-row--sizes">
+          {sizes.map((size, index) => (
+            <div key={index} className={`reader-tap-zones-config__size${index === resolvedSelectedZone ? ' is-selected' : ''}`}>
+              <div className="reader-tap-zones-config__size-label">{zoneLabel(index)}</div>
+              <div className="reader-tap-zones-config__size-value">
+                {size.width}% × {size.height}%
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="reader-tap-zones-config__panel-row">
+          <div className="reader-tap-zones-config__panel-label">
+            {t('readerTapZonesSelectedGridPosition', { row: selectedRowCol.row + 1, col: selectedRowCol.col + 1 })}
           </div>
         </div>
 
@@ -173,9 +165,10 @@ export default function ReaderTapZonesConfigurator({
             disabled={saving}
             onClick={() =>
               onChange({
-                version: 1,
-                boundaries: { ...DEFAULT_READER_TAP_ZONES.boundaries },
-                actions: { ...DEFAULT_READER_TAP_ZONES.actions }
+                version: 3,
+                xSplits: DEFAULT_READER_TAP_ZONES.xSplits.slice(),
+                ySplits: DEFAULT_READER_TAP_ZONES.ySplits.slice(),
+                actions: DEFAULT_READER_TAP_ZONES.actions.slice()
               })
             }
           >
@@ -200,4 +193,3 @@ export default function ReaderTapZonesConfigurator({
     </div>
   )
 }
-

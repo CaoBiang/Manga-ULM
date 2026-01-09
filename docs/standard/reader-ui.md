@@ -138,7 +138,7 @@ flowchart TD
 ### ReaderTapZonesLayer
 
 - 目标路径：`apps/web/src/components/reader/tapZones/ReaderTapZonesLayer.tsx`
-- 用途：覆盖在阅读器画面之上，将点击位置映射为左/中/右区域，并向上抛出动作事件。
+- 用途：覆盖在阅读器画面之上，将点击位置映射为“第 N 个区域”，并向上抛出动作事件。
 
 约定：
 
@@ -153,6 +153,7 @@ flowchart TD
 样式约定：
 
 - 复用 `--reader-ui-control-*` 与 `--reader-ui-control-backdrop-filter`，保持“灰黑白 + 半透明 + 磨砂”的一致性。
+- 分割线/拖拽条：横向/竖向分割线都保持“只有一根细线”，拖拽命中区域可以更宽（但不可见）；悬停/按下/拖拽中只做轻微高亮，避免高对比与闪烁。
 
 ```mermaid
 flowchart TD

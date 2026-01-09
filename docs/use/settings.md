@@ -115,20 +115,25 @@ flowchart TD
 
 ## 阅读器点击区域（新增）
 
-阅读器支持“点击区域”配置，用于控制点击画面左/中/右区域时执行的动作，并可调整每个区域的响应范围。
+阅读器支持“点击区域”配置，可将画面按横向/竖向拆分为多个区域（网格）：
+
+- 每个区域可绑定一个动作（上一页/下一页/切换工具条等）。
+- 可拖动分割线调整每个区域的响应范围。
+- 可通过“横向拆分/竖向拆分”增加区域；通过“横向合并/竖向合并”减少区域。
 
 - 设置页面：`/settings/reader`（阅读器设置 -> 点击区域）
 - 对应 Key：`ui.reader.tap_zones`
 
-Value 为 JSON 字符串，示例（默认）：
+Value 为 JSON 字符串，示例（默认 3 段，仅横向拆分）：
 
-- `{"version":1,"boundaries":{"left":0.3,"right":0.7},"actions":{"left":"prev_page","middle":"toggle_toolbar","right":"next_page"}}`
+- `{"version":3,"xSplits":[0.3,0.7],"ySplits":[],"actions":["prev_page","toggle_toolbar","next_page"]}`
 
 字段说明：
 
-- `boundaries.left`：左侧区域宽度（0–1）。
-- `boundaries.right`：右侧区域起点（0–1）。
-- `actions.left/middle/right`：区域动作（如 `prev_page`、`next_page`、`toggle_toolbar`、`expand_toolbar`、`collapse_toolbar`、`none`）。
+- `xSplits`：横向拆分线（竖线）位置数组（0–1，按从左到右升序）。例如 `[0.3,0.7]` 表示 3 列：`[0,0.3)`、`[0.3,0.7)`、`[0.7,1]`。
+- `ySplits`：竖向拆分线（横线）位置数组（0–1，按从上到下升序）。例如 `[0.5]` 表示 2 行：`[0,0.5)`、`[0.5,1]`。
+- `actions`：区域动作数组，长度 = 区域数量，按“从上到下、从左到右”展开（行优先）。动作支持：`prev_page`、`next_page`、`toggle_toolbar`、`expand_toolbar`、`collapse_toolbar`、`none`。
+- 约束关系：`区域数量 = (xSplits.length + 1) * (ySplits.length + 1)`，`actions.length = 区域数量`。
 
 ## 常见问题
 

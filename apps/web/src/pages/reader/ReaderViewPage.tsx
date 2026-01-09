@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 import ReaderTapZonesConfigurator from '@/components/reader/tapZones/ReaderTapZonesConfigurator'
 import ReaderTapZonesLayer from '@/components/reader/tapZones/ReaderTapZonesLayer'
+import { resolveCenterTapZoneIndex } from '@/components/reader/tapZones/tapZonesUtils'
 import ReaderButton from '@/components/reader/ui/ReaderButton'
 import ReaderToolbar from '@/pages/reader/ReaderToolbar'
 import { type BookmarkRecord, useReaderBookmarks } from '@/pages/reader/hooks/useReaderBookmarks'
@@ -13,7 +14,7 @@ import { useReaderManga } from '@/pages/reader/hooks/useReaderManga'
 import { useReaderStyleVars } from '@/pages/reader/hooks/useReaderStyleVars'
 import { useReaderToolbarUi } from '@/pages/reader/hooks/useReaderToolbarUi'
 import type { ReaderPanelKey } from '@/pages/reader/types'
-import { DEFAULT_READER_TAP_ZONES, type ReaderTapZoneAction, type ReaderTapZoneKey, type ReaderTapZonesConfig } from '@/store/appSettings'
+import { DEFAULT_READER_TAP_ZONES, type ReaderTapZoneAction, type ReaderTapZonesConfig } from '@/store/appSettings'
 import { useAppSettingsStore } from '@/store/appSettings'
 
 const formatBytes = (bytes: number, units: string[], decimals = 2) => {
@@ -297,10 +298,14 @@ export default function ReaderViewPage() {
   )
 
   const handleTapZoneTrigger = useCallback(
-    ({ zoneKey, action }: { zoneKey: ReaderTapZoneKey; action: ReaderTapZoneAction }) => {
+    ({ zoneIndex, action }: { zoneIndex: number; action: ReaderTapZoneAction }) => {
       if (isTapZonesConfiguratorOpen) return
 
-      const centerToggleDisabled = zoneKey === 'middle' && !readerToolbarCenterClickToggleEnabled
+      const xSplits = (readerTapZones?.xSplits ?? DEFAULT_READER_TAP_ZONES.xSplits) || []
+      const ySplits = (readerTapZones?.ySplits ?? DEFAULT_READER_TAP_ZONES.ySplits) || []
+      const centerZoneIndex = resolveCenterTapZoneIndex(xSplits, ySplits)
+
+      const centerToggleDisabled = zoneIndex === centerZoneIndex && !readerToolbarCenterClickToggleEnabled
       if (centerToggleDisabled && ['toggle_toolbar', 'expand_toolbar', 'collapse_toolbar'].includes(action)) {
         return
       }
@@ -325,7 +330,7 @@ export default function ReaderViewPage() {
         toolbarUiActions.setExpanded(false)
       }
     },
-    [isTapZonesConfiguratorOpen, nextPage, prevPage, readerToolbarCenterClickToggleEnabled, toolbarUiActions]
+    [isTapZonesConfiguratorOpen, nextPage, prevPage, readerTapZones?.xSplits, readerTapZones?.ySplits, readerToolbarCenterClickToggleEnabled, toolbarUiActions]
   )
 
   useEffect(() => {

@@ -41,35 +41,22 @@ const SETTINGS_KEYS = Object.freeze({
 export type Language = 'zh' | 'en'
 export type LibraryViewMode = 'grid' | 'list'
 export type ReaderTapZoneAction = 'none' | 'prev_page' | 'next_page' | 'toggle_toolbar' | 'expand_toolbar' | 'collapse_toolbar'
-export type ReaderTapZoneKey = 'left' | 'middle' | 'right'
 export type ReaderImageRenderFormat = 'webp' | 'jpeg' | 'png' | 'auto'
 export type ReaderImageRenderResample = 'nearest' | 'bilinear' | 'bicubic' | 'lanczos'
 
 export type ReaderTapZonesConfig = {
-  version: 1
-  boundaries: {
-    left: number
-    right: number
-  }
-  actions: {
-    left: ReaderTapZoneAction
-    middle: ReaderTapZoneAction
-    right: ReaderTapZoneAction
-  }
+  version: 3
+  xSplits: number[]
+  ySplits: number[]
+  actions: ReaderTapZoneAction[]
 }
 
 export const DEFAULT_READER_TAP_ZONES: ReaderTapZonesConfig = Object.freeze({
-  version: 1,
-  boundaries: Object.freeze({
-    left: 0.3,
-    right: 0.7
-  }),
-  actions: Object.freeze({
-    left: 'prev_page',
-    middle: 'toggle_toolbar',
-    right: 'next_page'
-  })
-}) as ReaderTapZonesConfig
+  version: 3,
+  xSplits: Object.freeze([0.3, 0.7] as number[]),
+  ySplits: Object.freeze([] as number[]),
+  actions: Object.freeze(['prev_page', 'toggle_toolbar', 'next_page'] as ReaderTapZoneAction[])
+}) as unknown as ReaderTapZonesConfig
 
 const READER_TAP_ZONE_ACTIONS: ReaderTapZoneAction[] = [
   'none',
@@ -223,42 +210,124 @@ const normalizeReaderTapZones = (rawConfig: unknown): ReaderTapZonesConfig => {
     return fallback
   }
 
-  const raw = rawConfig as Partial<ReaderTapZonesConfig>
-  const boundariesRaw = raw.boundaries
-  const actionsRaw = raw.actions
-  if (!boundariesRaw || typeof boundariesRaw !== 'object' || !actionsRaw || typeof actionsRaw !== 'object') {
-    return fallback
-  }
-
-  const minZoneWidth = 0.08
-  const leftBoundary = clampFloat((boundariesRaw as any).left, { min: minZoneWidth, max: 1 - minZoneWidth })
-  const rightBoundary = clampFloat((boundariesRaw as any).right, { min: minZoneWidth, max: 1 - minZoneWidth })
-  if (leftBoundary === null || rightBoundary === null || leftBoundary >= rightBoundary) {
-    return fallback
-  }
-
-  if (leftBoundary < minZoneWidth || 1 - rightBoundary < minZoneWidth || rightBoundary - leftBoundary < minZoneWidth) {
-    return fallback
-  }
+  const raw = rawConfig as any
 
   const allowedActions = new Set(READER_TAP_ZONE_ACTIONS)
-  const normalizeAction = (value: unknown, fallbackValue: ReaderTapZoneAction) => {
+  const normalizeAction = (value: unknown, fallbackValue: ReaderTapZoneAction = 'none') => {
     const rawValue = String(value || '').trim().toLowerCase()
     return allowedActions.has(rawValue as ReaderTapZoneAction) ? (rawValue as ReaderTapZoneAction) : fallbackValue
   }
 
-  return {
-    version: 1,
-    boundaries: {
-      left: leftBoundary,
-      right: rightBoundary
-    },
-    actions: {
-      left: normalizeAction((actionsRaw as any).left, fallback.actions.left),
-      middle: normalizeAction((actionsRaw as any).middle, fallback.actions.middle),
-      right: normalizeAction((actionsRaw as any).right, fallback.actions.right)
+  const ensureSortedSplits = (splits: number[]) => {
+    for (let i = 0; i < splits.length; i += 1) {
+      if (i > 0 && splits[i] <= splits[i - 1]) return false
+      if (splits[i] <= 0 || splits[i] >= 1) return false
     }
+    return true
   }
+
+  const validateMinSizes = (splits: number[], partCount: number) => {
+    const minSizeRatio = Math.min(0.08, 0.8 / Math.max(1, partCount))
+    const boundaries = [0, ...splits, 1]
+    for (let i = 0; i < boundaries.length - 1; i += 1) {
+      if (boundaries[i + 1] - boundaries[i] < minSizeRatio) return false
+    }
+    return true
+  }
+
+  const tryNormalizeV3 = (): ReaderTapZonesConfig | null => {
+    const actionsRaw = raw.actions
+    const xSplitsRaw = raw.xSplits
+    const ySplitsRaw = raw.ySplits
+    if (!Array.isArray(actionsRaw) || !Array.isArray(xSplitsRaw) || !Array.isArray(ySplitsRaw)) return null
+
+    const colCount = xSplitsRaw.length + 1
+    const rowCount = ySplitsRaw.length + 1
+    const zoneCount = actionsRaw.length
+    if (zoneCount < 2) return null
+    if (zoneCount !== colCount * rowCount) return null
+
+    const xSplits: number[] = []
+    for (const item of xSplitsRaw) {
+      const normalized = clampFloat(item, { min: 0, max: 1 })
+      if (normalized === null) return null
+      xSplits.push(normalized)
+    }
+    if (!ensureSortedSplits(xSplits)) return null
+    if (!validateMinSizes(xSplits, colCount)) return null
+
+    const ySplits: number[] = []
+    for (const item of ySplitsRaw) {
+      const normalized = clampFloat(item, { min: 0, max: 1 })
+      if (normalized === null) return null
+      ySplits.push(normalized)
+    }
+    if (!ensureSortedSplits(ySplits)) return null
+    if (!validateMinSizes(ySplits, rowCount)) return null
+
+    const actions = actionsRaw.map((item: unknown) => normalizeAction(item, 'none'))
+    return { version: 3, xSplits, ySplits, actions }
+  }
+
+  const tryNormalizeLegacyV2 = (): ReaderTapZonesConfig | null => {
+    const actionsRaw = raw.actions
+    const splitsRaw = raw.splits
+    if (!Array.isArray(actionsRaw) || !Array.isArray(splitsRaw)) return null
+
+    const zoneCount = actionsRaw.length
+    if (zoneCount < 2) return null
+    if (splitsRaw.length !== zoneCount - 1) return null
+
+    const xSplits: number[] = []
+    for (const item of splitsRaw) {
+      const normalized = clampFloat(item, { min: 0, max: 1 })
+      if (normalized === null) return null
+      xSplits.push(normalized)
+    }
+    if (!ensureSortedSplits(xSplits)) return null
+    if (!validateMinSizes(xSplits, zoneCount)) return null
+
+    const actions = actionsRaw.map((item: unknown) => normalizeAction(item, 'none'))
+    return { version: 3, xSplits, ySplits: [], actions }
+  }
+
+  const tryNormalizeLegacyV1 = (): ReaderTapZonesConfig | null => {
+    const boundariesRaw = raw.boundaries
+    const actionsRaw = raw.actions
+    if (!boundariesRaw || typeof boundariesRaw !== 'object' || !actionsRaw || typeof actionsRaw !== 'object') {
+      return null
+    }
+
+    const minZoneWidth = 0.08
+    const leftBoundary = clampFloat((boundariesRaw as any).left, { min: minZoneWidth, max: 1 - minZoneWidth })
+    const rightBoundary = clampFloat((boundariesRaw as any).right, { min: minZoneWidth, max: 1 - minZoneWidth })
+    if (leftBoundary === null || rightBoundary === null || leftBoundary >= rightBoundary) {
+      return null
+    }
+
+    if (leftBoundary < minZoneWidth || 1 - rightBoundary < minZoneWidth || rightBoundary - leftBoundary < minZoneWidth) {
+      return null
+    }
+
+    const xSplits = [leftBoundary, rightBoundary]
+    const actions = [
+      normalizeAction((actionsRaw as any).left, fallback.actions[0] ?? 'prev_page'),
+      normalizeAction((actionsRaw as any).middle, fallback.actions[1] ?? 'toggle_toolbar'),
+      normalizeAction((actionsRaw as any).right, fallback.actions[2] ?? 'next_page')
+    ]
+    return { version: 3, xSplits, ySplits: [], actions }
+  }
+
+  const normalizedV3 = tryNormalizeV3()
+  if (normalizedV3) return normalizedV3
+
+  const normalizedLegacyV2 = tryNormalizeLegacyV2()
+  if (normalizedLegacyV2) return normalizedLegacyV2
+
+  const normalizedLegacy = tryNormalizeLegacyV1()
+  if (normalizedLegacy) return normalizedLegacy
+
+  return fallback
 }
 
 const normalizeReaderImageRenderFormat = (value: unknown): ReaderImageRenderFormat => {

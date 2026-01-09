@@ -41,8 +41,8 @@ DEFAULT_SETTINGS: Dict[str, str] = {
     'ui.reader.toolbar.animation_ms': '240',
     'ui.reader.toolbar.background_opacity': '0.72',
     'ui.reader.toolbar.center_click_toggle_enabled': '1',
-    # 阅读：点击区域（左/中/右）
-    'ui.reader.tap_zones': '{"version":1,"boundaries":{"left":0.3,"right":0.7},"actions":{"left":"prev_page","middle":"toggle_toolbar","right":"next_page"}}',
+    # 阅读：点击区域（支持横向/竖向拆分，默认 3 段）
+    'ui.reader.tap_zones': '{"version":3,"xSplits":[0.3,0.7],"ySplits":[],"actions":["prev_page","toggle_toolbar","next_page"]}',
     # 阅读：按需缩放（降低高分辨率页面的加载与渲染压力）
     # - max_side_px：0 表示原图；>0 表示限制图片“最长边像素”
     'ui.reader.image.max_side_px': '0',
